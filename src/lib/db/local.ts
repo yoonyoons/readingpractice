@@ -56,7 +56,9 @@ function stripTeacher({ id, email, name, createdAt }: TeacherRecord) {
 
 export function createLocalRepo(): Repo {
   if (process.env.VERCEL) {
-    throw new Error("배포 환경에서는 SUPABASE_URL과 SUPABASE_SECRET_KEY 환경변수가 필요해요.");
+    throw new Error(
+      "배포 환경에서는 Supabase 환경변수가 필요해요 (SUPABASE_URL + SUPABASE_SECRET_KEY, 또는 Vercel 연동의 NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
+    );
   }
 
   return {

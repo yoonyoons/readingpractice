@@ -36,6 +36,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 1. **Brave Search API** — [Brave API 대시보드](https://api-dashboard.search.brave.com)에서 가입 → 크레딧 충전(선불, 1,000회당 약 $5) → API Keys에서 키 발급 → `BRAVE_API_KEY`. 학습지 1회 생성에 약 15회(약 $0.08)를 씁니다.
 2. **Anthropic API** — [Claude Console](https://platform.claude.com)에서 결제 수단 등록 후 API Keys에서 키 발급 → `ANTHROPIC_API_KEY` (모델은 `CLAUDE_MODEL`로 바꿀 수 있고 기본값은 `claude-opus-5`).
 3. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행(이미 만든 DB에 다시 실행해도 새 열만 추가됨) → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+   - Vercel에서 Supabase 연동(Marketplace)을 쓰면 자동으로 들어가는 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`도 그대로 인식합니다.
 4. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
 5. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 이 코드를 아는 사람만 교사로 가입할 수 있습니다.
 

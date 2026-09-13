@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { supabaseConfig } from "../env";
 import type {
   ClassRoom,
   GradeLevel,
@@ -70,7 +71,8 @@ function check<T>({ data, error }: { data: T; error: { message: string } | null 
 }
 
 export function createSupabaseRepo(): Repo {
-  const sb: SupabaseClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, {
+  const { url, key } = supabaseConfig();
+  const sb: SupabaseClient = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
