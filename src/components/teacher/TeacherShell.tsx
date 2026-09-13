@@ -19,6 +19,12 @@ export function TeacherShell({ teacher, children }: { teacher: Teacher; children
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
+      <footer className="mx-auto max-w-5xl px-5 pb-10 text-[13px] text-grey-400">
+        AI(Claude)가 만든 내용은 틀릴 수 있으니 배포 전에 꼭 확인해 주세요 ·{" "}
+        <Link href="/policy" className="underline underline-offset-2">
+          운영 정책
+        </Link>
+      </footer>
     </div>
   );
 }

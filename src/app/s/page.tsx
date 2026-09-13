@@ -85,6 +85,13 @@ export default async function StudentHome() {
           </div>
         </section>
       )}
+
+      <p className="mt-10 text-center text-[13px] text-grey-400">
+        기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
+        <Link href="/policy" className="underline underline-offset-2">
+          운영 정책
+        </Link>
+      </p>
     </main>
   );
 }

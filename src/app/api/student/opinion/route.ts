@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { GRADES, MAX_OPINION_CHARS } from "@/lib/grades";
 import { HttpError, readJson, route } from "@/lib/http";
 import { requireStudentArticle } from "@/lib/student-access";
+import { checkStudentText } from "@/lib/moderation";
 import { buildOpinionBoard, hasOpinionStep, nowIso } from "@/lib/utils";
 
 const Body = z.object({
@@ -25,6 +26,8 @@ export const POST = route(async (req) => {
   const text = body.text.trim();
   const minChars = GRADES[classRoom.gradeLevel].opinionMinChars;
   if (text.length < minChars) throw new HttpError(400, `까닭을 ${minChars}자 이상 써 주세요.`);
+  const blocked = checkStudentText(text);
+  if (blocked) throw new HttpError(400, blocked);
 
   // 다시 제출해 생각을 고칠 수 있다. 교사가 숨긴 상태는 그대로 둔다.
   submission.opinion = { stance: body.stance, text, submittedAt: nowIso(), hidden: submission.opinion?.hidden ?? false };

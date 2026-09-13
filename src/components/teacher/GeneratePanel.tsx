@@ -91,8 +91,8 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
         <p className="text-[13px] font-semibold text-primary">이번 주 학습지</p>
         <h3 className="mt-1 text-[20px] font-bold text-grey-900">뉴스로 학습지 만들기</h3>
         <p className="mt-2 text-[14px] leading-relaxed text-grey-600">
-          네이버 뉴스에서 지난 7일 동안 가장 많이 다룬 주제 3개를 골라 <b>{gradeLabel}</b> 수준으로 기사와 퀴즈를
-          만들어요. 1~2분 정도 걸리고, 배포 전에 미리 보고 고칠 수 있어요.
+          AI가 웹 검색으로 지난 7일 한국·세계 주요 뉴스를 조사해 주제 2개(정치·날씨 제외)를 고르고 <b>{gradeLabel}</b>{" "}
+          수준으로 기사와 퀴즈를 만들어요. 2~4분 정도 걸리고, 배포 전에 미리 보고 고칠 수 있어요.
         </p>
         {demo && (
           <p className="mt-2 text-[13px] font-medium text-warning">API 키가 없어 예시 기사로 만들어요 (데모 모드)</p>
@@ -107,8 +107,8 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
           <li className="flex items-start gap-3">
             <StatusIcon status={stage === "collect" ? "building" : stage === "error" && topics.length === 0 ? "failed" : "ready"} />
             <div>
-              <p className="text-[15px] font-semibold text-grey-800">지난 7일 뉴스 모으고 인기 주제 고르기</p>
-              {stage === "collect" && <p className="text-[13px] text-grey-500">기사 수백 건을 사건별로 묶고 있어요</p>}
+              <p className="text-[15px] font-semibold text-grey-800">지난 7일 주요 뉴스 조사하고 주제 고르기</p>
+              {stage === "collect" && <p className="text-[13px] text-grey-500">AI가 웹에서 뉴스를 검색하고 있어요</p>}
             </div>
           </li>
           {topics.map((t, i) => (
@@ -117,7 +117,7 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
               <div className="min-w-0">
                 <p className="text-[15px] font-semibold text-grey-800">
                   {i + 1}. {t.name}
-                  <span className="ml-1.5 text-[13px] font-normal text-grey-400">관련 기사 {t.mentionCount}건</span>
+                  <span className="ml-1.5 text-[13px] font-normal text-grey-400">출처 {t.mentionCount}곳</span>
                 </p>
                 <p className={cn("text-[13px]", t.status === "failed" ? "text-danger" : "text-grey-500")}>
                   {t.status === "building" ? "학년 수준에 맞게 기사와 퀴즈를 만드는 중" : t.status === "ready" ? t.title : t.error}

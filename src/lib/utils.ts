@@ -56,7 +56,7 @@ export function weekTitle(date = new Date()) {
 }
 
 export function formatDate(iso: string | null | undefined) {
-  if (!iso) return "-";
+  if (!iso || Number.isNaN(Date.parse(iso))) return iso || "-";
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     month: "long",
@@ -65,7 +65,8 @@ export function formatDate(iso: string | null | undefined) {
 }
 
 export function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return "-";
+  // 웹 검색 출처의 날짜는 "3 days ago"처럼 날짜 형식이 아닐 수 있다
+  if (!iso || Number.isNaN(Date.parse(iso))) return iso || "-";
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     month: "numeric",

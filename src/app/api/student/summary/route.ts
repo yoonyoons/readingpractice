@@ -5,6 +5,7 @@ import { GRADES, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS } from "@/lib/grades";
 import { HttpError, readJson, route } from "@/lib/http";
 import { requireStudentArticle } from "@/lib/student-access";
 import type { SummaryAttempt } from "@/lib/types";
+import { checkStudentText } from "@/lib/moderation";
 import { nowIso } from "@/lib/utils";
 
 export const maxDuration = 60;
@@ -28,6 +29,8 @@ export const POST = route(async (req) => {
   const text = body.text.trim();
   const minChars = GRADES[classRoom.gradeLevel].summaryMinChars;
   if (text.length < minChars) throw new HttpError(400, `요약을 ${minChars}자 이상 써 주세요.`);
+  const blocked = checkStudentText(text);
+  if (blocked) throw new HttpError(400, blocked);
 
   const feedback = await gradeSummary(article, classRoom.gradeLevel, text);
   const attempt: SummaryAttempt = { text, feedback, submittedAt: nowIso() };

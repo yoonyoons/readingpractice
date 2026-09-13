@@ -18,7 +18,8 @@ export const ArticleSchema = z.object({
   mentionCount: z.number(),
   status: z.enum(["pending", "ready", "failed"]),
   error: z.string().optional(),
-  sourceMode: z.enum(["crawled", "snippets", "demo"]),
+  sourceMode: z.enum(["web", "demo", "crawled", "snippets"]),
+  facts: z.array(z.string()).optional(),
   sources: z.array(
     z.object({ title: z.string(), url: z.string(), description: z.string(), pubDate: z.string() }),
   ),

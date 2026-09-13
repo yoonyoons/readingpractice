@@ -22,7 +22,7 @@ export async function runWeeklyDrafts(now = new Date()) {
   }
   if (targets.length === 0) return { classes: 0, worksheets: 0, topics: [] as string[] };
 
-  const topics = await pickTopics(3);
+  const topics = await pickTopics(2);
   const grades = [...new Set(targets.map((c) => c.gradeLevel))];
   const setsByGrade = new Map<GradeLevel, Article[]>(
     await Promise.all(

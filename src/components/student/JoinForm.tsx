@@ -87,6 +87,13 @@ export function JoinForm() {
           <div className="mt-4 text-center">
             <ErrorText>{error}</ErrorText>
           </div>
+          <div className="mt-10 rounded-2xl bg-grey-50 px-4 py-3.5 text-[13px] leading-relaxed text-grey-600">
+            🤖 이 학습지는 <b>AI(Claude)</b>가 뉴스를 조사해 만든 기사와 AI 채점을 사용해요. 선생님이 내용을 확인한 뒤
+            내보내요.{" "}
+            <Link href="/policy" className="font-semibold text-grey-700 underline underline-offset-2">
+              운영 정책 보기
+            </Link>
+          </div>
           <BottomBar>
             <Button type="submit" form="code-form" size="lg" className="w-full" disabled={code.length !== 6} loading={loading}>
               다음

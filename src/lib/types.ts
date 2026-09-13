@@ -60,7 +60,8 @@ export interface SourceItem {
 }
 
 export type ArticleStatus = "pending" | "ready" | "failed";
-export type SourceMode = "crawled" | "snippets" | "demo";
+/** web: Claude 웹 검색 기반, demo: 예시 기사. crawled·snippets는 이전 버전(네이버)으로 만든 기사 */
+export type SourceMode = "web" | "demo" | "crawled" | "snippets";
 
 export interface Article {
   id: string;
@@ -70,6 +71,8 @@ export interface Article {
   status: ArticleStatus;
   error?: string;
   sourceMode: SourceMode;
+  /** 웹 검색으로 확인한 사실. 기사를 다시 만들 때 재료로 쓴다 */
+  facts?: string[];
   sources: SourceItem[];
   title: string;
   whyItMatters: string;

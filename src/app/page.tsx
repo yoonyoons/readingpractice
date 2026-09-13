@@ -4,9 +4,10 @@ import { ModeNotice } from "@/components/ModeNotice";
 import { ChevronRight } from "@/components/ui";
 
 const STEPS = [
-  { icon: "📰", title: "기사 읽기", desc: "이번 주 인기 뉴스를 내 학년 수준으로" },
+  { icon: "📰", title: "기사 읽기", desc: "이번 주 주요 뉴스를 내 학년 수준으로" },
   { icon: "🧩", title: "어휘 퀴즈", desc: "빈칸 채우기 · 비슷한 말 · 내용 이해" },
   { icon: "📝", title: "스스로 요약", desc: "AI 선생님의 점수와 피드백까지" },
+  { icon: "💬", title: "생각 나누기", desc: "내 생각을 쓰고 친구들 생각도 보기" },
 ];
 
 export default async function Home() {
@@ -25,12 +26,12 @@ export default async function Home() {
         키워 볼까요?
       </h1>
       <p className="mt-4 text-[16px] leading-relaxed text-grey-600">
-        매주 가장 많이 이야기된 뉴스 3개를 읽고, 낱말을 익히고, 내 말로 정리해요.
+        매주 한국과 세계의 주요 뉴스 2개를 읽고, 낱말을 익히고, 내 말로 정리해요.
       </p>
 
       <ol className="mt-8 space-y-1">
         {STEPS.map((step, i) => (
-          <li key={step.title} className="flex items-center gap-4 rounded-2xl px-1 py-3">
+          <li key={step.title} className="flex items-center gap-4 rounded-2xl px-1 py-2.5">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-grey-50 text-2xl">
               {step.icon}
             </span>
@@ -68,6 +69,12 @@ export default async function Home() {
           </span>
           <ChevronRight className="size-5 text-grey-400" />
         </Link>
+        <p className="pt-2 text-center text-[13px] leading-relaxed text-grey-400">
+          기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
+          <Link href="/policy" className="underline underline-offset-2">
+            운영 정책
+          </Link>
+        </p>
       </div>
     </main>
   );

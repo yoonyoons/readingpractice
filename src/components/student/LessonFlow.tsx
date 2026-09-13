@@ -340,6 +340,7 @@ function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; artic
       <article className="animate-fade-up px-5 pb-40 pt-4">
         <Badge tone="blue">{article.topic}</Badge>
         <h1 className="mt-3 text-[26px] font-bold leading-snug tracking-tight text-grey-900">{article.title}</h1>
+        <p className="mt-2 text-[13px] text-grey-400">🤖 AI가 뉴스를 조사해 쓰고 선생님이 확인한 기사예요</p>
 
         {article.whyItMatters && (
           <div className="mt-5 rounded-2xl bg-grey-50 p-4">
@@ -822,6 +823,9 @@ function ResultStep({
         <p className="mt-6 text-center text-[14px] text-grey-500">
           어휘 퀴즈 {quizScore.correct}/{quizScore.total}
           {feedback.demo && " · 데모 모드에서는 간단한 규칙으로 채점해요"}
+        </p>
+        <p className="mt-1 text-center text-[13px] text-grey-400">
+          🤖 AI 선생님의 채점이라 틀릴 수도 있어요. 궁금하면 선생님께 물어보세요.
         </p>
       </div>
 

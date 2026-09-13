@@ -115,6 +115,7 @@ function fromEditable({ bodyText, ...article }: EditableArticle): Article {
 }
 
 const SOURCE_LABEL: Record<SourceMode, string> = {
+  web: "웹 검색 기반",
   crawled: "원문 기사 기반",
   snippets: "기사 요약 기반",
   demo: "예시 기사 (데모)",
@@ -371,7 +372,7 @@ function ArticleForm({
             <Badge tone="blue">{article.topic}</Badge>
             <Badge tone={article.sourceMode === "snippets" ? "orange" : "grey"}>{SOURCE_LABEL[article.sourceMode]}</Badge>
             {article.sourceMode !== "demo" && (
-              <span className="text-[13px] text-grey-500">관련 기사 {article.mentionCount}건</span>
+              <span className="text-[13px] text-grey-500">출처 {article.sources.length}곳</span>
             )}
             <Button
               variant="secondary"

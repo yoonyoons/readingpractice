@@ -19,7 +19,7 @@ export const POST = route(async (_req: NextRequest, ctx: RouteContext<"/api/clas
       const send = (event: GenerationEvent) => controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       try {
         send({ type: "stage", stage: "collect" });
-        const topics = await pickTopics(3);
+        const topics = await pickTopics(2);
 
         const worksheet = await db.createWorksheet({
           id: newId(),
