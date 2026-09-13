@@ -6,7 +6,7 @@ import { isDemoGeneration } from "./env";
 import { GRADES } from "./grades";
 import { pickTopicsFromNews, type TopicPick } from "./topics";
 import type { Article, GradeLevel, QuizItem, QuizType, SourceItem } from "./types";
-import { BLANK, newId, shuffle } from "./utils";
+import { BLANK, clean, newId, shuffle } from "./utils";
 
 export type { TopicPick } from "./topics";
 
@@ -73,35 +73,61 @@ export type BuiltArticle = Pick<
 const TYPE_ORDER: Record<QuizType, number> = { blank: 0, synonym: 1, comprehension: 2 };
 const DEFAULT_STANCES = ["그렇다고 생각해요", "아니라고 생각해요"];
 
-/** AI가 만든 초안을 검증해 학생에게 내보낼 수 있는 형태로 바꾼다. 형식이 맞지 않는 문항은 버린다. */
-export function normalizeDraft(draft: ArticleDraft): Omit<BuiltArticle, "sourceMode"> {
-  const paragraphs = draft.paragraphs.map((p) => p.trim()).filter(Boolean);
+/** AI가 문장에 빈칸을 미리 뚫어 보낸 경우에 쓰는 표시들 */
+const BLANK_MARK = /\(\s*\)|_{2,}|□+|\[\s*\]|○○+/;
+
+/**
+ * AI가 만든 초안을 검증해 학생에게 내보낼 수 있는 형태로 바꾼다. 형식이 맞지 않는 문항은 버린다.
+ * rejects 배열을 넘기면 버려진 문항과 그 까닭을 담아 준다(재시도 프롬프트·로그용).
+ */
+export function normalizeDraft(draft: ArticleDraft, rejects: string[] = []): Omit<BuiltArticle, "sourceMode"> {
+  const paragraphs = draft.paragraphs.map((p) => clean(p)).filter(Boolean);
   const body = paragraphs.join(" ");
   const vocab = draft.vocab
-    .map((v) => ({ word: v.word.trim(), meaning: v.meaning.trim() }))
+    .map((v) => ({ word: clean(v.word), meaning: clean(v.meaning) }))
     .filter((v) => v.word && v.meaning && body.includes(v.word));
 
   const quiz: QuizItem[] = [];
-  for (const q of draft.quiz) {
-    const choices = [...new Set(q.choices.map((c) => c.trim()).filter(Boolean))];
-    const answer = q.answer.trim();
-    if (choices.length !== 4 || !choices.includes(answer)) continue;
+  for (const [i, q] of draft.quiz.entries()) {
+    const label = `${i + 1}번(${q.type})`;
+    const answer = clean(q.answer);
+    let choices = [...new Set(q.choices.map((c) => clean(c)).filter(Boolean))];
+    if (!answer || !choices.includes(answer)) {
+      rejects.push(`${label}: answer '${answer}'가 choices에 그대로 들어 있지 않음`);
+      continue;
+    }
+    if (choices.length < 4) {
+      rejects.push(`${label}: 보기가 ${choices.length}개뿐임(서로 다른 4개 필요)`);
+      continue;
+    }
+    // 보기가 4개를 넘으면 정답을 남기고 앞에서부터 3개만 쓴다
+    if (choices.length > 4) choices = [answer, ...choices.filter((c) => c !== answer).slice(0, 3)];
 
-    let sentence = q.sentence.trim();
-    let prompt = q.prompt.trim();
+    let sentence = clean(q.sentence);
+    let prompt = clean(q.prompt);
     let target = "";
     if (q.type === "blank") {
-      if (!sentence.includes(answer)) continue;
-      sentence = sentence.replace(answer, BLANK);
+      if (sentence.includes(answer)) sentence = sentence.replace(answer, BLANK);
+      else if (BLANK_MARK.test(sentence)) sentence = sentence.replace(BLANK_MARK, BLANK);
+      else {
+        rejects.push(`${label}: sentence에 정답 '${answer}'가 글자 그대로 들어 있지 않음 — "${sentence.slice(0, 40)}"`);
+        continue;
+      }
       prompt ||= "빈칸에 들어갈 알맞은 낱말은 무엇인가요?";
     } else if (q.type === "synonym") {
-      target = q.target.trim();
-      if (!target || !sentence.includes(target)) continue;
+      target = clean(q.target);
+      if (!target || !sentence.includes(target)) {
+        rejects.push(`${label}: target '${target}'가 sentence에 글자 그대로 들어 있지 않음 — "${sentence.slice(0, 40)}"`);
+        continue;
+      }
       prompt ||= `'${target}'와(과) 뜻이 가장 비슷한 말은 무엇인가요?`;
     } else {
       sentence = "";
     }
-    if (!prompt) continue;
+    if (!prompt) {
+      rejects.push(`${label}: prompt(질문)가 비어 있음`);
+      continue;
+    }
 
     const shuffled = shuffle(choices);
     quiz.push({
@@ -112,22 +138,22 @@ export function normalizeDraft(draft: ArticleDraft): Omit<BuiltArticle, "sourceM
       target,
       choices: shuffled,
       answer: shuffled.indexOf(answer),
-      explanation: q.explanation.trim(),
+      explanation: clean(q.explanation),
     });
   }
   quiz.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
 
-  const stances = [...new Set(draft.stances.map((s) => s.trim()).filter(Boolean))].slice(0, 3);
+  const stances = [...new Set(draft.stances.map((s) => clean(s)).filter(Boolean))].slice(0, 3);
 
   return {
-    title: draft.title.trim(),
-    whyItMatters: draft.whyItMatters.trim(),
+    title: clean(draft.title),
+    whyItMatters: clean(draft.whyItMatters),
     paragraphs,
     vocab,
     quiz,
-    keyPoints: draft.keyPoints.map((k) => k.trim()).filter(Boolean).slice(0, 5),
-    modelSummary: draft.modelSummary.trim(),
-    opinionQuestion: draft.opinionQuestion.trim(),
+    keyPoints: draft.keyPoints.map((k) => clean(k)).filter(Boolean).slice(0, 5),
+    modelSummary: clean(draft.modelSummary),
+    opinionQuestion: clean(draft.opinionQuestion),
     stances: stances.length >= 2 ? stances : DEFAULT_STANCES,
   };
 }
@@ -160,6 +186,7 @@ ${sources}
 위 자료를 바탕으로 ${g.label} 학생이 읽을 시사 기사를 새로 써라. 출처 기사의 문장을 그대로 옮기지 말고 새로 쓴다.
 
 글쓰기 규칙
+- HTML 태그나 마크다운 기호(**, __, <b> 등)를 쓰지 않고 순수한 글로만 쓴다.
 - 위 자료에 있는 내용만 쓴다. 자료에 없는 숫자·이름·날짜·인용을 지어내지 않는다. 자료끼리 내용이 다르면 공통된 내용만 쓴다.
 - 의견이 갈리는 문제는 한쪽 입장만 쓰지 말고 서로 다른 입장을 함께 소개한다. 특정 정당·인물을 칭찬하거나 비난하지 않는다.
 - 분량: 본문 ${g.bodyChars}, 문단 ${g.paragraphs}. paragraphs 배열의 원소 하나가 문단 하나다.
@@ -186,13 +213,34 @@ modelSummary: ${g.modelSummaryLength} 분량의 모범 요약.
 - opinionQuestion: 기사를 읽은 학생이 자기 입장을 정하고 까닭을 쓸 수 있는 열린 질문 1개. 학생의 생활과 이어지면 더 좋다. 정답이 정해진 질문, 특정 정당·정치인·종교를 지지하는지 묻는 질문은 쓰지 않는다.
 - stances: 학생이 고를 입장 2~3개(각 15자 이내). 찬반이 갈리는 질문이면 "찬성해요", "반대해요"처럼, 아니면 서로 다른 선택지로 쓴다.`;
 
+  let retryNote = "";
+  let lastRejects: string[] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const normalized = normalizeDraft(await generateJson(ArticleDraftSchema, { system: SYSTEM, prompt }));
+    const rejects: string[] = [];
+    const normalized = normalizeDraft(
+      await generateJson(ArticleDraftSchema, { system: SYSTEM, prompt: prompt + retryNote }),
+      rejects,
+    );
     if (normalized.quiz.length >= 5 && normalized.paragraphs.length >= 3 && normalized.keyPoints.length >= 2) {
+      if (rejects.length) console.warn(`[buildArticle] '${topic.name}' 버려진 문항:`, rejects);
       return { ...normalized, sourceMode: "web" };
     }
+    lastRejects = rejects;
+    console.warn(`[buildArticle] '${topic.name}' ${attempt + 1}번째 시도 형식 불합격`, {
+      quiz: normalized.quiz.length,
+      paragraphs: normalized.paragraphs.length,
+      keyPoints: normalized.keyPoints.length,
+      rejects,
+    });
+    // 두 번째 시도에는 무엇이 잘못됐는지 알려 주어 같은 실수를 되풀이하지 않게 한다
+    retryNote = `
+
+[이전 시도에서 형식에 맞지 않아 버려진 문항]
+${rejects.length ? rejects.map((r) => `- ${r}`).join("\n") : "- (문단 또는 keyPoints 수가 부족했음)"}
+위 문제를 고쳐 다시 작성하라. blank·synonym 문항의 sentence는 본문 문장을 한 글자도 바꾸지 말고 그대로 옮기고, answer와 target은 그 문장 안에 실제로 있는 글자 그대로(조사를 붙이지 말고) 써라. 보기는 서로 다른 4개여야 한다.`;
   }
-  throw new Error("AI가 만든 퀴즈가 형식에 맞지 않아요. 이 기사만 다시 만들어 주세요.");
+  const why = lastRejects.slice(0, 2).join(" / ");
+  throw new Error(`AI가 만든 퀴즈가 형식에 맞지 않아요${why ? ` (${why})` : ""}. 이 기사만 다시 만들어 주세요.`);
 }
 
 /** 기사들을 동시에 만들고, 하나가 끝날 때마다 onProgress를 부른다. 실패한 기사는 failed 상태로 남긴다. */

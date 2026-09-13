@@ -3,7 +3,7 @@ import { generateJson } from "./claude";
 import { hasAnthropic } from "./env";
 import { GRADES } from "./grades";
 import type { Article, GradeLevel, SummaryFeedback } from "./types";
-import { clamp } from "./utils";
+import { clamp, clean } from "./utils";
 
 const FeedbackSchema = z.object({
   content: z.number(),
@@ -55,9 +55,9 @@ ${g.label} 수준을 생각해 너무 엄격하지 않게 채점한다. 기사�
   return {
     score: breakdown.content + breakdown.ownWords + breakdown.sentence,
     breakdown,
-    strengths: r.strengths.trim(),
-    missing: r.missing.trim(),
-    advice: r.advice.trim(),
+    strengths: clean(r.strengths),
+    missing: clean(r.missing),
+    advice: clean(r.advice),
   };
 }
 

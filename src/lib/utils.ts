@@ -76,6 +76,15 @@ export function formatDateTime(iso: string | null | undefined) {
   }).format(new Date(iso));
 }
 
+/** AI가 실수로 HTML/마크다운 태그를 섞어 보내는 경우가 있어, 화면에 그대로 노출되지 않도록 지운다 */
+export function clean(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .trim();
+}
+
 export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
