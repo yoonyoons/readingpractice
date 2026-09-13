@@ -91,11 +91,11 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
         <p className="text-[13px] font-semibold text-primary">이번 주 학습지</p>
         <h3 className="mt-1 text-[20px] font-bold text-grey-900">뉴스로 학습지 만들기</h3>
         <p className="mt-2 text-[14px] leading-relaxed text-grey-600">
-          AI가 웹 검색으로 지난 7일 한국·세계 주요 뉴스를 조사해 주제 2개(정치·날씨 제외)를 고르고 <b>{gradeLabel}</b>{" "}
-          수준으로 기사와 퀴즈를 만들어요. 2~4분 정도 걸리고, 배포 전에 미리 보고 고칠 수 있어요.
+          Brave 뉴스 검색으로 지난 7일 한국·세계 주요 뉴스를 모아 AI가 주제 2개(정치·날씨 제외)를 고르고{" "}
+          <b>{gradeLabel}</b> 수준으로 기사와 퀴즈를 만들어요. 1~3분 정도 걸리고, 배포 전에 미리 보고 고칠 수 있어요.
         </p>
         {demo && (
-          <p className="mt-2 text-[13px] font-medium text-warning">API 키가 없어 예시 기사로 만들어요 (데모 모드)</p>
+          <p className="mt-2 text-[13px] font-medium text-warning">Brave·Anthropic API 키가 없어 예시 기사로 만들어요 (데모 모드)</p>
         )}
         <Button size="lg" className="mt-5 w-full sm:w-auto" onClick={start} disabled={running}>
           ✨ 학습지 만들기
@@ -108,7 +108,7 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
             <StatusIcon status={stage === "collect" ? "building" : stage === "error" && topics.length === 0 ? "failed" : "ready"} />
             <div>
               <p className="text-[15px] font-semibold text-grey-800">지난 7일 주요 뉴스 조사하고 주제 고르기</p>
-              {stage === "collect" && <p className="text-[13px] text-grey-500">AI가 웹에서 뉴스를 검색하고 있어요</p>}
+              {stage === "collect" && <p className="text-[13px] text-grey-500">뉴스 수백 건을 모아 사건별로 묶고 있어요</p>}
             </div>
           </li>
           {topics.map((t, i) => (

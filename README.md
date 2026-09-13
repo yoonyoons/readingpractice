@@ -1,7 +1,7 @@
 # 시사 문해력 기르기 학습지
 
 이번 주 주요 뉴스로 학생들의 어휘력·문해력을 기르는 웹앱입니다.
-교사가 버튼을 누르면(또는 매주 월요일 아침 자동으로) AI(Claude)가 웹 검색으로 지난 7일 한국·세계 주요 뉴스를 조사해 주제 2개를 고르고(정치·일일 날씨 제외), 반의 학년군 수준에 맞춘 기사·어휘 퀴즈·생각 나누기 질문을 만듭니다. 교사가 검토·수정 후 배포하면 학생은 **기사 읽기 → 어휘 퀴즈 → 스스로 요약(AI 피드백) → 생각 나누기** 순서로 학습합니다.
+교사가 버튼을 누르면(또는 매주 월요일 아침 자동으로) Brave 뉴스 검색으로 지난 7일 한국·세계 주요 뉴스를 모아 AI(Claude)가 주제 2개를 고르고(정치·일일 날씨 제외), 반의 학년군 수준에 맞춘 기사·어휘 퀴즈·생각 나누기 질문을 만듭니다. 교사가 검토·수정 후 배포하면 학생은 **기사 읽기 → 어휘 퀴즈 → 스스로 요약(AI 피드백) → 생각 나누기** 순서로 학습합니다.
 
 ## 주요 기능
 
@@ -33,10 +33,11 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 
 `.env.example`을 `.env.local`로 복사하고 값을 채웁니다.
 
-1. **Anthropic API** — [Claude Console](https://platform.claude.com)에서 결제 수단 등록 후 API Keys에서 키 발급 → `ANTHROPIC_API_KEY` (모델은 `CLAUDE_MODEL`로 바꿀 수 있고 기본값은 `claude-opus-5`). Console의 설정에서 웹 검색이 켜져 있어야 합니다.
-2. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행(이미 만든 DB에 다시 실행해도 새 열만 추가됨) → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-3. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
-4. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 이 코드를 아는 사람만 교사로 가입할 수 있습니다.
+1. **Brave Search API** — [Brave API 대시보드](https://api-dashboard.search.brave.com)에서 가입 → 크레딧 충전(선불, 1,000회당 약 $5) → API Keys에서 키 발급 → `BRAVE_API_KEY`. 학습지 1회 생성에 약 15회(약 $0.08)를 씁니다.
+2. **Anthropic API** — [Claude Console](https://platform.claude.com)에서 결제 수단 등록 후 API Keys에서 키 발급 → `ANTHROPIC_API_KEY` (모델은 `CLAUDE_MODEL`로 바꿀 수 있고 기본값은 `claude-opus-5`).
+3. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행(이미 만든 DB에 다시 실행해도 새 열만 추가됨) → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+4. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
+5. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 이 코드를 아는 사람만 교사로 가입할 수 있습니다.
 
 ## Vercel 배포
 
@@ -44,16 +45,18 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 2. Settings > Environment Variables에 위 값을 모두 입력 (배포 환경에서는 Supabase, SESSION_SECRET, CRON_SECRET이 필수)
 3. Deploy — `vercel.json`의 Cron 설정(`0 21 * * 0` = 매주 월요일 06:00 KST)이 자동으로 등록됩니다.
 
-학습지 생성은 웹 검색 조사를 포함해 2~4분 걸리므로 함수 최대 실행 시간을 300초로 설정해 두었습니다(`maxDuration`).
+학습지 생성은 뉴스 수집을 포함해 1~3분 걸리므로 함수 최대 실행 시간을 300초로 설정해 두었습니다(`maxDuration`).
 
 ## 동작 방식
 
 ```
 [교사: 학습지 만들기]  또는  [월요일 06:00 Cron: 자동 준비를 켠 반]
-  ① Claude + 웹 검색 ── 지난 7일 한국·세계 주요 뉴스 조사, 사실마다 출처 인용
+  ① Brave News API ── 한국어 9개·영어 4개 검색어로 지난 7일 기사 수백 건 수집(freshness=pw)
+        │                중복 제거, 정치·날씨 기사는 정규식으로 1차 제외         (src/lib/brave.ts)
         │
-  ② Claude (JSON 출력) ── 조사 노트에서 주제 2개 선정: 분야 목록에 정치·날씨가 없어 고를 수 없음
-        │                  주제별 확인된 사실 5~8개 + 출처 번호
+  ② Claude (JSON 출력) ── 제목·요약을 사건별로 묶어 주제 2개 선정: 분야 목록에 정치·날씨가 없음
+        │                  주제별 확인된 사실 5~8개 + 출처, 주제명으로 Brave 추가 검색해 보강 (src/lib/topics.ts)
+        │                  Anthropic 키가 없으면 제목 단어 빈도로 키워드 2개 선정
         │
   ③ 주제별로 동시에: Claude (JSON 출력) ── 확인된 사실만으로 학년군 기준(분량·문장·어휘·문체)에 맞춘
         │                                    기사·어휘·퀴즈·채점 기준·생각 나누기 질문 작성
@@ -62,6 +65,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
   초안 저장(출처 목록 포함) → 교사 검토·수정 → 배포
 ```
 
+- `npm run news` 로 서버 없이 뉴스 수집·주제 선정 결과를 확인할 수 있습니다 (`BRAVE_API_KEY`만 있어도 동작).
 - Claude Opus 5 요청에는 `fallbacks: "default"`를 켜 두어, 안전 분류기가 요청을 거절하면 서버에서 권장 모델로 다시 시도합니다.
 - 자동 준비는 주제를 한 번만 고르고 학년군마다 기사 한 세트를 만들어, 같은 학년군 반들에 id만 새로 매겨 복사합니다. 최근 12시간 안에 학습지를 만든 반은 건너뜁니다.
 - 퀴즈 정답·해설과 모범 요약은 학생 화면으로 미리 보내지 않고, 답을 제출한 뒤 서버가 알려 줍니다.
@@ -85,13 +89,16 @@ src/
     student/LessonFlow.tsx           읽기 → 퀴즈 → 요약 → 피드백 → 생각 나누기
     teacher/WorksheetView.tsx        학습지 편집 + 결과 표
   lib/
-    claude.ts                        Claude 호출 (JSON 출력, 웹 검색 조사)
+    brave.ts                         Brave 뉴스 검색으로 지난 7일 기사 수집
+    topics.ts                        수집한 뉴스에서 주제 2개 선정 (Claude / 단어 빈도)
+    claude.ts                        Claude 호출 (JSON 출력)
     generation.ts                    주제 선정·기사/퀴즈 생성 프롬프트와 검증
     weekly.ts                        주간 초안 자동 준비
     feedback.ts                      요약 채점
     moderation.ts                    학생 글 개인정보·욕설 차단
     grades.ts                        학년군별 기준
     db/                              저장소 (Supabase / 로컬 파일)
+scripts/collect-news.mts             뉴스 수집·주제 선정 시험 스크립트 (npm run news)
 supabase/schema.sql                  DB 스키마
 vercel.json                          주간 Cron 설정
 ```
@@ -102,4 +109,4 @@ vercel.json                          주간 Cron 설정
 - **미성년자 대상 운영**: Anthropic의 [미성년자 대상 서비스 지침](https://support.claude.com/en/articles/9307344-responsible-use-of-anthropic-s-models-guidelines-for-organizations-serving-minors)에 따라 AI 사용 고지, 콘텐츠 필터링, 운영 정책 명시를 넣었습니다. 운영 정책 페이지의 운영 주체·문의처는 학교 상황에 맞게 고쳐 쓰고, 만 14세 미만 학생 정보 처리는 학교 개인정보 절차를 따르세요.
 - **AI 검토**: AI가 만든 기사에는 사실 오류가 있을 수 있으므로 배포 전 교사 검토를 전제로 설계했습니다. 자동 준비도 초안까지만 만들고 배포는 교사가 합니다.
 - **저작권**: 기사는 출처 문장을 옮기지 않고 새로 쓰며 출처 목록을 함께 보여줍니다.
-- **비용**: 학습지 1회 생성에 Claude 호출 약 4회(웹 검색 최대 12회, 검색 1,000회당 $10), 요약 채점은 제출 1회당 1회입니다.
+- **비용**: 학습지 1회 생성에 Brave 검색 약 15회(1,000회당 약 $5)와 Claude 호출 3회, 요약 채점은 제출 1회당 Claude 1회입니다. Brave는 검색 결과를 AI 입력으로 쓰는 것을 허용합니다.
