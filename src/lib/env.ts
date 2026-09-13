@@ -6,8 +6,18 @@ const forcedDemo = () => process.env.FORCE_DEMO === "1";
  * 없으면 Vercel의 Supabase 연동이 자동으로 넣는 이름(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)을 쓴다.
  */
 export function supabaseConfig() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const rawUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const rawKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  // 환경변수를 붙여넣을 때 흔히 섞이는 실수를 정리한다.
+  // - 앞뒤 공백·줄바꿈
+  // - 끝 슬래시나 "/rest/v1" (Supabase 대시보드에 REST 엔드포인트 주소가 함께 보여서 잘못 복사하기 쉽다.
+  //   supabase-js가 "/rest/v1"을 스스로 붙이므로, 남아 있으면 경로가 겹쳐 "Invalid path specified in request URL" 오류가 난다)
+  const url = rawUrl
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/+$/, "");
+  const key = rawKey.trim();
   return { url, key };
 }
 
