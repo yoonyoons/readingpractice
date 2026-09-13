@@ -13,9 +13,9 @@ export type { TopicPick } from "./topics";
 const SYSTEM =
   "너는 대한민국 초등학생·중학생을 위한 시사 교육 콘텐츠 편집자다. 사실에 충실하고, 정치적으로 중립적이며, 학생 눈높이에 맞게 쓴다.";
 
-/** Brave 뉴스 검색으로 지난 7일 기사를 모은 뒤 학습 주제 count개를 고른다 */
-export async function pickTopics(count = 2): Promise<TopicPick[]> {
-  if (isDemoGeneration()) {
+/** Brave 뉴스 검색으로 지난 7일 기사를 모은 뒤 학습 주제 count개를 고른다. demo면 예시 주제를 쓴다 */
+export async function pickTopics(count = 2, demo = isDemoGeneration()): Promise<TopicPick[]> {
+  if (demo) {
     await sleep(800);
     return DEMO_TOPICS.slice(0, count).map((t) => ({
       name: t.topic,
@@ -161,11 +161,12 @@ export function normalizeDraft(draft: ArticleDraft, rejects: string[] = []): Omi
 export async function buildArticle(
   topic: { name: string; summary: string; facts: string[]; sources: SourceItem[] },
   grade: GradeLevel,
+  demo = isDemoGeneration(),
 ): Promise<BuiltArticle> {
-  if (isDemoGeneration()) {
+  if (demo) {
     await sleep(900);
-    const demo = DEMO_TOPICS.find((t) => t.topic === topic.name) ?? DEMO_TOPICS[0];
-    return { ...normalizeDraft({ ...demo.draft, ...DEMO_OPINIONS[demo.topic] }), sourceMode: "demo" };
+    const sample = DEMO_TOPICS.find((t) => t.topic === topic.name) ?? DEMO_TOPICS[0];
+    return { ...normalizeDraft({ ...sample.draft, ...DEMO_OPINIONS[sample.topic] }), sourceMode: "demo" };
   }
 
   const g = GRADES[grade];
@@ -248,6 +249,7 @@ export async function buildAllArticles(
   articles: Article[],
   grade: GradeLevel,
   onProgress?: (index: number, article: Article) => void,
+  demo = isDemoGeneration(),
 ): Promise<Article[]> {
   const result = [...articles];
   await Promise.all(
@@ -256,6 +258,7 @@ export async function buildAllArticles(
         const built = await buildArticle(
           { name: article.topic, summary: article.topicSummary, facts: article.facts ?? [], sources: article.sources },
           grade,
+          demo,
         );
         result[index] = { ...article, ...built, status: "ready", error: undefined };
       } catch (error) {

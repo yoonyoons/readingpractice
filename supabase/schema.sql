@@ -59,6 +59,15 @@ create table if not exists submissions (
 );
 create index if not exists submissions_student_idx on submissions (student_id);
 
+-- 교사 가입용 메일 인증 코드 (이메일당 하나, 10분 뒤 만료)
+create table if not exists email_verifications (
+  email text primary key,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  attempts int not null default 0,
+  sent_at timestamptz not null default now()
+);
+
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
@@ -68,3 +77,4 @@ alter table classes enable row level security;
 alter table students enable row level security;
 alter table worksheets enable row level security;
 alter table submissions enable row level security;
+alter table email_verifications enable row level security;

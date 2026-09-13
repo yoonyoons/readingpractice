@@ -11,6 +11,15 @@ export interface TeacherRecord extends Teacher {
   passwordHash: string;
 }
 
+/** 교사 가입 전 메일로 보낸 인증 코드 (이메일당 하나) */
+export interface EmailVerification {
+  email: string;
+  codeHash: string;
+  expiresAt: string;
+  attempts: number;
+  sentAt: string;
+}
+
 export interface ClassRoom {
   id: string;
   teacherId: string;

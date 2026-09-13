@@ -19,7 +19,12 @@ export default async function TeacherLoginPage() {
       <p className="mt-6 text-center text-[14px] text-grey-500">
         처음이신가요?{" "}
         <Link href="/teacher/signup" className="font-semibold text-primary">
-          회원가입
+          교육청 메일로 회원가입
+        </Link>
+      </p>
+      <p className="mt-3 text-center">
+        <Link href="/teacher/beta" className="text-[12px] text-grey-400 underline-offset-2 hover:underline">
+          가입 없이 베타 테스트로 기능 체험해 보기
         </Link>
       </p>
     </main>

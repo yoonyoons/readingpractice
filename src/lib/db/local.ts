@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import type { ClassRoom, StudentRecord, Submission, TeacherRecord, Worksheet } from "../types";
+import type { ClassRoom, EmailVerification, StudentRecord, Submission, TeacherRecord, Worksheet } from "../types";
 import type { Repo } from "./repo";
 
 /**
@@ -14,6 +14,7 @@ interface Data {
   students: StudentRecord[];
   worksheets: Worksheet[];
   submissions: Submission[];
+  verifications: EmailVerification[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -27,8 +28,10 @@ async function load(): Promise<Data> {
   if (state.data) return state.data;
   try {
     state.data = JSON.parse(await fs.readFile(FILE, "utf8")) as Data;
+    // 예전 파일에는 없던 목록
+    state.data.verifications ??= [];
   } catch {
-    state.data = { teachers: [], classes: [], students: [], worksheets: [], submissions: [] };
+    state.data = { teachers: [], classes: [], students: [], worksheets: [], submissions: [], verifications: [] };
   }
   return state.data;
 }
@@ -73,6 +76,17 @@ export function createLocalRepo(): Repo {
         return t ? stripTeacher(t) : null;
       }),
     getTeacherByEmail: (email) => read((d) => d.teachers.find((x) => x.email === email) ?? null),
+
+    saveVerification: (v) =>
+      write((d) => {
+        d.verifications = d.verifications.filter((x) => x.email !== v.email);
+        d.verifications.push(v);
+      }),
+    getVerification: (email) => read((d) => d.verifications.find((x) => x.email === email) ?? null),
+    deleteVerification: (email) =>
+      write((d) => {
+        d.verifications = d.verifications.filter((x) => x.email !== email);
+      }),
 
     createClass: (classRoom) =>
       write((d) => {

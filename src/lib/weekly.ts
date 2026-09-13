@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { DEMO_TEACHER_EMAIL } from "./demo-account";
 import { buildAllArticles, cloneArticles, emptyArticle, pickTopics } from "./generation";
 import type { Article, GradeLevel } from "./types";
 import { newId, nowIso, weekTitle } from "./utils";
@@ -12,7 +13,9 @@ const RECENT_MS = 12 * 60 * 60 * 1000;
  */
 export async function runWeeklyDrafts(now = new Date()) {
   const db = getDb();
-  const classes = await db.listAutoDraftClasses();
+  const demoTeacher = await db.getTeacherByEmail(DEMO_TEACHER_EMAIL);
+  // 베타 체험 계정의 반은 실제 뉴스로 만들지 않는다
+  const classes = (await db.listAutoDraftClasses()).filter((c) => c.teacherId !== demoTeacher?.id);
 
   const targets = [];
   for (const classRoom of classes) {

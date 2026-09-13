@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/LogoutButton";
+import { isDemoTeacher } from "@/lib/demo-account";
 import type { Teacher } from "@/lib/types";
 
 export function TeacherShell({ teacher, children }: { teacher: Teacher; children: ReactNode }) {
@@ -18,6 +19,17 @@ export function TeacherShell({ teacher, children }: { teacher: Teacher; children
           </div>
         </div>
       </header>
+      {isDemoTeacher(teacher) && (
+        <div className="bg-warning-weak">
+          <p className="mx-auto max-w-5xl px-5 py-2.5 text-[13px] leading-relaxed text-[#8a5300]">
+            <b>베타 테스트 체험 모드</b>예요. 예시 기사로 동작하고, 여기서 만든 내용은 다른 체험자에게도 보여요. 실제 수업에는{" "}
+            <Link href="/teacher/signup" className="font-semibold underline underline-offset-2">
+              교육청 메일로 가입
+            </Link>
+            해 주세요.
+          </p>
+        </div>
+      )}
       <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
       <footer className="mx-auto max-w-5xl px-5 pb-10 text-[13px] text-grey-400">
         AI(Claude)가 만든 내용은 틀릴 수 있으니 배포 전에 꼭 확인해 주세요 ·{" "}

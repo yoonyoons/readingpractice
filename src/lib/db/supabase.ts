@@ -96,6 +96,26 @@ export function createSupabaseRepo(): Repo {
       return row ? toTeacher(row) : null;
     },
 
+    async saveVerification(v) {
+      check(
+        await sb
+          .from("email_verifications")
+          .upsert(
+            { email: v.email, code_hash: v.codeHash, expires_at: v.expiresAt, attempts: v.attempts, sent_at: v.sentAt },
+            { onConflict: "email" },
+          ),
+      );
+    },
+    async getVerification(email) {
+      const row = check(await sb.from("email_verifications").select().eq("email", email).maybeSingle());
+      return row
+        ? { email: row.email, codeHash: row.code_hash, expiresAt: row.expires_at, attempts: row.attempts, sentAt: row.sent_at }
+        : null;
+    },
+    async deleteVerification(email) {
+      check(await sb.from("email_verifications").delete().eq("email", email));
+    },
+
     async createClass(c) {
       const row = check(
         await sb

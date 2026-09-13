@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
+import { isDemoTeacher } from "@/lib/demo-account";
 import type { GenerationEvent } from "@/lib/events";
 import { buildAllArticles, emptyArticle, pickTopics } from "@/lib/generation";
 import { route } from "@/lib/http";
@@ -10,7 +11,9 @@ export const maxDuration = 300;
 
 export const POST = route(async (_req: NextRequest, ctx: RouteContext<"/api/classes/[classId]/generate">) => {
   const { classId } = await ctx.params;
-  const { classRoom } = await requireTeacherClass(classId);
+  const { teacher, classRoom } = await requireTeacherClass(classId);
+  // 베타 체험 계정은 AI 비용이 들지 않도록 예시 기사만 쓴다
+  const demo = isDemoTeacher(teacher) || undefined;
   const db = getDb();
   const encoder = new TextEncoder();
 
@@ -19,7 +22,7 @@ export const POST = route(async (_req: NextRequest, ctx: RouteContext<"/api/clas
       const send = (event: GenerationEvent) => controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       try {
         send({ type: "stage", stage: "collect" });
-        const topics = await pickTopics(2);
+        const topics = await pickTopics(2, demo);
 
         const worksheet = await db.createWorksheet({
           id: newId(),
@@ -36,12 +39,16 @@ export const POST = route(async (_req: NextRequest, ctx: RouteContext<"/api/clas
           topics: topics.map((t) => ({ name: t.name, mentionCount: t.mentionCount })),
         });
 
-        const articles = await buildAllArticles(worksheet.articles, classRoom.gradeLevel, (index, article) =>
-          send(
-            article.status === "ready"
-              ? { type: "article", index, status: "ready", title: article.title }
-              : { type: "article", index, status: "failed", error: article.error },
-          ),
+        const articles = await buildAllArticles(
+          worksheet.articles,
+          classRoom.gradeLevel,
+          (index, article) =>
+            send(
+              article.status === "ready"
+                ? { type: "article", index, status: "ready", title: article.title }
+                : { type: "article", index, status: "failed", error: article.error },
+            ),
+          demo,
         );
 
         await db.updateWorksheet(worksheet.id, { articles });

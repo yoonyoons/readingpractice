@@ -7,11 +7,12 @@
 
 | 구분 | 기능 |
 | --- | --- |
-| 교사 | 이메일 가입/로그인, 반 만들기(초3~4 / 초5~6 / 중학생), 반 코드 발급, 학생 PIN 초기화 |
+| 교사 | **교육청 메일(.go.kr)로만 가입**: 메일로 받은 인증 코드 확인 후 계정 생성, 로그인, 반 만들기(초3~4 / 초5~6 / 중학생), 반 코드 발급, 학생 PIN 초기화 |
+| 교사 | **베타 테스트 체험**: 가입 없이 공용 체험 계정으로 모든 기능 사용(예시 기사, AI 비용 없음) |
 | 교사 | 학습지 생성(진행 상황 실시간 표시), 기사·어휘·퀴즈·채점 기준·생각 나누기 질문 편집, 기사별 다시 만들기, 배포/배포 취소 |
 | 교사 | **주간 초안 자동 준비**: 반마다 켜 두면 매주 월요일 오전 6시(한국 시간)에 초안 생성 → 검토 후 배포 |
 | 교사 | 학생별 완독·퀴즈·요약 점수·생각 표, 요약문과 AI 피드백·의견 상세 보기, 부적절한 의견 숨기기, CSV 내려받기 |
-| 학생 | 반 코드 + 번호·이름 + PIN 4자리로 입장 (PIN 5회 오류 시 5분 잠금) |
+| 학생 | 교사가 만든 반의 **반 코드** + 번호·이름 + PIN 4자리로 입장 (PIN 5회 오류 시 5분 잠금). 학생은 교사 계정을 만들 수 없음 |
 | 학생 | 기사 읽기: 스크롤 끝 + 최소 읽기 시간을 채워야 다음 단계, 핵심 어휘를 누르면 뜻 보기 |
 | 학생 | 어휘 퀴즈: 빈칸 채우기·비슷한 말·내용 이해, 문항마다 정답·해설 (첫 답만 점수에 반영) |
 | 학생 | 요약: 100점 만점(핵심 내용 50 / 내 말로 표현 30 / 문장 완성도 20) + 잘한 점·빠진 내용·조언, 최대 3회 제출 |
@@ -38,12 +39,14 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 3. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행(이미 만든 DB에 다시 실행해도 새 열만 추가됨) → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
    - Vercel에서 Supabase 연동(Marketplace)을 쓰면 자동으로 들어가는 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`도 그대로 인식합니다.
 4. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
-5. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 이 코드를 아는 사람만 교사로 가입할 수 있습니다.
+5. **SMTP (교사 가입 인증 메일)** — Gmail이면 [앱 비밀번호](https://myaccount.google.com/apppasswords)를 만들고 `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER=내 Gmail`, `SMTP_PASS=앱 비밀번호`. 없으면 개발 환경에서만 인증 코드가 화면·콘솔에 표시되고, 배포 환경에서는 가입이 막힙니다.
+6. (선택) **TEACHER_EMAIL_DOMAINS** — 가입을 허용할 도메인(예: `sen.go.kr,goe.go.kr`). 비우면 `.go.kr`로 끝나는 모든 메일 허용.
+7. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 메일 인증에 더해 이 코드도 입력해야 가입할 수 있습니다.
 
 ## Vercel 배포
 
 1. GitHub 저장소를 Vercel에서 Import
-2. Settings > Environment Variables에 위 값을 모두 입력 (배포 환경에서는 Supabase, SESSION_SECRET, CRON_SECRET이 필수)
+2. Settings > Environment Variables에 위 값을 모두 입력 (배포 환경에서는 Supabase, SESSION_SECRET, CRON_SECRET, SMTP_*가 필수)
 3. Deploy — `vercel.json`의 Cron 설정(`0 21 * * 0` = 매주 월요일 06:00 KST)이 자동으로 등록됩니다.
 
 학습지 생성은 뉴스 수집을 포함해 1~3분 걸리므로 함수 최대 실행 시간을 300초로 설정해 두었습니다(`maxDuration`).
@@ -72,6 +75,8 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 - 퀴즈 정답·해설과 모범 요약은 학생 화면으로 미리 보내지 않고, 답을 제출한 뒤 서버가 알려 줍니다.
 - 학생 요약문은 채점을 위해 Claude에 보내지만 이름·번호는 보내지 않습니다. 전화번호·이메일·욕설이 있으면 AI에 보내기 전에 제출을 막습니다.
 - 친구 의견판에는 이름·학생 id가 포함되지 않으며, 교사가 숨긴 의견은 본인에게만 보입니다.
+- 교사 가입은 허용된 교육청 도메인 메일로 인증 코드(6자리, 10분 유효, 5회 제한)를 받아 확인해야만 됩니다. 학생은 교사가 만든 반 코드로만 입장하므로 교사 계정을 만들 수 없습니다.
+- 베타 체험 계정(`beta-demo@readingpractice.local`)은 공용이며 학습지 생성·재생성·자동 준비에서 항상 예시 기사를 써 AI 비용이 들지 않습니다.
 - 모든 DB 접근은 서버에서만 이뤄지며, Supabase 테이블은 RLS를 켜고 공개 정책을 두지 않았습니다.
 
 ## 폴더 구조

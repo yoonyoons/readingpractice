@@ -1,5 +1,6 @@
 import type {
   ClassRoom,
+  EmailVerification,
   StudentRecord,
   Submission,
   Teacher,
@@ -11,6 +12,11 @@ export interface Repo {
   createTeacher(teacher: TeacherRecord): Promise<Teacher>;
   getTeacher(id: string): Promise<Teacher | null>;
   getTeacherByEmail(email: string): Promise<TeacherRecord | null>;
+
+  /** 이메일당 하나만 보관한다 (같은 이메일이면 덮어쓴다) */
+  saveVerification(verification: EmailVerification): Promise<void>;
+  getVerification(email: string): Promise<EmailVerification | null>;
+  deleteVerification(email: string): Promise<void>;
 
   createClass(classRoom: ClassRoom): Promise<ClassRoom>;
   getClass(id: string): Promise<ClassRoom | null>;
