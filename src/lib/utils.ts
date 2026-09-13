@@ -1,0 +1,118 @@
+import type { Article, PublicArticle, QuizType, Submission } from "./types";
+
+/** 빈칸 채우기 문제에서 빈칸 자리를 나타내는 표시 */
+export const BLANK = "(      )";
+
+export const QUIZ_TYPE_LABEL: Record<QuizType, string> = {
+  blank: "빈칸 채우기",
+  synonym: "비슷한 말",
+  comprehension: "내용 이해",
+};
+
+export function newId() {
+  return crypto.randomUUID();
+}
+
+export function nowIso() {
+  return new Date().toISOString();
+}
+
+export function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+export function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function makeClassCode() {
+  let code = "";
+  for (let i = 0; i < 6; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return code;
+}
+
+const ORDINALS = ["첫째", "둘째", "셋째", "넷째", "다섯째"];
+
+function seoulParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return { month: get("month"), day: get("day") };
+}
+
+export function weekTitle(date = new Date()) {
+  const { month, day } = seoulParts(date);
+  return `${month}월 ${ORDINALS[Math.ceil(day / 7) - 1]} 주 시사 학습지`;
+}
+
+export function formatDate(iso: string | null | undefined) {
+  if (!iso) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(iso));
+}
+
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+export function cn(...classes: (string | false | null | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
+
+export function quizResult(article: Pick<Article, "quiz">, submission: Submission | null | undefined) {
+  const total = article.quiz.length;
+  if (!submission) return { correct: 0, answered: 0, total };
+  let correct = 0;
+  let answered = 0;
+  for (const q of article.quiz) {
+    const a = submission.quizAnswers[q.id];
+    if (!a) continue;
+    answered++;
+    if (a.correct) correct++;
+  }
+  return { correct, answered, total };
+}
+
+export function latestSummary(submission: Submission | null | undefined) {
+  return submission?.summaries.at(-1) ?? null;
+}
+
+export function toPublicArticle(article: Article): PublicArticle {
+  return {
+    id: article.id,
+    topic: article.topic,
+    title: article.title,
+    whyItMatters: article.whyItMatters,
+    paragraphs: article.paragraphs,
+    vocab: article.vocab,
+    quiz: article.quiz.map((q) => ({
+      id: q.id,
+      type: q.type,
+      prompt: q.prompt,
+      sentence: q.sentence,
+      target: q.target,
+      choices: q.choices,
+    })),
+    sources: article.sources,
+  };
+}

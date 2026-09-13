@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-primary: #3182f6;
+  --color-primary-hover: #1b64da;
+  --color-primary-weak: #e8f3ff;
+  --color-primary-weak-hover: #d6e8ff;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-danger: #f04452;
+  --color-danger-weak: #ffeeee;
+  --color-success: #03b26c;
+  --color-success-weak: #e5f8f0;
+  --color-warning: #fe9800;
+  --color-warning-weak: #fff3e0;
+
+  --color-grey-50: #f9fafb;
+  --color-grey-100: #f2f4f6;
+  --color-grey-200: #e5e8eb;
+  --color-grey-300: #d1d6db;
+  --color-grey-400: #b0b8c1;
+  --color-grey-500: #8b95a1;
+  --color-grey-600: #6b7684;
+  --color-grey-700: #4e5968;
+  --color-grey-800: #333d4b;
+  --color-grey-900: #191f28;
+
+  --animate-fade-up: fade-up 0.35s ease-out both;
+  --animate-pop: pop 0.25s ease-out both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    /* 끝 상태를 none으로 두어야 안쪽의 position: fixed 요소가 화면 기준으로 고정된다 */
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop {
+    0% {
+      transform: scale(0.96);
+    }
+    60% {
+      transform: scale(1.02);
+    }
+    100% {
+      transform: none;
+    }
   }
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-grey-50);
+  color: var(--color-grey-900);
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }

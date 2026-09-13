@@ -1,69 +1,74 @@
-import Image from "next/image";
+import Link from "next/link";
+import { connection } from "next/server";
+import { ModeNotice } from "@/components/ModeNotice";
+import { ChevronRight } from "@/components/ui";
 
-export default function Home() {
+const STEPS = [
+  { icon: "📰", title: "기사 읽기", desc: "이번 주 인기 뉴스를 내 학년 수준으로" },
+  { icon: "🧩", title: "어휘 퀴즈", desc: "빈칸 채우기 · 비슷한 말 · 내용 이해" },
+  { icon: "📝", title: "스스로 요약", desc: "AI 선생님의 점수와 피드백까지" },
+];
+
+export default async function Home() {
+  await connection();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col bg-white px-5 pb-8 pt-12">
+      <ModeNotice className="mb-8" />
+
+      <p className="animate-fade-up text-[15px] font-semibold text-primary">시사 문해력 기르기 학습지</p>
+      <h1 className="animate-fade-up mt-3 text-[30px] font-bold leading-[1.35] tracking-tight text-grey-900">
+        이번 주 뉴스로
+        <br />
+        어휘력과 문해력을
+        <br />
+        키워 볼까요?
+      </h1>
+      <p className="mt-4 text-[16px] leading-relaxed text-grey-600">
+        매주 가장 많이 이야기된 뉴스 3개를 읽고, 낱말을 익히고, 내 말로 정리해요.
+      </p>
+
+      <ol className="mt-8 space-y-1">
+        {STEPS.map((step, i) => (
+          <li key={step.title} className="flex items-center gap-4 rounded-2xl px-1 py-3">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-grey-50 text-2xl">
+              {step.icon}
+            </span>
+            <div>
+              <p className="text-[16px] font-bold text-grey-900">
+                <span className="mr-1.5 text-primary">{i + 1}</span>
+                {step.title}
+              </p>
+              <p className="text-[14px] text-grey-500">{step.desc}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-auto space-y-3 pt-10">
+        <Link
+          href="/join"
+          className="flex items-center gap-4 rounded-3xl bg-primary p-5 text-white transition hover:bg-primary-hover active:scale-[0.98]"
+        >
+          <span className="text-3xl">🎒</span>
+          <span className="flex-1">
+            <span className="block text-[17px] font-bold">학생으로 시작하기</span>
+            <span className="block text-[14px] text-white/80">선생님이 알려 준 반 코드로 입장해요</span>
+          </span>
+          <ChevronRight />
+        </Link>
+        <Link
+          href="/teacher"
+          className="flex items-center gap-4 rounded-3xl bg-grey-100 p-5 text-grey-900 transition hover:bg-grey-200 active:scale-[0.98]"
+        >
+          <span className="text-3xl">🧑‍🏫</span>
+          <span className="flex-1">
+            <span className="block text-[17px] font-bold">선생님으로 시작하기</span>
+            <span className="block text-[14px] text-grey-500">학습지를 만들고 학생 결과를 확인해요</span>
+          </span>
+          <ChevronRight className="size-5 text-grey-400" />
+        </Link>
+      </div>
+    </main>
   );
 }

@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 시사 문해력 기르기 학습지
 
-## Getting Started
+이번 주 인기 뉴스로 학생들의 어휘력·문해력을 기르는 웹앱입니다.
+교사가 버튼을 누르면 네이버 뉴스에서 지난 7일간 많이 다룬 주제 3개를 골라, 반의 학년군 수준에 맞춘 기사·어휘 퀴즈를 AI(Gemini)가 만들어 줍니다. 교사가 검토·수정 후 배포하면 학생은 **기사 읽기 → 어휘 퀴즈 → 스스로 요약 → AI 피드백** 순서로 학습합니다.
 
-First, run the development server:
+## 주요 기능
+
+| 구분 | 기능 |
+| --- | --- |
+| 교사 | 이메일 가입/로그인, 반 만들기(초3~4 / 초5~6 / 중학생), 반 코드 발급 |
+| 교사 | 학습지 생성(진행 상황 실시간 표시), 기사·어휘·퀴즈·채점 기준 편집, 기사별 다시 만들기, 배포/배포 취소 |
+| 교사 | 학생별 완독·퀴즈·요약 점수 표, 요약문과 AI 피드백 상세 보기, CSV 내려받기, 학생 PIN 초기화 |
+| 학생 | 반 코드 + 번호·이름 + PIN 4자리로 입장 (PIN 5회 오류 시 5분 잠금) |
+| 학생 | 기사 읽기: 스크롤 끝 + 최소 읽기 시간을 채워야 다음 단계, 핵심 어휘를 누르면 뜻 보기 |
+| 학생 | 어휘 퀴즈: 빈칸 채우기·비슷한 말·내용 이해, 문항마다 정답·해설 (첫 답만 점수에 반영) |
+| 학생 | 요약: 100점 만점(핵심 내용 50 / 내 말로 표현 30 / 문장 완성도 20) + 잘한 점·빠진 내용·조언, 최대 3회 제출 |
+
+## 바로 실행해 보기 (데모 모드)
+
+API 키가 하나도 없어도 실행됩니다. 이때는 예시 기사로 학습지가 만들어지고, 데이터는 `.data/db.json` 파일에 저장됩니다.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가입 → 반 만들기 → 학습지 만들기 → 배포 → 다른 브라우저(또는 시크릿 창)에서 **학생으로 시작하기**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 실제 뉴스로 운영하기
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.example`을 `.env.local`로 복사하고 값을 채웁니다.
 
-## Learn More
+1. **네이버 검색 API** — [네이버 개발자센터](https://developers.naver.com/apps/#/register)에서 애플리케이션 등록 → 사용 API로 `검색` 선택 → `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`
+2. **Gemini API** — [Google AI Studio](https://aistudio.google.com/apikey)에서 키 발급 → `GEMINI_API_KEY` (모델은 `GEMINI_MODEL`로 바꿀 수 있고 기본값은 `gemini-3.5-flash`)
+3. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행 → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+4. **SESSION_SECRET** — 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
+5. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 이 코드를 아는 사람만 교사로 가입할 수 있습니다.
 
-To learn more about Next.js, take a look at the following resources:
+## Vercel 배포
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. 이 폴더를 GitHub 저장소에 올리고 Vercel에서 Import
+2. Settings > Environment Variables에 위 값을 모두 입력 (배포 환경에서는 Supabase와 SESSION_SECRET이 필수)
+3. Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+학습지 생성은 1~2분 걸리므로 함수 최대 실행 시간을 300초로 설정해 두었습니다(`maxDuration`). Vercel Hobby 요금제에서도 동작합니다.
 
-## Deploy on Vercel
+## 동작 방식
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+[교사: 학습지 만들기]
+  네이버 뉴스 검색 API ── 분야별 검색어 14개 × (정확도순·최신순) → 지난 7일 기사 최대 700건
+        │
+  Gemini ── 같은 사건끼리 묶기, 학생에게 부적절한 주제 제외, 기사 수 많은 순으로 3개 선정
+        │
+  주제별로 동시에:  n.news.naver.com 원문 본문 수집(최대 3건, 실패 시 제목·요약만 사용)
+        │          → Gemini가 학년군 기준(분량·문장 길이·어휘·문체)으로 기사·어휘·퀴즈·채점 기준 작성
+        │          → 서버에서 퀴즈 형식 검증(보기 4개, 정답 포함, 문장 속 낱말 확인), 보기 순서 섞기
+        ▼
+  초안 저장 → 교사 검토·수정 → 배포
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 퀴즈 정답·해설과 모범 요약은 학생 화면으로 미리 보내지 않고, 답을 제출한 뒤 서버가 알려 줍니다.
+- 모든 DB 접근은 서버에서만 이뤄지며, Supabase 테이블은 RLS를 켜고 공개 정책을 두지 않았습니다.
+
+## 폴더 구조
+
+```
+src/
+  app/
+    page.tsx                         첫 화면
+    join/                            학생 입장
+    s/                               학생 홈, 기사별 학습 화면
+    teacher/                         교사 로그인·가입, 반 목록, 반 상세, 학습지 편집·결과
+    api/                             Route Handlers (교사·반·학습지·학생)
+  components/
+    ui.tsx                           토스 스타일 공통 컴포넌트
+    student/LessonFlow.tsx           읽기 → 퀴즈 → 요약 → 피드백
+    teacher/WorksheetView.tsx        학습지 편집 + 결과 표
+  lib/
+    naver.ts                         뉴스 수집·원문 추출
+    generation.ts                    주제 선정·기사/퀴즈 생성 프롬프트와 검증
+    feedback.ts                      요약 채점
+    grades.ts                        학년군별 기준
+    db/                              저장소 (Supabase / 로컬 파일)
+supabase/schema.sql                  DB 스키마
+```
+
+## 알아 둘 점
+
+- **원문 수집**: 네이버 뉴스 페이지의 본문을 가져와 AI가 새로 쓰는 재료로만 사용하고 원문을 그대로 보여주지 않습니다. 다만 뉴스 저작권과 네이버 이용약관을 고려해, 수업 목적의 내부 사용 범위에서 운영하는 것을 권장합니다. 네이버 페이지 구조가 바뀌면 원문 수집이 실패하고 자동으로 "기사 요약 기반"으로 만들어집니다(편집 화면에 표시).
+- **AI 검토**: AI가 만든 기사에는 사실 오류가 있을 수 있으므로 배포 전 교사 검토를 전제로 설계했습니다.
+- **비용**: 학습지 1회 생성에 Gemini 호출 4회, 요약 채점은 제출 1회당 1회입니다.
