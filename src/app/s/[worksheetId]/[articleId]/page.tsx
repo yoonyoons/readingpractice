@@ -3,7 +3,7 @@ import { LessonFlow } from "@/components/student/LessonFlow";
 import { getDb } from "@/lib/db";
 import { getStudentSession } from "@/lib/session";
 import { requireStudentArticle } from "@/lib/student-access";
-import { quizResult, toPublicArticle } from "@/lib/utils";
+import { buildOpinionBoard, isArticleDone, quizResult, toPublicArticle } from "@/lib/utils";
 
 export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[articleId]">) {
   const { worksheetId, articleId } = await props.params;
@@ -13,11 +13,12 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
   if (!data) notFound();
   const { student, worksheet, article, submission, classRoom } = data;
 
-  // 다음에 읽을 기사: 아직 요약을 제출하지 않은 다른 기사
-  const others = worksheet.articles.filter((a) => a.status === "ready" && a.id !== article.id);
-  const mySubs = await getDb().listSubmissionsByStudent(student.id);
-  const next = others.find(
-    (a) => !mySubs.some((s) => s.worksheetId === worksheet.id && s.articleId === a.id && s.summaries.length > 0),
+  const worksheetSubs = await getDb().listSubmissionsByWorksheet(worksheet.id);
+  const mine = new Map(worksheetSubs.filter((s) => s.studentId === student.id).map((s) => [s.articleId, s]));
+
+  // 다음에 읽을 기사: 아직 학습을 마치지 않은 다른 기사
+  const next = worksheet.articles.find(
+    (a) => a.status === "ready" && a.id !== article.id && !isArticleDone(a, mine.get(a.id)),
   );
 
   return (
@@ -35,6 +36,8 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
           submission.summaries.length > 0
             ? { modelSummary: article.modelSummary, keyPoints: article.keyPoints }
             : null,
+        opinion: submission.opinion,
+        board: submission.opinion ? buildOpinionBoard(article, worksheetSubs, student.id) : null,
       }}
     />
   );

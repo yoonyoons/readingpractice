@@ -1,4 +1,4 @@
-import type { Article, PublicArticle, QuizType, Submission } from "./types";
+import type { Article, OpinionBoard, PublicArticle, QuizType, Submission } from "./types";
 
 /** 빈칸 채우기 문제에서 빈칸 자리를 나타내는 표시 */
 export const BLANK = "(      )";
@@ -97,6 +97,32 @@ export function latestSummary(submission: Submission | null | undefined) {
   return submission?.summaries.at(-1) ?? null;
 }
 
+/** 예전에 만든 기사에는 생각 나누기 질문이 없을 수 있다 */
+export function hasOpinionStep(article: Pick<Article, "opinionQuestion" | "stances">) {
+  return Boolean(article.opinionQuestion) && (article.stances?.length ?? 0) >= 2;
+}
+
+/** 요약(과 생각 나누기가 있으면 의견)까지 제출해야 기사 학습을 마친 것으로 본다 */
+export function isArticleDone(article: Article, submission: Submission | null | undefined) {
+  if (!submission || submission.summaries.length === 0) return false;
+  return hasOpinionStep(article) ? Boolean(submission.opinion) : true;
+}
+
+export function buildOpinionBoard(article: Article, submissions: Submission[], studentId: string): OpinionBoard {
+  const counts = article.stances.map(() => 0);
+  const items: (OpinionBoard["items"][number] & { submittedAt: string })[] = [];
+  for (const s of submissions) {
+    const opinion = s.opinion;
+    if (s.articleId !== article.id || !opinion) continue;
+    const mine = s.studentId === studentId;
+    if (opinion.hidden && !mine) continue;
+    if (opinion.stance < counts.length) counts[opinion.stance]++;
+    items.push({ stance: opinion.stance, text: opinion.text, mine, hidden: opinion.hidden, submittedAt: opinion.submittedAt });
+  }
+  items.sort((a, b) => Number(b.mine) - Number(a.mine) || b.submittedAt.localeCompare(a.submittedAt));
+  return { counts, items: items.map((item) => ({ stance: item.stance, text: item.text, mine: item.mine, hidden: item.hidden })) };
+}
+
 export function toPublicArticle(article: Article): PublicArticle {
   return {
     id: article.id,
@@ -114,5 +140,7 @@ export function toPublicArticle(article: Article): PublicArticle {
       choices: q.choices,
     })),
     sources: article.sources,
+    opinionQuestion: article.opinionQuestion ?? "",
+    stances: article.stances ?? [],
   };
 }

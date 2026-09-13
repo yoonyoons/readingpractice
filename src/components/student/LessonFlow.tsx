@@ -17,11 +17,19 @@ import {
   Textarea,
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
-import { GRADES, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS } from "@/lib/grades";
-import type { GradeLevel, PublicArticle, SourceItem, SummaryAttempt, VocabItem } from "@/lib/types";
+import { GRADES, MAX_OPINION_CHARS, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS } from "@/lib/grades";
+import type {
+  GradeLevel,
+  OpinionAnswer,
+  OpinionBoard,
+  PublicArticle,
+  SourceItem,
+  SummaryAttempt,
+  VocabItem,
+} from "@/lib/types";
 import { cn, QUIZ_TYPE_LABEL } from "@/lib/utils";
 
-type Step = "read" | "quiz" | "quizDone" | "summary" | "result";
+type Step = "read" | "quiz" | "quizDone" | "summary" | "result" | "opinion" | "board";
 type PublicQuiz = PublicArticle["quiz"][number];
 type Score = { correct: number; total: number };
 
@@ -36,6 +44,8 @@ export interface LessonInitial {
   quizCorrect: number;
   summaries: SummaryAttempt[];
   revealed: Revealed | null;
+  opinion: OpinionAnswer | null;
+  board: OpinionBoard | null;
 }
 
 interface Props {
@@ -47,14 +57,19 @@ interface Props {
 }
 
 export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref }: Props) {
+  const hasOpinion = Boolean(article.opinionQuestion) && article.stances.length >= 2;
   const [step, setStep] = useState<Step>(() => {
     if (!initial.read) return "read";
     if (!article.quiz.every((q) => initial.answeredIds.includes(q.id))) return "quiz";
-    return initial.summaries.length > 0 ? "result" : "summary";
+    if (initial.summaries.length === 0) return "summary";
+    if (!hasOpinion) return "result";
+    return initial.opinion ? "board" : "opinion";
   });
   const [quizScore, setQuizScore] = useState<Score>({ correct: initial.quizCorrect, total: article.quiz.length });
   const [summaries, setSummaries] = useState(initial.summaries);
   const [revealed, setRevealed] = useState(initial.revealed);
+  const [opinion, setOpinion] = useState(initial.opinion);
+  const [board, setBoard] = useState(initial.board);
 
   const go = (next: Step) => {
     setStep(next);
@@ -65,7 +80,7 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-white">
-      <LessonHeader step={step} />
+      <LessonHeader step={step} hasOpinion={hasOpinion} />
 
       {step === "read" && (
         <ReadStep
@@ -112,6 +127,39 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
           quizScore={quizScore}
           nextHref={nextHref}
           onRetry={() => go("summary")}
+          next={
+            hasOpinion
+              ? {
+                  label: opinion ? "친구들 생각 보기" : "생각 나누러 가기",
+                  onClick: () => go(opinion ? "board" : "opinion"),
+                }
+              : null
+          }
+        />
+      )}
+
+      {step === "opinion" && (
+        <OpinionStep
+          worksheetId={worksheetId}
+          article={article}
+          gradeLevel={gradeLevel}
+          initial={opinion}
+          onSubmitted={(data) => {
+            setOpinion(data.opinion);
+            setBoard(data.board);
+            go("board");
+          }}
+        />
+      )}
+
+      {step === "board" && opinion && board && (
+        <BoardStep
+          article={article}
+          board={board}
+          opinion={opinion}
+          nextHref={nextHref}
+          onEdit={() => go("opinion")}
+          onShowFeedback={() => go("result")}
         />
       )}
     </div>
@@ -120,25 +168,26 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
 
 /* ───────────── 상단 단계 표시 ───────────── */
 
-const STEP_INDEX: Record<Step, number> = { read: 0, quiz: 1, quizDone: 1, summary: 2, result: 3 };
+const STEP_INDEX: Record<Step, number> = { read: 0, quiz: 1, quizDone: 1, summary: 2, result: 3, opinion: 3, board: 4 };
 
-function LessonHeader({ step }: { step: Step }) {
+function LessonHeader({ step, hasOpinion }: { step: Step; hasOpinion: boolean }) {
+  const labels = hasOpinion ? ["읽기", "퀴즈", "요약", "생각"] : ["읽기", "어휘 퀴즈", "요약"];
   const current = STEP_INDEX[step];
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur">
       <Link href="/s" className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
         <ChevronLeft />
       </Link>
-      <ol className="flex flex-1 items-center justify-center gap-2">
-        {["읽기", "어휘 퀴즈", "요약"].map((label, i) => {
+      <ol className="flex flex-1 items-center justify-center gap-1.5">
+        {labels.map((label, i) => {
           const done = i < current;
           const active = i === current;
           return (
-            <li key={label} className="flex items-center gap-2">
-              {i > 0 && <span className="h-px w-3 bg-grey-300" />}
+            <li key={label} className="flex items-center gap-1.5">
+              {i > 0 && <span className="h-px w-2.5 bg-grey-300" />}
               <span
                 className={cn(
-                  "flex items-center gap-1.5 text-[13px] font-semibold",
+                  "flex items-center gap-1 text-[13px] font-semibold",
                   active ? "text-grey-900" : done ? "text-primary" : "text-grey-400",
                 )}
               >
@@ -594,22 +643,7 @@ function SummaryStep({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowArticle((v) => !v)}
-          className="mt-5 flex w-full items-center justify-between rounded-2xl bg-grey-50 px-4 py-3.5 text-[15px] font-semibold text-grey-700"
-        >
-          📰 기사 다시 보기
-          <span className={cn("text-grey-400 transition", showArticle && "rotate-180")}>▾</span>
-        </button>
-        {showArticle && (
-          <div className="mt-2 max-h-80 overflow-y-auto rounded-2xl border border-grey-100 p-4">
-            <p className="mb-3 text-[16px] font-bold">{article.title}</p>
-            <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
-              <ArticleBody article={article} onWord={setActiveWord} />
-            </div>
-          </div>
-        )}
+        <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
 
         <Textarea
           value={text}
@@ -650,7 +684,40 @@ function SummaryStep({
   );
 }
 
-/* ───────────── 결과: 요약 피드백 ───────────── */
+function ArticleToggle({
+  article,
+  open,
+  onToggle,
+  onWord,
+}: {
+  article: PublicArticle;
+  open: boolean;
+  onToggle: () => void;
+  onWord: (v: VocabItem) => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="mt-5 flex w-full items-center justify-between rounded-2xl bg-grey-50 px-4 py-3.5 text-[15px] font-semibold text-grey-700"
+      >
+        📰 기사 다시 보기
+        <span className={cn("text-grey-400 transition", open && "rotate-180")}>▾</span>
+      </button>
+      {open && (
+        <div className="mt-2 max-h-80 overflow-y-auto rounded-2xl border border-grey-100 p-4">
+          <p className="mb-3 text-[16px] font-bold">{article.title}</p>
+          <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
+            <ArticleBody article={article} onWord={onWord} />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ───────────── 요약 피드백 ───────────── */
 
 function scoreMessage(score: number) {
   if (score >= 90) return "정말 훌륭한 요약이에요!";
@@ -692,6 +759,7 @@ function ResultStep({
   revealed,
   quizScore,
   nextHref,
+  next,
   onRetry,
 }: {
   attempt: SummaryAttempt;
@@ -699,6 +767,7 @@ function ResultStep({
   revealed: Revealed | null;
   quizScore: Score;
   nextHref: string | null;
+  next: { label: string; onClick: () => void } | null;
   onRetry: () => void;
 }) {
   const { feedback } = attempt;
@@ -763,10 +832,224 @@ function ResultStep({
               다시 쓰기 ({attemptsLeft})
             </Button>
           )}
-          <LinkButton href={nextHref ?? "/s"} size="lg" className="flex-1">
-            {nextHref ? "다음 기사 읽기" : "목록으로"}
-          </LinkButton>
+          {next ? (
+            <Button size="lg" className="flex-1" onClick={next.onClick}>
+              {next.label}
+            </Button>
+          ) : (
+            <LinkButton href={nextHref ?? "/s"} size="lg" className="flex-1">
+              {nextHref ? "다음 기사 읽기" : "목록으로"}
+            </LinkButton>
+          )}
         </div>
+      </BottomBar>
+    </>
+  );
+}
+
+/* ───────────── 4단계: 생각 나누기 ───────────── */
+
+function OpinionStep({
+  worksheetId,
+  article,
+  gradeLevel,
+  initial,
+  onSubmitted,
+}: {
+  worksheetId: string;
+  article: PublicArticle;
+  gradeLevel: GradeLevel;
+  initial: OpinionAnswer | null;
+  onSubmitted: (data: { opinion: OpinionAnswer; board: OpinionBoard }) => void;
+}) {
+  const minChars = GRADES[gradeLevel].opinionMinChars;
+  const [stance, setStance] = useState<number | null>(initial?.stance ?? null);
+  const [text, setText] = useState(initial?.text ?? "");
+  const [showArticle, setShowArticle] = useState(false);
+  const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const length = text.trim().length;
+
+  async function submit() {
+    setLoading(true);
+    setError("");
+    try {
+      onSubmitted(
+        await apiFetch<{ opinion: OpinionAnswer; board: OpinionBoard }>("/api/student/opinion", {
+          body: { worksheetId, articleId: article.id, stance, text },
+        }),
+      );
+    } catch (e) {
+      setError(errorMessage(e));
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="animate-fade-up px-5 pb-40 pt-4">
+        <p className="text-[14px] font-semibold text-primary">생각 나누기</p>
+        <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900">{article.opinionQuestion}</h2>
+        <p className="mt-2 text-[14px] text-grey-500">정답은 없어요. 내 생각과 그렇게 생각한 까닭을 써 보세요.</p>
+
+        <div className="mt-6 grid gap-2.5">
+          {article.stances.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setStance(i)}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl border-2 px-4 py-4 text-left text-[16px] font-semibold transition active:scale-[0.99]",
+                stance === i
+                  ? "border-primary bg-primary-weak text-grey-900"
+                  : "border-transparent bg-grey-50 text-grey-700 hover:bg-grey-100",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-full border-2",
+                  stance === i ? "border-primary bg-primary text-white" : "border-grey-300 bg-white",
+                )}
+              >
+                {stance === i && <CheckIcon className="size-3.5" />}
+              </span>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-7 text-[15px] font-bold text-grey-800">왜 그렇게 생각하나요?</p>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, MAX_OPINION_CHARS))}
+          rows={6}
+          placeholder="기사 내용이나 내 경험을 근거로 까닭을 써 보세요."
+          className="mt-2 resize-none"
+        />
+        <div className="mt-2 flex items-center justify-between text-[13px]">
+          <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
+            {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
+          </span>
+          <span className="text-grey-500">친구들에게는 이름 없이 보여요</span>
+        </div>
+
+        <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+        <div className="mt-3">
+          <ErrorText>{error}</ErrorText>
+        </div>
+      </div>
+
+      <Modal open={Boolean(activeWord)} onClose={() => setActiveWord(null)} title={activeWord?.word}>
+        <p className="text-[17px] leading-relaxed text-grey-700">{activeWord?.meaning}</p>
+      </Modal>
+
+      <BottomBar>
+        <Button size="lg" className="w-full" disabled={stance === null || length < minChars} loading={loading} onClick={submit}>
+          {initial ? "고친 생각 제출하기" : "제출하고 친구들 생각 보기"}
+        </Button>
+      </BottomBar>
+    </>
+  );
+}
+
+function OpinionCard({ stance, text, mine, hidden }: { stance: string; text: string; mine?: boolean; hidden?: boolean }) {
+  return (
+    <div className={cn("rounded-2xl p-4", mine ? "bg-primary-weak" : "bg-grey-50")}>
+      <Badge tone={mine ? "blue" : "grey"}>{stance}</Badge>
+      <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-grey-800">{text}</p>
+      {hidden && <p className="mt-2 text-[12px] font-medium text-warning">선생님이 친구들에게 보이지 않게 했어요</p>}
+    </div>
+  );
+}
+
+function BoardStep({
+  article,
+  board,
+  opinion,
+  nextHref,
+  onEdit,
+  onShowFeedback,
+}: {
+  article: PublicArticle;
+  board: OpinionBoard;
+  opinion: OpinionAnswer;
+  nextHref: string | null;
+  onEdit: () => void;
+  onShowFeedback: () => void;
+}) {
+  const total = board.counts.reduce((a, b) => a + b, 0);
+  const others = board.items.filter((item) => !item.mine);
+
+  return (
+    <>
+      <div className="animate-fade-up px-5 pb-44 pt-4">
+        <p className="text-[14px] font-semibold text-primary">우리 반 친구들의 생각</p>
+        <h2 className="mt-1.5 text-[21px] font-bold leading-snug text-grey-900">{article.opinionQuestion}</h2>
+
+        <div className="mt-6 space-y-4 rounded-2xl border border-grey-100 p-5">
+          {article.stances.map((label, i) => {
+            const count = board.counts[i] ?? 0;
+            const percent = total ? Math.round((count * 100) / total) : 0;
+            const mine = opinion.stance === i;
+            return (
+              <div key={i}>
+                <div className="flex items-center justify-between text-[14px]">
+                  <span className={cn("font-semibold", mine ? "text-primary" : "text-grey-700")}>
+                    {label}
+                    {mine && <span className="ml-1.5 text-[12px] font-medium">· 내 선택</span>}
+                  </span>
+                  <span className="text-grey-500">
+                    {count}명 · {percent}%
+                  </span>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-grey-100">
+                  <div
+                    className={cn("h-full rounded-full transition-[width] duration-700", mine ? "bg-primary" : "bg-grey-400")}
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-[13px] text-grey-500">지금까지 {total}명이 생각을 나눴어요</p>
+        </div>
+
+        <p className="mt-7 text-[15px] font-bold text-grey-800">내 생각</p>
+        <div className="mt-2">
+          <OpinionCard stance={article.stances[opinion.stance]} text={opinion.text} mine hidden={opinion.hidden} />
+        </div>
+
+        <p className="mt-7 text-[15px] font-bold text-grey-800">친구들 생각 {others.length}개</p>
+        {others.length === 0 ? (
+          <p className="mt-2 rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
+            아직 다른 친구의 생각이 없어요.
+            <br />
+            나중에 다시 와서 확인해 보세요!
+          </p>
+        ) : (
+          <div className="mt-2 space-y-2.5">
+            {others.map((item, i) => (
+              <OpinionCard key={i} stance={article.stances[item.stance]} text={item.text} />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500">
+          <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
+            요약 피드백 보기
+          </button>
+          <span className="text-grey-300">|</span>
+          <button type="button" onClick={onEdit} className="hover:text-grey-800">
+            내 생각 고치기
+          </button>
+        </div>
+      </div>
+
+      <BottomBar>
+        <LinkButton href={nextHref ?? "/s"} size="lg" className="w-full">
+          {nextHref ? "다음 기사 읽기" : "이번 기사 학습 마치기"}
+        </LinkButton>
       </BottomBar>
     </>
   );

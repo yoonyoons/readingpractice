@@ -11,6 +11,7 @@ export interface GradeProfile {
   tone: string;
   summaryMinChars: number;
   modelSummaryLength: string;
+  opinionMinChars: number;
 }
 
 export const GRADES: Record<GradeLevel, GradeProfile> = {
@@ -26,6 +27,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     tone: "'~해요', '~했어요' 체",
     summaryMinChars: 30,
     modelSummaryLength: "2~3문장(80~120자)",
+    opinionMinChars: 20,
   },
   elem56: {
     level: "elem56",
@@ -39,6 +41,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     tone: "'~해요', '~했어요' 체",
     summaryMinChars: 50,
     modelSummaryLength: "3~4문장(120~180자)",
+    opinionMinChars: 30,
   },
   middle: {
     level: "middle",
@@ -52,6 +55,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     tone: "'~입니다', '~했습니다' 체",
     summaryMinChars: 80,
     modelSummaryLength: "4~5문장(180~250자)",
+    opinionMinChars: 50,
   },
 };
 
@@ -63,3 +67,4 @@ export function isGradeLevel(value: unknown): value is GradeLevel {
 
 export const MAX_SUMMARY_ATTEMPTS = 3;
 export const MAX_SUMMARY_CHARS = 1000;
+export const MAX_OPINION_CHARS = 500;

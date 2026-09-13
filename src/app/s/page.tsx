@@ -5,13 +5,20 @@ import { Badge, CheckIcon, ChevronRight, EmptyState, ProgressBar } from "@/compo
 import { getDb } from "@/lib/db";
 import { getStudentSession } from "@/lib/session";
 import type { Article, Submission, Worksheet } from "@/lib/types";
-import { cn, formatDate, latestSummary } from "@/lib/utils";
+import { cn, formatDate, hasOpinionStep, isArticleDone, latestSummary } from "@/lib/utils";
 
 function progressOf(article: Article, sub: Submission | undefined) {
   const read = Boolean(sub?.readAt);
   const quiz = read && article.quiz.every((q) => sub?.quizAnswers[q.id]);
   const summary = latestSummary(sub);
-  return { read, quiz, summary, done: Boolean(summary) };
+  return {
+    read,
+    quiz,
+    summary,
+    needsOpinion: hasOpinionStep(article),
+    opinion: Boolean(sub?.opinion),
+    done: isArticleDone(article, sub),
+  };
 }
 
 export default async function StudentHome() {
@@ -54,7 +61,7 @@ export default async function StudentHome() {
           />
         </div>
       ) : (
-        <WorksheetSection worksheet={current} subMap={subMap} highlight />
+        <WorksheetSection worksheet={current} subMap={subMap} />
       )}
 
       {past.length > 0 && (
@@ -82,14 +89,7 @@ export default async function StudentHome() {
   );
 }
 
-function WorksheetSection({
-  worksheet,
-  subMap,
-}: {
-  worksheet: Worksheet;
-  subMap: Map<string, Submission>;
-  highlight?: boolean;
-}) {
+function WorksheetSection({ worksheet, subMap }: { worksheet: Worksheet; subMap: Map<string, Submission> }) {
   const articles = worksheet.articles.filter((a) => a.status === "ready");
   const doneCount = articles.filter((a) => progressOf(a, subMap.get(`${worksheet.id}:${a.id}`)).done).length;
 
@@ -125,34 +125,36 @@ function ArticleList({ worksheet, subMap }: { worksheet: Worksheet; subMap: Map<
         const p = progressOf(article, subMap.get(`${worksheet.id}:${article.id}`));
         const status = p.done
           ? `요약 ${p.summary?.feedback.score}점`
-          : p.quiz
-            ? "요약할 차례예요"
-            : p.read
-              ? "퀴즈 풀 차례예요"
-              : "아직 읽지 않았어요";
+          : p.summary
+            ? "생각 나눌 차례예요"
+            : p.quiz
+              ? "요약할 차례예요"
+              : p.read
+                ? "퀴즈 풀 차례예요"
+                : "아직 읽지 않았어요";
+        const steps = [
+          { label: "읽기", ok: p.read },
+          { label: "퀴즈", ok: p.quiz },
+          { label: "요약", ok: Boolean(p.summary) },
+          ...(p.needsOpinion ? [{ label: "생각", ok: p.opinion }] : []),
+        ];
         return (
           <li key={article.id}>
             <Link
               href={`/s/${worksheet.id}/${article.id}`}
               className="block rounded-3xl border border-grey-100 bg-white p-5 transition hover:border-grey-200 active:scale-[0.99]"
             >
-              <div className="flex items-center gap-2">
-                <Badge tone="blue">
-                  {i + 1}. {article.topic}
-                </Badge>
-              </div>
+              <Badge tone="blue">
+                {i + 1}. {article.topic}
+              </Badge>
               <p className="mt-2.5 text-[17px] font-bold leading-snug text-grey-900">{article.title}</p>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {[
-                    { label: "읽기", ok: p.read },
-                    { label: "퀴즈", ok: p.quiz },
-                    { label: "요약", ok: p.done },
-                  ].map((s) => (
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  {steps.map((s) => (
                     <span
                       key={s.label}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                        "inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[12px] font-semibold",
                         s.ok ? "bg-primary-weak text-primary" : "bg-grey-100 text-grey-400",
                       )}
                     >
@@ -161,7 +163,7 @@ function ArticleList({ worksheet, subMap }: { worksheet: Worksheet; subMap: Map<
                     </span>
                   ))}
                 </div>
-                <span className={cn("text-[13px] font-semibold", p.done ? "text-success" : "text-grey-500")}>
+                <span className={cn("shrink-0 text-[13px] font-semibold", p.done ? "text-success" : "text-grey-500")}>
                   {status}
                 </span>
               </div>

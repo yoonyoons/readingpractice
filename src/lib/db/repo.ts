@@ -17,6 +17,8 @@ export interface Repo {
   getClassByCode(code: string): Promise<ClassRoom | null>;
   listClasses(teacherId: string): Promise<ClassRoom[]>;
   deleteClass(id: string): Promise<void>;
+  updateClass(id: string, patch: Partial<Pick<ClassRoom, "name" | "autoDraft">>): Promise<ClassRoom>;
+  listAutoDraftClasses(): Promise<ClassRoom[]>;
 
   createStudent(student: StudentRecord): Promise<StudentRecord>;
   getStudent(id: string): Promise<StudentRecord | null>;

@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import type { GenerationEvent } from "@/lib/events";
-import { buildArticle, emptyArticle, pickTopics } from "@/lib/generation";
+import { buildAllArticles, emptyArticle, pickTopics } from "@/lib/generation";
 import { route } from "@/lib/http";
 import { requireTeacherClass } from "@/lib/session";
 import { newId, nowIso, weekTitle } from "@/lib/utils";
@@ -36,22 +36,12 @@ export const POST = route(async (_req: NextRequest, ctx: RouteContext<"/api/clas
           topics: topics.map((t) => ({ name: t.name, mentionCount: t.mentionCount })),
         });
 
-        const articles = worksheet.articles;
-        await Promise.all(
-          articles.map(async (article, index) => {
-            try {
-              const built = await buildArticle(
-                { name: article.topic, summary: article.topicSummary, sources: article.sources },
-                classRoom.gradeLevel,
-              );
-              articles[index] = { ...article, ...built, status: "ready", error: undefined };
-              send({ type: "article", index, status: "ready", title: built.title });
-            } catch (error) {
-              const message = error instanceof Error ? error.message : "알 수 없는 오류";
-              articles[index] = { ...article, status: "failed", error: message };
-              send({ type: "article", index, status: "failed", error: message });
-            }
-          }),
+        const articles = await buildAllArticles(worksheet.articles, classRoom.gradeLevel, (index, article) =>
+          send(
+            article.status === "ready"
+              ? { type: "article", index, status: "ready", title: article.title }
+              : { type: "article", index, status: "failed", error: article.error },
+          ),
         );
 
         await db.updateWorksheet(worksheet.id, { articles });

@@ -25,6 +25,9 @@ export const PATCH = route(async (req: NextRequest, ctx: Ctx) => {
       if (!a.title || a.paragraphs.filter(Boolean).length === 0) {
         throw new HttpError(400, `'${a.topic}' 기사의 제목과 본문을 채워 주세요.`);
       }
+      if (a.opinionQuestion && a.stances.length < 2) {
+        throw new HttpError(400, `'${a.topic}' 기사의 생각 나누기 입장을 2개 이상 입력해 주세요.`);
+      }
     }
   }
 

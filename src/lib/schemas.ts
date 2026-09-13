@@ -29,4 +29,9 @@ export const ArticleSchema = z.object({
   quiz: z.array(QuizItemSchema),
   keyPoints: z.array(z.string().trim()),
   modelSummary: z.string().trim(),
+  opinionQuestion: z.string().trim().default(""),
+  stances: z
+    .array(z.string().trim())
+    .default([])
+    .transform((stances) => stances.filter(Boolean)),
 });

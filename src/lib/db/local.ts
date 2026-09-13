@@ -97,6 +97,15 @@ export function createLocalRepo(): Repo {
         );
       }),
 
+    updateClass: (id, patch) =>
+      write((d) => {
+        const c = d.classes.find((x) => x.id === id);
+        if (!c) throw new Error("반을 찾을 수 없어요.");
+        Object.assign(c, patch);
+        return c;
+      }),
+    listAutoDraftClasses: () => read((d) => d.classes.filter((x) => x.autoDraft)),
+
     createStudent: (student) =>
       write((d) => {
         d.students.push(student);

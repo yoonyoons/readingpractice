@@ -8,8 +8,24 @@ interface DemoTopic {
   topicSummary: string;
   mentionCount: number;
   sources: SourceItem[];
-  draft: ArticleDraft;
+  draft: Omit<ArticleDraft, "opinionQuestion" | "stances">;
 }
+
+/** 예시 기사별 생각 나누기 질문 */
+export const DEMO_OPINIONS: Record<string, Pick<ArticleDraft, "opinionQuestion" | "stances">> = {
+  "폭염과 온열질환": {
+    opinionQuestion: "아주 더운 날에는 운동장 체육 수업을 실내 활동으로 바꿔야 할까요?",
+    stances: ["바꿔야 해요", "그대로 해도 돼요"],
+  },
+  "수업 중 스마트폰 사용": {
+    opinionQuestion: "수업 시간에 스마트폰 사용을 제한하는 규칙에 찬성하나요?",
+    stances: ["찬성해요", "반대해요"],
+  },
+  "투명 페트병 분리배출": {
+    opinionQuestion: "일회용품을 줄이기 위해 학교 안에서 일회용 컵 사용을 금지해야 할까요?",
+    stances: ["금지해야 해요", "금지까지는 필요 없어요"],
+  },
+};
 
 const demoSource = (title: string): SourceItem[] => [
   {

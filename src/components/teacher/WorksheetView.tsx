@@ -17,7 +17,16 @@ import {
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 import type { Article, QuizItem, QuizType, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
-import { BLANK, cn, formatDate, formatDateTime, latestSummary, QUIZ_TYPE_LABEL, quizResult } from "@/lib/utils";
+import {
+  BLANK,
+  cn,
+  formatDate,
+  formatDateTime,
+  hasOpinionStep,
+  latestSummary,
+  QUIZ_TYPE_LABEL,
+  quizResult,
+} from "@/lib/utils";
 
 interface StudentLite {
   id: string;
@@ -51,7 +60,7 @@ export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, stud
         {(
           [
             ["edit", "학습지 내용"],
-            ["results", `학생 결과`],
+            ["results", "학생 결과"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -88,7 +97,12 @@ export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, stud
 
 type EditableArticle = Article & { bodyText: string };
 
-const toEditable = (a: Article): EditableArticle => ({ ...a, bodyText: a.paragraphs.join("\n\n") });
+const toEditable = (a: Article): EditableArticle => ({
+  ...a,
+  opinionQuestion: a.opinionQuestion ?? "",
+  stances: a.stances ?? [],
+  bodyText: a.paragraphs.join("\n\n"),
+});
 
 function fromEditable({ bodyText, ...article }: EditableArticle): Article {
   return {
@@ -510,6 +524,51 @@ function ArticleForm({
           </div>
         </Card>
 
+        <Card>
+          <SectionTitle
+            title="생각 나누기"
+            action={
+              article.stances.length < 3 ? (
+                <Button variant="grey" size="sm" onClick={() => onChange({ stances: [...article.stances, ""] })}>
+                  + 입장
+                </Button>
+              ) : undefined
+            }
+          />
+          <p className="-mt-2 mb-3 text-[13px] leading-relaxed text-grey-500">
+            요약 뒤에 학생이 입장을 고르고 까닭을 써요. 제출한 학생은 친구들 생각을 이름 없이 볼 수 있어요. 질문을 비우면
+            이 단계를 건너뛰어요.
+          </p>
+          <Field label="질문">
+            <Textarea
+              compact
+              rows={2}
+              value={article.opinionQuestion}
+              onChange={(e) => onChange({ opinionQuestion: e.target.value })}
+            />
+          </Field>
+          <div className="mt-3 space-y-2">
+            {article.stances.map((stance, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  compact
+                  value={stance}
+                  placeholder={`입장 ${i + 1}`}
+                  onChange={(e) => onChange({ stances: article.stances.map((x, j) => (j === i ? e.target.value : x)) })}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-11"
+                  onClick={() => onChange({ stances: article.stances.filter((_, j) => j !== i) })}
+                >
+                  삭제
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+
         {article.sources.length > 0 && (
           <Card>
             <SectionTitle title="참고한 기사" />
@@ -634,7 +693,7 @@ function ResultsPanel({
   if (worksheet.status !== "published" && submissions.length === 0) {
     return (
       <Card className="mt-5">
-        <EmptyState icon="📮" title="아직 배포하지 않았어요" description="학습지를 배포하면 학생들의 완독·퀴즈·요약 결과가 여기에 모여요." />
+        <EmptyState icon="📮" title="아직 배포하지 않았어요" description="학습지를 배포하면 학생들의 완독·퀴즈·요약·생각 나누기 결과가 여기에 모여요." />
       </Card>
     );
   }
@@ -658,8 +717,8 @@ function ResultsPanel({
       quizAvg: quizDone.length
         ? Math.round((100 * quizDone.reduce((sum, s) => sum + quizResult(article, s).correct / article.quiz.length, 0)) / quizDone.length)
         : null,
-      summaryCount: scores.length,
       summaryAvg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      opinions: hasOpinionStep(article) ? subs.filter((s) => s.opinion).length : null,
     };
   });
 
@@ -667,7 +726,14 @@ function ResultsPanel({
     const header = [
       "번호",
       "이름",
-      ...articles.flatMap((_, i) => [`기사${i + 1} 완독`, `기사${i + 1} 퀴즈`, `기사${i + 1} 요약점수`, `기사${i + 1} 요약문`]),
+      ...articles.flatMap((_, i) => [
+        `기사${i + 1} 완독`,
+        `기사${i + 1} 퀴즈`,
+        `기사${i + 1} 요약점수`,
+        `기사${i + 1} 요약문`,
+        `기사${i + 1} 입장`,
+        `기사${i + 1} 생각`,
+      ]),
     ];
     const rows = students.map((s) => [
       s.number,
@@ -676,7 +742,14 @@ function ResultsPanel({
         const sub = subMap.get(`${s.id}:${a.id}`);
         const q = quizResult(a, sub);
         const summary = latestSummary(sub);
-        return [sub?.readAt ? "O" : "", q.answered ? `${q.correct}/${q.total}` : "", summary?.feedback.score ?? "", summary?.text ?? ""];
+        return [
+          sub?.readAt ? "O" : "",
+          q.answered ? `${q.correct}/${q.total}` : "",
+          summary?.feedback.score ?? "",
+          summary?.text ?? "",
+          sub?.opinion ? (a.stances[sub.opinion.stance] ?? "") : "",
+          sub?.opinion?.text ?? "",
+        ];
       }),
     ]);
     const csv = [header, ...rows]
@@ -699,10 +772,11 @@ function ResultsPanel({
             <p className="truncate text-[14px] font-semibold text-grey-500">
               {i + 1}. {s.article.topic}
             </p>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
               <Stat label="완독" value={`${s.read}/${students.length}`} />
-              <Stat label="퀴즈 평균" value={s.quizAvg === null ? "-" : `${s.quizAvg}%`} />
-              <Stat label="요약 평균" value={s.summaryAvg === null ? "-" : `${s.summaryAvg}점`} />
+              <Stat label="퀴즈" value={s.quizAvg === null ? "-" : `${s.quizAvg}%`} />
+              <Stat label="요약" value={s.summaryAvg === null ? "-" : `${s.summaryAvg}점`} />
+              <Stat label="생각" value={s.opinions === null ? "-" : `${s.opinions}명`} />
             </div>
           </Card>
         ))}
@@ -716,7 +790,7 @@ function ResultsPanel({
           </Button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-[14px]">
+          <table className="w-full min-w-[760px] text-[14px]">
             <thead>
               <tr className="border-y border-grey-100 bg-grey-50 text-left text-[13px] text-grey-500">
                 <th className="w-16 px-5 py-3 font-medium">번호</th>
@@ -757,7 +831,14 @@ function ResultsPanel({
         title={detail ? `${detail.student.number}번 ${detail.student.name}` : undefined}
         wide
       >
-        {detail && <StudentDetail article={detail.article} sub={subMap.get(`${detail.student.id}:${detail.article.id}`)} />}
+        {detail && (
+          <StudentDetail
+            worksheetId={worksheet.id}
+            studentId={detail.student.id}
+            article={detail.article}
+            sub={subMap.get(`${detail.student.id}:${detail.article.id}`)}
+          />
+        )}
       </Modal>
     </div>
   );
@@ -765,9 +846,9 @@ function ResultsPanel({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-grey-50 py-2.5">
+    <div className="rounded-xl bg-grey-50 px-1 py-2.5">
       <p className="text-[12px] text-grey-500">{label}</p>
-      <p className="mt-0.5 text-[17px] font-bold text-grey-900">{value}</p>
+      <p className="mt-0.5 text-[15px] font-bold text-grey-900">{value}</p>
     </div>
   );
 }
@@ -789,11 +870,22 @@ function ResultCell({ article, sub, onClick }: { article: Article; sub: Submissi
           요약 {summary.feedback.score}점
         </Badge>
       )}
+      {sub.opinion && <Badge tone={sub.opinion.hidden ? "orange" : "grey"}>생각 ✓</Badge>}
     </button>
   );
 }
 
-function StudentDetail({ article, sub }: { article: Article; sub: Submission | undefined }) {
+function StudentDetail({
+  worksheetId,
+  studentId,
+  article,
+  sub,
+}: {
+  worksheetId: string;
+  studentId: string;
+  article: Article;
+  sub: Submission | undefined;
+}) {
   if (!sub) return <p className="text-[15px] text-grey-500">아직 이 기사를 시작하지 않았어요.</p>;
   const q = quizResult(article, sub);
 
@@ -857,6 +949,72 @@ function StudentDetail({ article, sub }: { article: Article; sub: Submission | u
           ))
         )}
       </section>
+
+      {hasOpinionStep(article) && (
+        <section>
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-[16px] font-bold text-grey-900">생각 나누기</h4>
+            {sub.opinion && (
+              <OpinionHideButton
+                worksheetId={worksheetId}
+                articleId={article.id}
+                studentId={studentId}
+                hidden={sub.opinion.hidden}
+              />
+            )}
+          </div>
+          {sub.opinion ? (
+            <div className="mt-3 rounded-2xl bg-grey-50 p-4">
+              <p className="text-[13px] text-grey-500">{article.opinionQuestion}</p>
+              <div className="mt-2">
+                <Badge tone="blue">{article.stances[sub.opinion.stance]}</Badge>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-grey-800">{sub.opinion.text}</p>
+              {sub.opinion.hidden && (
+                <p className="mt-2 text-[13px] font-medium text-warning">친구들에게 보이지 않게 숨긴 의견이에요.</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-[14px] text-grey-500">아직 쓰지 않았어요.</p>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+function OpinionHideButton({
+  worksheetId,
+  articleId,
+  studentId,
+  hidden,
+}: {
+  worksheetId: string;
+  articleId: string;
+  studentId: string;
+  hidden: boolean;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function toggle() {
+    setLoading(true);
+    try {
+      await apiFetch(`/api/worksheets/${worksheetId}/opinions`, {
+        method: "PATCH",
+        body: { articleId, studentId, hidden: !hidden },
+      });
+      router.refresh();
+    } catch (e) {
+      window.alert(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button variant={hidden ? "secondary" : "grey"} size="sm" onClick={toggle} loading={loading}>
+      {hidden ? "다시 보이기" : "친구들에게 숨기기"}
+    </Button>
   );
 }

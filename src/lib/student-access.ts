@@ -24,7 +24,9 @@ export async function requireStudentArticle(worksheetId: string, articleId: stri
     quizAnswers: {},
     quizDoneAt: null,
     summaries: [],
+    opinion: null,
     updatedAt: nowIso(),
   };
+  submission.opinion ??= null;
   return { student, classRoom, worksheet, article, submission };
 }

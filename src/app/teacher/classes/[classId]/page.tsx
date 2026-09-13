@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
+import { AutoDraftToggle, ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
 import { GeneratePanel } from "@/components/teacher/GeneratePanel";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
@@ -9,7 +9,7 @@ import { getDb } from "@/lib/db";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
 import { getTeacher } from "@/lib/session";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isArticleDone } from "@/lib/utils";
 
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
   const { classId } = await props.params;
@@ -56,9 +56,10 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
               <ul className="mt-3 divide-y divide-grey-100">
                 {worksheets.map((w, i) => {
                   const ready = w.articles.filter((a) => a.status === "ready");
-                  const doneCount = submissionLists[i].filter(
-                    (s) => s.summaries.length > 0 && ready.some((a) => a.id === s.articleId),
-                  ).length;
+                  const doneCount = submissionLists[i].filter((s) => {
+                    const article = ready.find((a) => a.id === s.articleId);
+                    return article ? isArticleDone(article, s) : false;
+                  }).length;
                   const total = ready.length * students.length;
                   return (
                     <li key={w.id}>
@@ -79,7 +80,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
                         </div>
                         {w.status === "published" && total > 0 && (
                           <span className="shrink-0 text-[13px] font-semibold text-primary">
-                            요약 완료 {doneCount}/{total}
+                            학습 완료 {doneCount}/{total}
                           </span>
                         )}
                         <ChevronRight className="size-5 shrink-0 text-grey-300" />
@@ -94,6 +95,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
         <div className="space-y-5">
           <ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />
+          <AutoDraftToggle classId={classRoom.id} initial={Boolean(classRoom.autoDraft)} />
           <Card>
             <div className="flex items-baseline justify-between">
               <h2 className="text-[18px] font-bold">학생</h2>

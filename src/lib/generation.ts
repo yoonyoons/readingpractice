@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEMO_TOPICS } from "./demo-data";
+import { DEMO_OPINIONS, DEMO_TOPICS } from "./demo-data";
 import { isDemoGeneration } from "./env";
 import { generateJson } from "./gemini";
 import { GRADES } from "./grades";
@@ -99,16 +99,28 @@ const ArticleDraftSchema = z.object({
   quiz: z.array(QuizDraftSchema),
   keyPoints: z.array(z.string()),
   modelSummary: z.string(),
+  opinionQuestion: z.string(),
+  stances: z.array(z.string()),
 });
 
 export type ArticleDraft = z.infer<typeof ArticleDraftSchema>;
 
 export type BuiltArticle = Pick<
   Article,
-  "title" | "whyItMatters" | "paragraphs" | "vocab" | "quiz" | "keyPoints" | "modelSummary" | "sourceMode"
+  | "title"
+  | "whyItMatters"
+  | "paragraphs"
+  | "vocab"
+  | "quiz"
+  | "keyPoints"
+  | "modelSummary"
+  | "opinionQuestion"
+  | "stances"
+  | "sourceMode"
 >;
 
 const TYPE_ORDER: Record<QuizType, number> = { blank: 0, synonym: 1, comprehension: 2 };
+const DEFAULT_STANCES = ["그렇다고 생각해요", "아니라고 생각해요"];
 
 /** AI가 만든 초안을 검증해 학생에게 내보낼 수 있는 형태로 바꾼다. 형식이 맞지 않는 문항은 버린다. */
 export function normalizeDraft(draft: ArticleDraft): Omit<BuiltArticle, "sourceMode"> {
@@ -154,6 +166,8 @@ export function normalizeDraft(draft: ArticleDraft): Omit<BuiltArticle, "sourceM
   }
   quiz.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
 
+  const stances = [...new Set(draft.stances.map((s) => s.trim()).filter(Boolean))].slice(0, 3);
+
   return {
     title: draft.title.trim(),
     whyItMatters: draft.whyItMatters.trim(),
@@ -162,6 +176,8 @@ export function normalizeDraft(draft: ArticleDraft): Omit<BuiltArticle, "sourceM
     quiz,
     keyPoints: draft.keyPoints.map((k) => k.trim()).filter(Boolean).slice(0, 5),
     modelSummary: draft.modelSummary.trim(),
+    opinionQuestion: draft.opinionQuestion.trim(),
+    stances: stances.length >= 2 ? stances : DEFAULT_STANCES,
   };
 }
 
@@ -172,7 +188,7 @@ export async function buildArticle(
   if (isDemoGeneration()) {
     await sleep(900);
     const demo = DEMO_TOPICS.find((t) => t.topic === topic.name) ?? DEMO_TOPICS[0];
-    return { ...normalizeDraft(demo.draft), sourceMode: "demo" };
+    return { ...normalizeDraft({ ...demo.draft, ...DEMO_OPINIONS[demo.topic] }), sourceMode: "demo" };
   }
 
   const candidates = topic.sources.filter((s) => isNaverLink(s.url)).slice(0, 6);
@@ -218,7 +234,11 @@ ${snippets}
 - answer는 choices 가운데 하나와 글자까지 똑같아야 한다. explanation은 정답인 까닭을 학년 수준에 맞게 한두 문장.
 
 keyPoints: 좋은 요약에 꼭 들어가야 할 핵심 내용 3개(각 한 문장).
-modelSummary: ${g.modelSummaryLength} 분량의 모범 요약.`;
+modelSummary: ${g.modelSummaryLength} 분량의 모범 요약.
+
+생각 나누기
+- opinionQuestion: 기사를 읽은 학생이 자기 입장을 정하고 까닭을 쓸 수 있는 열린 질문 1개. 학생의 생활과 이어지면 더 좋다. 정답이 정해진 질문, 특정 정당·정치인·종교를 지지하는지 묻는 질문은 쓰지 않는다.
+- stances: 학생이 고를 입장 2~3개(각 15자 이내). 찬반이 갈리는 질문이면 "찬성해요", "반대해요"처럼, 아니면 서로 다른 선택지로 쓴다.`;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const draft = await generateJson(ArticleDraftSchema, { system: SYSTEM, prompt, temperature: 0.5 });
@@ -228,6 +248,43 @@ modelSummary: ${g.modelSummaryLength} 분량의 모범 요약.`;
     }
   }
   throw new Error("AI가 만든 퀴즈가 형식에 맞지 않아요. 이 기사만 다시 만들어 주세요.");
+}
+
+/** 기사들을 동시에 만들고, 하나가 끝날 때마다 onProgress를 부른다. 실패한 기사는 failed 상태로 남긴다. */
+export async function buildAllArticles(
+  articles: Article[],
+  grade: GradeLevel,
+  onProgress?: (index: number, article: Article) => void,
+): Promise<Article[]> {
+  const result = [...articles];
+  await Promise.all(
+    articles.map(async (article, index) => {
+      try {
+        const built = await buildArticle(
+          { name: article.topic, summary: article.topicSummary, sources: article.sources },
+          grade,
+        );
+        result[index] = { ...article, ...built, status: "ready", error: undefined };
+      } catch (error) {
+        result[index] = {
+          ...article,
+          status: "failed",
+          error: error instanceof Error ? error.message : "알 수 없는 오류",
+        };
+      }
+      onProgress?.(index, result[index]);
+    }),
+  );
+  return result;
+}
+
+/** 다른 반 학습지에 넣을 수 있도록 기사·퀴즈 id를 새로 매긴 복사본을 만든다 */
+export function cloneArticles(articles: Article[]): Article[] {
+  return structuredClone(articles).map((article) => ({
+    ...article,
+    id: newId(),
+    quiz: article.quiz.map((q) => ({ ...q, id: newId() })),
+  }));
 }
 
 export function emptyArticle(topic: TopicPick): Article {
@@ -246,6 +303,8 @@ export function emptyArticle(topic: TopicPick): Article {
     quiz: [],
     keyPoints: [],
     modelSummary: "",
+    opinionQuestion: "",
+    stances: [],
   };
 }
 

@@ -17,6 +17,8 @@ export interface ClassRoom {
   name: string;
   gradeLevel: GradeLevel;
   code: string;
+  /** 매주 월요일 아침에 학습지 초안을 자동으로 만들지 */
+  autoDraft: boolean;
   createdAt: string;
 }
 
@@ -76,6 +78,9 @@ export interface Article {
   quiz: QuizItem[];
   keyPoints: string[];
   modelSummary: string;
+  /** 생각 나누기 질문. 비어 있으면 이 단계를 건너뛴다 */
+  opinionQuestion: string;
+  stances: string[];
 }
 
 export type WorksheetStatus = "draft" | "published";
@@ -110,6 +115,14 @@ export interface QuizAnswer {
   correct: boolean;
 }
 
+export interface OpinionAnswer {
+  stance: number;
+  text: string;
+  submittedAt: string;
+  /** 교사가 친구들에게 보이지 않게 숨긴 의견 */
+  hidden: boolean;
+}
+
 export interface Submission {
   id: string;
   worksheetId: string;
@@ -119,6 +132,7 @@ export interface Submission {
   quizAnswers: Record<string, QuizAnswer>;
   quizDoneAt: string | null;
   summaries: SummaryAttempt[];
+  opinion: OpinionAnswer | null;
   updatedAt: string;
 }
 
@@ -132,4 +146,12 @@ export interface PublicArticle {
   vocab: VocabItem[];
   quiz: Omit<QuizItem, "answer" | "explanation">[];
   sources: SourceItem[];
+  opinionQuestion: string;
+  stances: string[];
+}
+
+/** 학생에게 보여주는 반 친구들의 익명 의견 모음 */
+export interface OpinionBoard {
+  counts: number[];
+  items: { stance: number; text: string; mine: boolean; hidden: boolean }[];
 }

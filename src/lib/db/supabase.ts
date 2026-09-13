@@ -26,6 +26,7 @@ const toClass = (r: any): ClassRoom => ({
   name: r.name,
   gradeLevel: r.grade_level as GradeLevel,
   code: r.code,
+  autoDraft: Boolean(r.auto_draft),
   createdAt: r.created_at,
 });
 
@@ -59,6 +60,7 @@ const toSubmission = (r: any): Submission => ({
   quizAnswers: r.quiz_answers ?? {},
   quizDoneAt: r.quiz_done_at,
   summaries: r.summaries ?? [],
+  opinion: r.opinion ?? null,
   updatedAt: r.updated_at,
 });
 
@@ -102,6 +104,7 @@ export function createSupabaseRepo(): Repo {
             name: c.name,
             grade_level: c.gradeLevel,
             code: c.code,
+            auto_draft: c.autoDraft,
             created_at: c.createdAt,
           })
           .select()
@@ -123,6 +126,16 @@ export function createSupabaseRepo(): Repo {
     },
     async deleteClass(id) {
       check(await sb.from("classes").delete().eq("id", id));
+    },
+    async updateClass(id, patch) {
+      const row: Record<string, unknown> = {};
+      if (patch.name !== undefined) row.name = patch.name;
+      if (patch.autoDraft !== undefined) row.auto_draft = patch.autoDraft;
+      return toClass(check(await sb.from("classes").update(row).eq("id", id).select().single()));
+    },
+    async listAutoDraftClasses() {
+      const rows = check(await sb.from("classes").select().eq("auto_draft", true));
+      return (rows ?? []).map(toClass);
     },
 
     async createStudent(s) {
@@ -246,6 +259,7 @@ export function createSupabaseRepo(): Repo {
               quiz_answers: s.quizAnswers,
               quiz_done_at: s.quizDoneAt,
               summaries: s.summaries,
+              opinion: s.opinion,
               updated_at: s.updatedAt,
             },
             { onConflict: "worksheet_id,article_id,student_id" },
