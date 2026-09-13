@@ -79,7 +79,7 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
   const attemptsLeft = MAX_SUMMARY_ATTEMPTS - summaries.length;
 
   return (
-    <div className="mx-auto min-h-dvh max-w-md bg-white">
+    <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
       <LessonHeader step={step} hasOpinion={hasOpinion} />
 
       {step === "read" && (
@@ -166,6 +166,13 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
   );
 }
 
+/* ───────────── 공통 레이아웃 (휴대폰: 한 단, 태블릿 가로: 넓은 본문·두 단) ───────────── */
+
+/** 본문 좌우 여백. 컨테이너 너비(md:max-w-3xl, lg:max-w-5xl)에 맞춰 커진다 */
+const PAD = "px-5 md:px-8 lg:px-12";
+/** 하단 고정 버튼 영역을 본문과 같은 너비·여백으로 맞춘다 */
+const BAR = "md:max-w-3xl md:px-8 lg:max-w-5xl lg:px-12";
+
 /* ───────────── 상단 단계 표시 ───────────── */
 
 const STEP_INDEX: Record<Step, number> = { read: 0, quiz: 1, quizDone: 1, summary: 2, result: 3, opinion: 3, board: 4 };
@@ -174,7 +181,7 @@ function LessonHeader({ step, hasOpinion }: { step: Step; hasOpinion: boolean })
   const labels = hasOpinion ? ["읽기", "퀴즈", "요약", "생각"] : ["읽기", "어휘 퀴즈", "요약"];
   const current = STEP_INDEX[step];
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur md:h-16 md:px-5 lg:px-9">
       <Link href="/s" className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
         <ChevronLeft />
       </Link>
@@ -187,7 +194,7 @@ function LessonHeader({ step, hasOpinion }: { step: Step; hasOpinion: boolean })
               {i > 0 && <span className="h-px w-2.5 bg-grey-300" />}
               <span
                 className={cn(
-                  "flex items-center gap-1 text-[13px] font-semibold",
+                  "flex items-center gap-1 text-[13px] font-semibold md:text-[14px]",
                   active ? "text-grey-900" : done ? "text-primary" : "text-grey-400",
                 )}
               >
@@ -265,13 +272,58 @@ function Sources({ sources }: { sources: SourceItem[] }) {
 
 function ArticleBody({ article, onWord }: { article: PublicArticle; onWord: (v: VocabItem) => void }) {
   return (
-    <div className="space-y-5 text-[17px] leading-[1.85] text-grey-800">
+    <div className="space-y-5 text-[17px] leading-[1.85] text-grey-800 md:text-[18px]">
       {article.paragraphs.map((p, i) => (
         <p key={i}>
           <HighlightedText text={p} vocab={article.vocab} onWord={onWord} />
         </p>
       ))}
     </div>
+  );
+}
+
+function WhyCard({ text }: { text: string }) {
+  if (!text) return null;
+  return (
+    <div className="rounded-2xl bg-grey-50 p-4">
+      <p className="text-[13px] font-bold text-primary">왜 알아야 할까요?</p>
+      <p className="mt-1 text-[15px] leading-relaxed text-grey-700">{text}</p>
+    </div>
+  );
+}
+
+/** 태블릿 가로 화면의 오른쪽에 붙는 핵심 어휘 목록. 누르면 뜻 창이 열린다 */
+function VocabAside({ vocab, onWord }: { vocab: VocabItem[]; onWord: (v: VocabItem) => void }) {
+  if (vocab.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-grey-100 p-4">
+      <p className="text-[13px] font-bold text-grey-800">핵심 어휘</p>
+      <ul className="mt-3 space-y-3">
+        {vocab.map((v) => (
+          <li key={v.word}>
+            <button type="button" onClick={() => onWord(v)} className="w-full text-left">
+              <span className="rounded bg-primary-weak px-1 text-[15px] font-semibold text-primary-hover">{v.word}</span>
+              <span className="mt-1 block text-[13px] leading-relaxed text-grey-600">{v.meaning}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** 태블릿 가로 화면에서 요약·생각 쓰기 옆에 항상 보이는 기사 패널 */
+function ArticlePanel({ article, onWord }: { article: PublicArticle; onWord: (v: VocabItem) => void }) {
+  return (
+    <aside className="hidden lg:block">
+      <div className="sticky top-[88px] max-h-[calc(100dvh-210px)] overflow-y-auto rounded-2xl border border-grey-100 p-5">
+        <p className="text-[12px] font-semibold text-grey-500">📰 기사 다시 보기</p>
+        <p className="mt-1 mb-3 text-[17px] font-bold text-grey-900">{article.title}</p>
+        <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
+          <ArticleBody article={article} onWord={onWord} />
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -333,34 +385,45 @@ function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; artic
 
   return (
     <>
-      <div className="sticky top-14 z-20 bg-white px-5 pb-2">
+      <div className={cn("sticky top-14 z-20 bg-white pb-2 md:top-16", PAD)}>
         <ProgressBar value={reachedEnd ? 1 : progress} className="h-1" />
       </div>
 
-      <article className="animate-fade-up px-5 pb-40 pt-4">
-        <Badge tone="blue">{article.topic}</Badge>
-        <h1 className="mt-3 text-[26px] font-bold leading-snug tracking-tight text-grey-900">{article.title}</h1>
-        <p className="mt-2 text-[13px] text-grey-400">🤖 AI가 뉴스를 조사해 쓰고 선생님이 확인한 기사예요</p>
+      <article className={cn("animate-fade-up pb-40 pt-4 md:pt-6", PAD)}>
+        {/* 태블릿 가로: 왼쪽 본문, 오른쪽에 '왜 알아야 할까요?'와 핵심 어휘 목록 */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
+          <div className="min-w-0">
+            <Badge tone="blue">{article.topic}</Badge>
+            <h1 className="mt-3 text-[26px] font-bold leading-snug tracking-tight text-grey-900 md:text-[32px]">
+              {article.title}
+            </h1>
+            <p className="mt-2 text-[13px] text-grey-400">🤖 AI가 뉴스를 조사해 쓰고 선생님이 확인한 기사예요</p>
 
-        {article.whyItMatters && (
-          <div className="mt-5 rounded-2xl bg-grey-50 p-4">
-            <p className="text-[13px] font-bold text-primary">왜 알아야 할까요?</p>
-            <p className="mt-1 text-[15px] leading-relaxed text-grey-700">{article.whyItMatters}</p>
+            <div className="mt-5 lg:hidden">
+              <WhyCard text={article.whyItMatters} />
+            </div>
+
+            {article.vocab.length > 0 && (
+              <p className="mt-6 text-[13px] text-grey-500">
+                <span className="rounded bg-primary-weak px-1 font-semibold text-primary-hover">파란 낱말</span>을 누르면
+                뜻을 볼 수 있어요
+              </p>
+            )}
+
+            <div className="mt-4">
+              <ArticleBody article={article} onWord={setActiveWord} />
+            </div>
+            <div ref={endRef} className="h-px" />
+            <Sources sources={article.sources} />
           </div>
-        )}
 
-        {article.vocab.length > 0 && (
-          <p className="mt-6 text-[13px] text-grey-500">
-            <span className="rounded bg-primary-weak px-1 font-semibold text-primary-hover">파란 낱말</span>을 누르면
-            뜻을 볼 수 있어요
-          </p>
-        )}
-
-        <div className="mt-4">
-          <ArticleBody article={article} onWord={setActiveWord} />
+          <aside className="hidden lg:block">
+            <div className="sticky top-[88px] space-y-4">
+              <WhyCard text={article.whyItMatters} />
+              <VocabAside vocab={article.vocab} onWord={setActiveWord} />
+            </div>
+          </aside>
         </div>
-        <div ref={endRef} className="h-px" />
-        <Sources sources={article.sources} />
       </article>
 
       <Modal open={Boolean(activeWord)} onClose={() => setActiveWord(null)} title={activeWord?.word}>
@@ -370,11 +433,11 @@ function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; artic
         </Button>
       </Modal>
 
-      <BottomBar>
+      <BottomBar className={BAR}>
         <div className="mb-2 text-center">
           <ErrorText>{error}</ErrorText>
         </div>
-        <Button size="lg" className="w-full" disabled={!canFinish} loading={saving} onClick={finish}>
+        <Button size="lg" className="w-full md:mx-auto md:block md:max-w-md" disabled={!canFinish} loading={saving} onClick={finish}>
           {label}
         </Button>
       </BottomBar>
@@ -469,7 +532,7 @@ function QuizStep({
 
   return (
     <>
-      <div key={q.id} className="animate-fade-up px-5 pb-40 pt-4">
+      <div key={q.id} className={cn("mx-auto w-full max-w-3xl animate-fade-up pb-40 pt-4 md:pt-8", PAD)}>
         <div className="flex items-center justify-between">
           <span className="text-[14px] font-semibold text-grey-500">
             <span className="text-primary">{index + 1}</span> / {quiz.length}
@@ -478,14 +541,15 @@ function QuizStep({
         </div>
         <ProgressBar value={(index + (result ? 1 : 0)) / quiz.length} className="mt-3" />
 
-        <h2 className="mt-7 text-[21px] font-bold leading-snug text-grey-900">{q.prompt}</h2>
+        <h2 className="mt-7 text-[21px] font-bold leading-snug text-grey-900 md:text-[24px]">{q.prompt}</h2>
         {q.sentence && (
-          <div className="mt-4 rounded-2xl bg-grey-50 p-4 text-[16px] leading-[1.8] text-grey-700">
+          <div className="mt-4 rounded-2xl bg-grey-50 p-4 text-[16px] leading-[1.8] text-grey-700 md:p-5 md:text-[17px]">
             <SentenceView q={q} />
           </div>
         )}
 
-        <div className="mt-6 space-y-2.5">
+        {/* 태블릿에서는 보기를 두 열로 */}
+        <div className="mt-6 grid gap-2.5 md:grid-cols-2 md:gap-3">
           {q.choices.map((choice, i) => {
             const isAnswer = result && i === result.answer;
             const isWrongPick = result && i === result.choice && !result.correct;
@@ -539,8 +603,8 @@ function QuizStep({
       </div>
 
       {result && (
-        <BottomBar>
-          <Button size="lg" className="w-full" onClick={next}>
+        <BottomBar className={BAR}>
+          <Button size="lg" className="w-full md:mx-auto md:block md:max-w-md" onClick={next}>
             {isLast ? "결과 보기" : "다음 문제"}
           </Button>
         </BottomBar>
@@ -561,18 +625,18 @@ function QuizDone({ score, onNext }: { score: Score; onNext: () => void }) {
 
   return (
     <>
-      <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center justify-center px-6 pb-32 text-center">
-        <div className="animate-pop text-7xl">{emoji}</div>
+      <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center justify-center px-6 pb-32 text-center md:min-h-[calc(100dvh-64px)]">
+        <div className="animate-pop text-7xl md:text-8xl">{emoji}</div>
         <p className="mt-8 text-[15px] font-semibold text-grey-500">어휘 퀴즈 결과</p>
-        <h2 className="animate-fade-up mt-2 text-[28px] font-bold leading-snug text-grey-900">
+        <h2 className="animate-fade-up mt-2 text-[28px] font-bold leading-snug text-grey-900 md:text-[34px]">
           {score.total}문제 중 <span className="text-primary">{score.correct}문제</span>
           <br />
           맞혔어요
         </h2>
-        <p className="mt-3 text-[16px] text-grey-600">{message}</p>
+        <p className="mt-3 text-[16px] text-grey-600 md:text-[17px]">{message}</p>
       </div>
-      <BottomBar>
-        <Button size="lg" className="w-full" onClick={onNext}>
+      <BottomBar className={BAR}>
+        <Button size="lg" className="w-full md:mx-auto md:block md:max-w-md" onClick={onNext}>
           요약하러 가기
         </Button>
       </BottomBar>
@@ -629,38 +693,47 @@ function SummaryStep({
 
   return (
     <>
-      <div className="animate-fade-up px-5 pb-40 pt-4">
-        <p className="text-[14px] font-semibold text-primary">스스로 요약하기</p>
-        <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900">
-          기사에서 중요한 내용을
-          <br />내 말로 정리해 볼까요?
-        </h2>
+      <div className={cn("animate-fade-up pb-40 pt-4 md:pt-8", PAD)}>
+        {/* 태블릿 가로: 왼쪽에 기사, 오른쪽에 요약 쓰기 */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-10">
+          <ArticlePanel article={article} onWord={setActiveWord} />
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {["무슨 일이 있었나요?", "왜 그런 일이 생겼나요?", "어떤 영향이 있나요?"].map((hint) => (
-            <span key={hint} className="rounded-full bg-grey-100 px-3 py-1.5 text-[13px] font-medium text-grey-600">
-              {hint}
-            </span>
-          ))}
-        </div>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-primary">스스로 요약하기</p>
+            <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">
+              기사에서 중요한 내용을
+              <br />내 말로 정리해 볼까요?
+            </h2>
 
-        <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["무슨 일이 있었나요?", "왜 그런 일이 생겼나요?", "어떤 영향이 있나요?"].map((hint) => (
+                <span key={hint} className="rounded-full bg-grey-100 px-3 py-1.5 text-[13px] font-medium text-grey-600">
+                  {hint}
+                </span>
+              ))}
+            </div>
 
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_SUMMARY_CHARS))}
-          rows={9}
-          placeholder="기사를 읽고 중요하다고 생각한 내용을 써 보세요."
-          className="mt-4 resize-none"
-        />
-        <div className="mt-2 flex items-center justify-between text-[13px]">
-          <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
-            {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
-          </span>
-          <span className="text-grey-500">남은 제출 기회 {attemptsLeft}번</span>
-        </div>
-        <div className="mt-3">
-          <ErrorText>{error}</ErrorText>
+            <div className="lg:hidden">
+              <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+            </div>
+
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value.slice(0, MAX_SUMMARY_CHARS))}
+              rows={9}
+              placeholder="기사를 읽고 중요하다고 생각한 내용을 써 보세요."
+              className="mt-4 resize-none lg:min-h-[360px]"
+            />
+            <div className="mt-2 flex items-center justify-between text-[13px]">
+              <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
+                {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
+              </span>
+              <span className="text-grey-500">남은 제출 기회 {attemptsLeft}번</span>
+            </div>
+            <div className="mt-3">
+              <ErrorText>{error}</ErrorText>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -668,8 +741,13 @@ function SummaryStep({
         <p className="text-[17px] leading-relaxed text-grey-700">{activeWord?.meaning}</p>
       </Modal>
 
-      <BottomBar>
-        <Button size="lg" className="w-full" disabled={length < minChars || attemptsLeft <= 0} onClick={submit}>
+      <BottomBar className={BAR}>
+        <Button
+          size="lg"
+          className="w-full md:ml-auto md:block md:max-w-md"
+          disabled={length < minChars || attemptsLeft <= 0}
+          onClick={submit}
+        >
           제출하고 피드백 받기
         </Button>
       </BottomBar>
@@ -774,63 +852,72 @@ function ResultStep({
   const { feedback } = attempt;
   return (
     <>
-      <div className="animate-fade-up px-5 pb-44 pt-6">
-        <p className="text-center text-[14px] font-semibold text-primary">요약 피드백</p>
-        <h2 className="mt-1.5 text-center text-[24px] font-bold text-grey-900">{scoreMessage(feedback.score)}</h2>
-        <div className="mt-6 flex justify-center">
-          <ScoreRing score={feedback.score} />
-        </div>
-
-        <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
-          <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
-          <ScoreRow label="내 말로 표현하기" value={feedback.breakdown.ownWords} max={30} />
-          <ScoreRow label="문장 완성도" value={feedback.breakdown.sentence} max={20} />
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <FeedbackCard icon="👍" title="잘한 점" text={feedback.strengths} />
-          <FeedbackCard icon="🔍" title="빠진 핵심 내용" text={feedback.missing} />
-          <FeedbackCard icon="💡" title="한 줄 조언" text={feedback.advice} />
-        </div>
-
-        <div className="mt-8">
-          <p className="text-[15px] font-bold text-grey-800">내가 쓴 요약</p>
-          <p className="mt-2 whitespace-pre-wrap rounded-2xl bg-grey-50 p-4 text-[15px] leading-relaxed text-grey-700">
-            {attempt.text}
-          </p>
-        </div>
-
-        {revealed && (
-          <details className="group mt-4 rounded-2xl border border-grey-100">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-[15px] font-bold text-grey-800">
-              모범 요약과 핵심 내용 보기
-              <span className="text-grey-400 transition group-open:rotate-180">▾</span>
-            </summary>
-            <div className="space-y-4 px-4 pb-4">
-              <p className="text-[15px] leading-relaxed text-grey-700">{revealed.modelSummary}</p>
-              <ul className="space-y-1.5">
-                {revealed.keyPoints.map((point, i) => (
-                  <li key={i} className="flex gap-2 text-[14px] text-grey-600">
-                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
+      <div className={cn("animate-fade-up pb-44 pt-6", PAD)}>
+        {/* 태블릿 가로: 왼쪽 점수, 오른쪽 피드백·내 요약 */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-12">
+          <div className="min-w-0">
+            <p className="text-center text-[14px] font-semibold text-primary">요약 피드백</p>
+            <h2 className="mt-1.5 text-center text-[24px] font-bold text-grey-900 md:text-[28px]">
+              {scoreMessage(feedback.score)}
+            </h2>
+            <div className="mt-6 flex justify-center">
+              <ScoreRing score={feedback.score} />
             </div>
-          </details>
-        )}
 
-        <p className="mt-6 text-center text-[14px] text-grey-500">
-          어휘 퀴즈 {quizScore.correct}/{quizScore.total}
-          {feedback.demo && " · 데모 모드에서는 간단한 규칙으로 채점해요"}
-        </p>
-        <p className="mt-1 text-center text-[13px] text-grey-400">
-          🤖 AI 선생님의 채점이라 틀릴 수도 있어요. 궁금하면 선생님께 물어보세요.
-        </p>
+            <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
+              <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
+              <ScoreRow label="내 말로 표현하기" value={feedback.breakdown.ownWords} max={30} />
+              <ScoreRow label="문장 완성도" value={feedback.breakdown.sentence} max={20} />
+            </div>
+
+            <p className="mt-6 text-center text-[14px] text-grey-500">
+              어휘 퀴즈 {quizScore.correct}/{quizScore.total}
+              {feedback.demo && " · 데모 모드에서는 간단한 규칙으로 채점해요"}
+            </p>
+            <p className="mt-1 text-center text-[13px] text-grey-400">
+              🤖 AI 선생님의 채점이라 틀릴 수도 있어요. 궁금하면 선생님께 물어보세요.
+            </p>
+          </div>
+
+          <div className="min-w-0">
+            <div className="mt-4 space-y-3 lg:mt-0">
+              <FeedbackCard icon="👍" title="잘한 점" text={feedback.strengths} />
+              <FeedbackCard icon="🔍" title="빠진 핵심 내용" text={feedback.missing} />
+              <FeedbackCard icon="💡" title="한 줄 조언" text={feedback.advice} />
+            </div>
+
+            <div className="mt-8">
+              <p className="text-[15px] font-bold text-grey-800">내가 쓴 요약</p>
+              <p className="mt-2 whitespace-pre-wrap rounded-2xl bg-grey-50 p-4 text-[15px] leading-relaxed text-grey-700">
+                {attempt.text}
+              </p>
+            </div>
+
+            {revealed && (
+              <details className="group mt-4 rounded-2xl border border-grey-100">
+                <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-[15px] font-bold text-grey-800">
+                  모범 요약과 핵심 내용 보기
+                  <span className="text-grey-400 transition group-open:rotate-180">▾</span>
+                </summary>
+                <div className="space-y-4 px-4 pb-4">
+                  <p className="text-[15px] leading-relaxed text-grey-700">{revealed.modelSummary}</p>
+                  <ul className="space-y-1.5">
+                    {revealed.keyPoints.map((point, i) => (
+                      <li key={i} className="flex gap-2 text-[14px] text-grey-600">
+                        <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
       </div>
 
-      <BottomBar>
-        <div className="flex gap-2">
+      <BottomBar className={BAR}>
+        <div className="flex gap-2 md:ml-auto md:max-w-lg">
           {attemptsLeft > 0 && (
             <Button size="lg" variant="grey" className="flex-1" onClick={onRetry}>
               다시 쓰기 ({attemptsLeft})
@@ -892,12 +979,18 @@ function OpinionStep({
 
   return (
     <>
-      <div className="animate-fade-up px-5 pb-40 pt-4">
+      <div className={cn("animate-fade-up pb-40 pt-4 md:pt-8", PAD)}>
+        {/* 태블릿 가로: 왼쪽에 기사, 오른쪽에 생각 쓰기 */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-10">
+          <ArticlePanel article={article} onWord={setActiveWord} />
+
+          <div className="min-w-0">
         <p className="text-[14px] font-semibold text-primary">생각 나누기</p>
-        <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900">{article.opinionQuestion}</h2>
+        <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">{article.opinionQuestion}</h2>
         <p className="mt-2 text-[14px] text-grey-500">정답은 없어요. 내 생각과 그렇게 생각한 까닭을 써 보세요.</p>
 
-        <div className="mt-6 grid gap-2.5">
+        {/* 태블릿에서는 입장 버튼을 가로로 나란히 */}
+        <div className="mt-6 grid gap-2.5 md:grid-flow-col md:auto-cols-fr md:gap-3">
           {article.stances.map((label, i) => (
             <button
               key={i}
@@ -938,9 +1031,13 @@ function OpinionStep({
           <span className="text-grey-500">친구들에게는 이름 없이 보여요</span>
         </div>
 
-        <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+        <div className="lg:hidden">
+          <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+        </div>
         <div className="mt-3">
           <ErrorText>{error}</ErrorText>
+        </div>
+          </div>
         </div>
       </div>
 
@@ -948,8 +1045,14 @@ function OpinionStep({
         <p className="text-[17px] leading-relaxed text-grey-700">{activeWord?.meaning}</p>
       </Modal>
 
-      <BottomBar>
-        <Button size="lg" className="w-full" disabled={stance === null || length < minChars} loading={loading} onClick={submit}>
+      <BottomBar className={BAR}>
+        <Button
+          size="lg"
+          className="w-full md:ml-auto md:block md:max-w-md"
+          disabled={stance === null || length < minChars}
+          loading={loading}
+          onClick={submit}
+        >
           {initial ? "고친 생각 제출하기" : "제출하고 친구들 생각 보기"}
         </Button>
       </BottomBar>
@@ -987,9 +1090,12 @@ function BoardStep({
 
   return (
     <>
-      <div className="animate-fade-up px-5 pb-44 pt-4">
+      <div className={cn("animate-fade-up pb-44 pt-4 md:pt-8", PAD)}>
+        {/* 태블릿 가로: 왼쪽 결과·내 생각, 오른쪽 친구들 생각 */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-12">
+          <div className="min-w-0">
         <p className="text-[14px] font-semibold text-primary">우리 반 친구들의 생각</p>
-        <h2 className="mt-1.5 text-[21px] font-bold leading-snug text-grey-900">{article.opinionQuestion}</h2>
+        <h2 className="mt-1.5 text-[21px] font-bold leading-snug text-grey-900 md:text-[24px]">{article.opinionQuestion}</h2>
 
         <div className="mt-6 space-y-4 rounded-2xl border border-grey-100 p-5">
           {article.stances.map((label, i) => {
@@ -1024,7 +1130,19 @@ function BoardStep({
           <OpinionCard stance={article.stances[opinion.stance]} text={opinion.text} mine hidden={opinion.hidden} />
         </div>
 
-        <p className="mt-7 text-[15px] font-bold text-grey-800">친구들 생각 {others.length}개</p>
+        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 max-lg:hidden">
+          <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
+            요약 피드백 보기
+          </button>
+          <span className="text-grey-300">|</span>
+          <button type="button" onClick={onEdit} className="hover:text-grey-800">
+            내 생각 고치기
+          </button>
+        </div>
+          </div>
+
+          <div className="min-w-0">
+        <p className="mt-7 text-[15px] font-bold text-grey-800 lg:mt-0">친구들 생각 {others.length}개</p>
         {others.length === 0 ? (
           <p className="mt-2 rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
             아직 다른 친구의 생각이 없어요.
@@ -1039,7 +1157,7 @@ function BoardStep({
           </div>
         )}
 
-        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500">
+        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 lg:hidden">
           <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
             요약 피드백 보기
           </button>
@@ -1048,10 +1166,12 @@ function BoardStep({
             내 생각 고치기
           </button>
         </div>
+          </div>
+        </div>
       </div>
 
-      <BottomBar>
-        <LinkButton href={nextHref ?? "/s"} size="lg" className="w-full">
+      <BottomBar className={BAR}>
+        <LinkButton href={nextHref ?? "/s"} size="lg" className="w-full md:ml-auto md:flex md:max-w-md">
           {nextHref ? "다음 기사 읽기" : "이번 기사 학습 마치기"}
         </LinkButton>
       </BottomBar>

@@ -65,7 +65,8 @@ export function JoinForm() {
     );
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md bg-white px-5 pb-32">
+    // 휴대폰: 전체 화면, 태블릿 이상: 가운데 놓인 카드
+    <main className="mx-auto min-h-dvh w-full max-w-md bg-white px-5 pb-32 md:my-10 md:min-h-0 md:max-w-lg md:rounded-3xl md:px-10 md:pb-10 md:pt-2 md:shadow-sm">
       <div className="flex h-14 items-center">{back}</div>
 
       {step === "code" ? (
@@ -94,7 +95,7 @@ export function JoinForm() {
               운영 정책 보기
             </Link>
           </div>
-          <BottomBar>
+          <BottomBar inline>
             <Button type="submit" form="code-form" size="lg" className="w-full" disabled={code.length !== 6} loading={loading}>
               다음
             </Button>
@@ -137,7 +138,7 @@ export function JoinForm() {
             </Field>
             <ErrorText>{error}</ErrorText>
           </div>
-          <BottomBar>
+          <BottomBar inline>
             <Button
               type="submit"
               form="info-form"

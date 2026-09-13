@@ -21,7 +21,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function PolicyPage() {
   return (
-    <main className="mx-auto min-h-dvh max-w-2xl bg-white px-5 pb-16 pt-6">
+    <main className="mx-auto min-h-dvh w-full max-w-2xl bg-white px-5 pb-16 pt-6 md:my-8 md:min-h-0 md:max-w-3xl md:rounded-3xl md:px-10 md:shadow-sm">
       <Link href="/" className="-ml-2 inline-flex rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="처음으로">
         <ChevronLeft />
       </Link>

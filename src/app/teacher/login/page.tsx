@@ -7,7 +7,7 @@ import { getTeacher } from "@/lib/session";
 export default async function TeacherLoginPage() {
   if (await getTeacher()) redirect("/teacher");
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-12">
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 md:max-w-md">
       <Link href="/" className="text-[15px] font-semibold text-primary">
         시사 문해력 기르기
       </Link>

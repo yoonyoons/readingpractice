@@ -105,11 +105,20 @@ export function Textarea({ className, compact, ...props }: ComponentProps<"texta
   );
 }
 
-/** 모바일 화면 아래에 고정되는 버튼 영역 */
-export function BottomBar({ children }: { children: ReactNode }) {
+/**
+ * 화면 아래에 고정되는 버튼 영역. className으로 본문과 같은 너비(md:max-w-3xl 등)를 맞춘다.
+ * inline이면 태블릿(md) 이상에서는 고정하지 않고 본문 흐름 안에 놓인다.
+ */
+export function BottomBar({ children, className, inline }: { children: ReactNode; className?: string; inline?: boolean }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40">
-      <div className="mx-auto max-w-md bg-linear-to-t from-white from-75% to-white/0 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-8">
+    <div className={cn("fixed inset-x-0 bottom-0 z-40", inline && "md:static")}>
+      <div
+        className={cn(
+          "mx-auto max-w-md bg-linear-to-t from-white from-75% to-white/0 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-8",
+          inline && "md:max-w-none md:bg-none md:px-0 md:pb-0",
+          className,
+        )}
+      >
         {children}
       </div>
     </div>
