@@ -33,15 +33,18 @@ export async function generateJson<S extends z.ZodType>(
   schema: S,
   options: { system: string; prompt: string; effort?: Effort; model?: string },
 ): Promise<z.output<S>> {
+  const model = options.model ?? claudeModel();
+  // Haiku 계열은 effort 옵션을 지원하지 않는다
+  const effort = model.startsWith("claude-haiku") ? {} : { effort: options.effort ?? "high" };
   const response = await ai().beta.messages.parse({
-    model: options.model ?? claudeModel(),
+    model,
     max_tokens: 16000,
     betas: [FALLBACK_BETA],
     fallbacks: "default",
     system: options.system,
     messages: [{ role: "user", content: options.prompt }],
     output_config: {
-      effort: options.effort ?? "high",
+      ...effort,
       format: zodOutputFormat(schema),
     },
   });
