@@ -31,10 +31,10 @@ function assertUsable(response: { stop_reason: string | null }) {
  */
 export async function generateJson<S extends z.ZodType>(
   schema: S,
-  options: { system: string; prompt: string; effort?: Effort },
+  options: { system: string; prompt: string; effort?: Effort; model?: string },
 ): Promise<z.output<S>> {
   const response = await ai().beta.messages.parse({
-    model: claudeModel(),
+    model: options.model ?? claudeModel(),
     max_tokens: 16000,
     betas: [FALLBACK_BETA],
     fallbacks: "default",
