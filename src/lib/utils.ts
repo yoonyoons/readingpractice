@@ -50,6 +50,15 @@ function seoulParts(date: Date) {
   return { month: get("month"), day: get("day") };
 }
 
+/** 서울 시간 기준 이번 주 월요일 0시 (ISO 문자열) */
+export function weekStartIso(date = new Date()) {
+  const KST = 9 * 60 * 60 * 1000;
+  const kst = new Date(date.getTime() + KST);
+  const daysSinceMonday = (kst.getUTCDay() + 6) % 7;
+  const mondayKst = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - daysSinceMonday);
+  return new Date(mondayKst - KST).toISOString();
+}
+
 export function weekTitle(date = new Date()) {
   const { month, day } = seoulParts(date);
   return `${month}월 ${ORDINALS[Math.ceil(day / 7) - 1]} 주 시사 학습지`;

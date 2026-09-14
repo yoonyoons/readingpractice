@@ -260,7 +260,9 @@ export async function buildAllArticles(
           grade,
           demo,
         );
-        result[index] = { ...article, ...built, status: "ready", error: undefined };
+        // 붙여넣은 기사로 만든 기사는 다시 만들어도 출처 종류(url)를 유지한다
+        const sourceMode = article.sourceMode === "url" && built.sourceMode === "web" ? "url" : built.sourceMode;
+        result[index] = { ...article, ...built, sourceMode, status: "ready", error: undefined };
       } catch (error) {
         result[index] = {
           ...article,

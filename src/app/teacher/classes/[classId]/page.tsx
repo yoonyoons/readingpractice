@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { AutoDraftToggle, ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
+import { CustomWorksheetPanel } from "@/components/teacher/CustomWorksheetPanel";
 import { GeneratePanel } from "@/components/teacher/GeneratePanel";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
@@ -9,6 +10,7 @@ import { getDb } from "@/lib/db";
 import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
+import { findReusableWorksheet } from "@/lib/reuse";
 import { getTeacher } from "@/lib/session";
 import { formatDate, isArticleDone } from "@/lib/utils";
 
@@ -21,7 +23,12 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   const classRoom = await db.getClass(classId);
   if (!classRoom || classRoom.teacherId !== teacher.id) notFound();
 
-  const [students, worksheets] = await Promise.all([db.listStudents(classId), db.listWorksheets(classId)]);
+  const demo = isDemoGeneration() || isDemoTeacher(teacher);
+  const [students, worksheets, reusable] = await Promise.all([
+    db.listStudents(classId),
+    db.listWorksheets(classId),
+    findReusableWorksheet(classRoom, demo),
+  ]);
   const submissionLists = await Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id)));
 
   const h = await headers();
@@ -45,7 +52,13 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          <GeneratePanel classId={classRoom.id} gradeLabel={grade.label} demo={isDemoGeneration() || isDemoTeacher(teacher)} />
+          <GeneratePanel
+            classId={classRoom.id}
+            gradeLabel={grade.label}
+            demo={demo}
+            reusable={reusable ? { titles: reusable.articles.map((a) => a.title || a.topic) } : null}
+          />
+          <CustomWorksheetPanel classId={classRoom.id} gradeLabel={grade.label} demo={demo} />
 
           <Card>
             <h2 className="text-[18px] font-bold">학습지</h2>

@@ -234,6 +234,18 @@ export function createSupabaseRepo(): Repo {
       );
       return (rows ?? []).map(toWorksheet);
     },
+    async listWorksheetsSince(gradeLevel, sinceIso) {
+      const rows = check(
+        await sb
+          .from("worksheets")
+          .select("*, classes!inner(grade_level)")
+          .eq("classes.grade_level", gradeLevel)
+          .gte("created_at", sinceIso)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      );
+      return (rows ?? []).map(toWorksheet);
+    },
     async updateWorksheet(id, patch) {
       const row: Record<string, unknown> = {};
       if (patch.title !== undefined) row.title = patch.title;

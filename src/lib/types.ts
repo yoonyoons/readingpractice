@@ -69,8 +69,8 @@ export interface SourceItem {
 }
 
 export type ArticleStatus = "pending" | "ready" | "failed";
-/** web: Claude 웹 검색 기반, demo: 예시 기사. crawled·snippets는 이전 버전(네이버)으로 만든 기사 */
-export type SourceMode = "web" | "demo" | "crawled" | "snippets";
+/** web: 뉴스 검색 기반, url: 교사가 붙여넣은 기사 기반(나만의 학습지), demo: 예시 기사. crawled·snippets는 이전 버전(네이버)으로 만든 기사 */
+export type SourceMode = "web" | "url" | "demo" | "crawled" | "snippets";
 
 export interface Article {
   id: string;

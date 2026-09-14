@@ -155,6 +155,13 @@ export function createLocalRepo(): Repo {
           .filter((x) => x.classId === classId)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       ),
+    listWorksheetsSince: (gradeLevel, sinceIso) =>
+      read((d) => {
+        const classIds = new Set(d.classes.filter((c) => c.gradeLevel === gradeLevel).map((c) => c.id));
+        return d.worksheets
+          .filter((w) => classIds.has(w.classId) && w.createdAt >= sinceIso)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      }),
     updateWorksheet: (id, patch) =>
       write((d) => {
         const w = d.worksheets.find((x) => x.id === id);

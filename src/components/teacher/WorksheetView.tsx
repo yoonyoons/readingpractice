@@ -116,6 +116,7 @@ function fromEditable({ bodyText, ...article }: EditableArticle): Article {
 
 const SOURCE_LABEL: Record<SourceMode, string> = {
   web: "웹 검색 기반",
+  url: "붙여넣은 기사 기반",
   crawled: "원문 기사 기반",
   snippets: "기사 요약 기반",
   demo: "예시 기사 (데모)",

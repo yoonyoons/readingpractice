@@ -1,6 +1,7 @@
 import type {
   ClassRoom,
   EmailVerification,
+  GradeLevel,
   StudentRecord,
   Submission,
   Teacher,
@@ -37,6 +38,8 @@ export interface Repo {
   getWorksheet(id: string): Promise<Worksheet | null>;
   /** 최신순 */
   listWorksheets(classId: string): Promise<Worksheet[]>;
+  /** 이 학년군 반들의 학습지 중 sinceIso 이후에 만든 것 (최신순, 모든 교사) */
+  listWorksheetsSince(gradeLevel: GradeLevel, sinceIso: string): Promise<Worksheet[]>;
   updateWorksheet(
     id: string,
     patch: Partial<Pick<Worksheet, "title" | "status" | "articles" | "publishedAt">>,

@@ -2,15 +2,29 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Card, CheckIcon, Modal, Spinner } from "@/components/ui";
+import { Button, Card, CheckIcon, ErrorText, Modal, Spinner } from "@/components/ui";
+import { apiFetch, errorMessage } from "@/lib/client-api";
 import type { GenerationEvent } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 type TopicRow = { name: string; mentionCount: number; status: "building" | "ready" | "failed"; title?: string; error?: string };
 type Stage = "idle" | "collect" | "build" | "done" | "error";
 
-export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; gradeLabel: string; demo: boolean }) {
+export function GeneratePanel({
+  classId,
+  gradeLabel,
+  demo,
+  reusable,
+}: {
+  classId: string;
+  gradeLabel: string;
+  demo: boolean;
+  /** 이번 주 같은 학년군 다른 반에서 만든 학습지가 있으면 그 기사 제목들 */
+  reusable: { titles: string[] } | null;
+}) {
   const router = useRouter();
+  const [reusing, setReusing] = useState(false);
+  const [reuseError, setReuseError] = useState("");
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("idle");
   const [topics, setTopics] = useState<TopicRow[]>([]);
@@ -43,6 +57,18 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
         setStage("error");
         router.refresh();
         break;
+    }
+  }
+
+  async function reuse() {
+    setReusing(true);
+    setReuseError("");
+    try {
+      const r = await apiFetch<{ worksheetId: string }>(`/api/classes/${classId}/reuse`);
+      router.push(`/teacher/classes/${classId}/worksheets/${r.worksheetId}`);
+    } catch (e) {
+      setReuseError(errorMessage(e));
+      setReusing(false);
     }
   }
 
@@ -97,9 +123,36 @@ export function GeneratePanel({ classId, gradeLabel, demo }: { classId: string; 
         {demo && (
           <p className="mt-2 text-[13px] font-medium text-warning">Brave·Anthropic API 키가 없어 예시 기사로 만들어요 (데모 모드)</p>
         )}
-        <Button size="lg" className="mt-5 w-full sm:w-auto" onClick={start} disabled={running}>
-          ✨ 학습지 만들기
-        </Button>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <Button size="lg" className="w-full sm:w-auto" onClick={start} disabled={running || reusing}>
+            ✨ 학습지 만들기
+          </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={reuse}
+            loading={reusing}
+            disabled={running || !reusable}
+          >
+            📥 이번 주 기사 불러오기
+          </Button>
+        </div>
+        <p className="mt-3 text-[13px] leading-relaxed text-grey-500">
+          {reusable ? (
+            <>
+              이번 주 {gradeLabel} 반에서 만든 기사가 있어요. 불러오면 AI를 다시 부르지 않아 비용 없이 바로 초안이
+              만들어져요.
+              <b className="mt-1 block text-grey-700">{reusable.titles.map((t) => `「${t}」`).join(" ")}</b>
+            </>
+          ) : (
+            <>
+              이번 주 {gradeLabel} 반에서 만든 학습지가 아직 없어요. 한 반에서 만들면 같은 학년군의 다른 반은 비용 없이
+              불러올 수 있어요.
+            </>
+          )}
+        </p>
+        {reuseError && <ErrorText>{reuseError}</ErrorText>}
       </Card>
 
       <Modal open={open} onClose={running ? undefined : () => setOpen(false)} title="학습지를 만들고 있어요">
