@@ -61,7 +61,7 @@ export function WeeklyArticlesPanel({
       />
       <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
         매주 월요일 아침, 지난 7일 한국·세계 주요 뉴스에서 주제 2개(정치·날씨 제외)를 골라 <b>{gradeLabel}</b> 수준의
-        기사·어휘 퀴즈·생각 나누기 질문을 미리 만들어 둬요. 불러오면 바로 초안이 생기고, 배포 전에 미리 보고 고칠 수 있어요.
+        기사·퀴즈·생각 나누기 질문을 미리 만들어 둬요. 불러오면 바로 초안이 생기고, 배포 전에 미리 보고 고칠 수 있어요.
       </p>
 
       {ready ? (

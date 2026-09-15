@@ -130,9 +130,9 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
           next={
             hasOpinion
               ? {
-                  label: opinion ? "친구들 생각 보기" : "생각 나누러 가기",
-                  onClick: () => go(opinion ? "board" : "opinion"),
-                }
+                label: opinion ? "친구들 생각 보기" : "생각 나누러 가기",
+                onClick: () => go(opinion ? "board" : "opinion"),
+              }
               : null
           }
         />
@@ -178,7 +178,7 @@ const BAR = "md:max-w-3xl md:px-8 lg:max-w-5xl lg:px-12";
 const STEP_INDEX: Record<Step, number> = { read: 0, quiz: 1, quizDone: 1, summary: 2, result: 3, opinion: 3, board: 4 };
 
 function LessonHeader({ step, hasOpinion }: { step: Step; hasOpinion: boolean }) {
-  const labels = hasOpinion ? ["읽기", "퀴즈", "요약", "생각"] : ["읽기", "어휘 퀴즈", "요약"];
+  const labels = hasOpinion ? ["읽기", "퀴즈", "요약", "생각"] : ["읽기", "퀴즈", "요약"];
   const current = STEP_INDEX[step];
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur md:h-16 md:px-5 lg:px-9">
@@ -985,58 +985,58 @@ function OpinionStep({
           <ArticlePanel article={article} onWord={setActiveWord} />
 
           <div className="min-w-0">
-        <p className="text-[14px] font-semibold text-primary">생각 나누기</p>
-        <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">{article.opinionQuestion}</h2>
-        <p className="mt-2 text-[14px] text-grey-500">정답은 없어요. 내 생각과 그렇게 생각한 까닭을 써 보세요.</p>
+            <p className="text-[14px] font-semibold text-primary">생각 나누기</p>
+            <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">{article.opinionQuestion}</h2>
+            <p className="mt-2 text-[14px] text-grey-500">정답은 없어요. 내 생각과 그렇게 생각한 까닭을 써 보세요.</p>
 
-        {/* 태블릿에서는 입장 버튼을 가로로 나란히 */}
-        <div className="mt-6 grid gap-2.5 md:grid-flow-col md:auto-cols-fr md:gap-3">
-          {article.stances.map((label, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setStance(i)}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl border-2 px-4 py-4 text-left text-[16px] font-semibold transition active:scale-[0.99]",
-                stance === i
-                  ? "border-primary bg-primary-weak text-grey-900"
-                  : "border-transparent bg-grey-50 text-grey-700 hover:bg-grey-100",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full border-2",
-                  stance === i ? "border-primary bg-primary text-white" : "border-grey-300 bg-white",
-                )}
-              >
-                {stance === i && <CheckIcon className="size-3.5" />}
+            {/* 태블릿에서는 입장 버튼을 가로로 나란히 */}
+            <div className="mt-6 grid gap-2.5 md:grid-flow-col md:auto-cols-fr md:gap-3">
+              {article.stances.map((label, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setStance(i)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 px-4 py-4 text-left text-[16px] font-semibold transition active:scale-[0.99]",
+                    stance === i
+                      ? "border-primary bg-primary-weak text-grey-900"
+                      : "border-transparent bg-grey-50 text-grey-700 hover:bg-grey-100",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border-2",
+                      stance === i ? "border-primary bg-primary text-white" : "border-grey-300 bg-white",
+                    )}
+                  >
+                    {stance === i && <CheckIcon className="size-3.5" />}
+                  </span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-7 text-[15px] font-bold text-grey-800">왜 그렇게 생각하나요?</p>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value.slice(0, MAX_OPINION_CHARS))}
+              rows={6}
+              placeholder="기사 내용이나 내 경험을 근거로 까닭을 써 보세요."
+              className="mt-2 resize-none"
+            />
+            <div className="mt-2 flex items-center justify-between text-[13px]">
+              <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
+                {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
               </span>
-              {label}
-            </button>
-          ))}
-        </div>
+              <span className="text-grey-500">친구들에게는 이름 없이 보여요</span>
+            </div>
 
-        <p className="mt-7 text-[15px] font-bold text-grey-800">왜 그렇게 생각하나요?</p>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_OPINION_CHARS))}
-          rows={6}
-          placeholder="기사 내용이나 내 경험을 근거로 까닭을 써 보세요."
-          className="mt-2 resize-none"
-        />
-        <div className="mt-2 flex items-center justify-between text-[13px]">
-          <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
-            {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
-          </span>
-          <span className="text-grey-500">친구들에게는 이름 없이 보여요</span>
-        </div>
-
-        <div className="lg:hidden">
-          <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
-        </div>
-        <div className="mt-3">
-          <ErrorText>{error}</ErrorText>
-        </div>
+            <div className="lg:hidden">
+              <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
+            </div>
+            <div className="mt-3">
+              <ErrorText>{error}</ErrorText>
+            </div>
           </div>
         </div>
       </div>
@@ -1094,78 +1094,78 @@ function BoardStep({
         {/* 태블릿 가로: 왼쪽 결과·내 생각, 오른쪽 친구들 생각 */}
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
           <div className="min-w-0">
-        <p className="text-[14px] font-semibold text-primary">우리 반 친구들의 생각</p>
-        <h2 className="mt-1.5 text-[21px] font-bold leading-snug text-grey-900 md:text-[24px]">{article.opinionQuestion}</h2>
+            <p className="text-[14px] font-semibold text-primary">우리 반 친구들의 생각</p>
+            <h2 className="mt-1.5 text-[21px] font-bold leading-snug text-grey-900 md:text-[24px]">{article.opinionQuestion}</h2>
 
-        <div className="mt-6 space-y-4 rounded-2xl border border-grey-100 p-5">
-          {article.stances.map((label, i) => {
-            const count = board.counts[i] ?? 0;
-            const percent = total ? Math.round((count * 100) / total) : 0;
-            const mine = opinion.stance === i;
-            return (
-              <div key={i}>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className={cn("font-semibold", mine ? "text-primary" : "text-grey-700")}>
-                    {label}
-                    {mine && <span className="ml-1.5 text-[12px] font-medium">· 내 선택</span>}
-                  </span>
-                  <span className="text-grey-500">
-                    {count}명 · {percent}%
-                  </span>
-                </div>
-                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-grey-100">
-                  <div
-                    className={cn("h-full rounded-full transition-[width] duration-700", mine ? "bg-primary" : "bg-grey-400")}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <p className="text-[13px] text-grey-500">지금까지 {total}명이 생각을 나눴어요</p>
-        </div>
+            <div className="mt-6 space-y-4 rounded-2xl border border-grey-100 p-5">
+              {article.stances.map((label, i) => {
+                const count = board.counts[i] ?? 0;
+                const percent = total ? Math.round((count * 100) / total) : 0;
+                const mine = opinion.stance === i;
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-[14px]">
+                      <span className={cn("font-semibold", mine ? "text-primary" : "text-grey-700")}>
+                        {label}
+                        {mine && <span className="ml-1.5 text-[12px] font-medium">· 내 선택</span>}
+                      </span>
+                      <span className="text-grey-500">
+                        {count}명 · {percent}%
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-grey-100">
+                      <div
+                        className={cn("h-full rounded-full transition-[width] duration-700", mine ? "bg-primary" : "bg-grey-400")}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-[13px] text-grey-500">지금까지 {total}명이 생각을 나눴어요</p>
+            </div>
 
-        <p className="mt-7 text-[15px] font-bold text-grey-800">내 생각</p>
-        <div className="mt-2">
-          <OpinionCard stance={article.stances[opinion.stance]} text={opinion.text} mine hidden={opinion.hidden} />
-        </div>
+            <p className="mt-7 text-[15px] font-bold text-grey-800">내 생각</p>
+            <div className="mt-2">
+              <OpinionCard stance={article.stances[opinion.stance]} text={opinion.text} mine hidden={opinion.hidden} />
+            </div>
 
-        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 max-lg:hidden">
-          <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
-            요약 피드백 보기
-          </button>
-          <span className="text-grey-300">|</span>
-          <button type="button" onClick={onEdit} className="hover:text-grey-800">
-            내 생각 고치기
-          </button>
-        </div>
+            <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 max-lg:hidden">
+              <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
+                요약 피드백 보기
+              </button>
+              <span className="text-grey-300">|</span>
+              <button type="button" onClick={onEdit} className="hover:text-grey-800">
+                내 생각 고치기
+              </button>
+            </div>
           </div>
 
           <div className="min-w-0">
-        <p className="mt-7 text-[15px] font-bold text-grey-800 lg:mt-0">친구들 생각 {others.length}개</p>
-        {others.length === 0 ? (
-          <p className="mt-2 rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
-            아직 다른 친구의 생각이 없어요.
-            <br />
-            나중에 다시 와서 확인해 보세요!
-          </p>
-        ) : (
-          <div className="mt-2 space-y-2.5">
-            {others.map((item, i) => (
-              <OpinionCard key={i} stance={article.stances[item.stance]} text={item.text} />
-            ))}
-          </div>
-        )}
+            <p className="mt-7 text-[15px] font-bold text-grey-800 lg:mt-0">친구들 생각 {others.length}개</p>
+            {others.length === 0 ? (
+              <p className="mt-2 rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
+                아직 다른 친구의 생각이 없어요.
+                <br />
+                나중에 다시 와서 확인해 보세요!
+              </p>
+            ) : (
+              <div className="mt-2 space-y-2.5">
+                {others.map((item, i) => (
+                  <OpinionCard key={i} stance={article.stances[item.stance]} text={item.text} />
+                ))}
+              </div>
+            )}
 
-        <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 lg:hidden">
-          <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
-            요약 피드백 보기
-          </button>
-          <span className="text-grey-300">|</span>
-          <button type="button" onClick={onEdit} className="hover:text-grey-800">
-            내 생각 고치기
-          </button>
-        </div>
+            <div className="mt-8 flex justify-center gap-4 text-[14px] font-medium text-grey-500 lg:hidden">
+              <button type="button" onClick={onShowFeedback} className="hover:text-grey-800">
+                요약 피드백 보기
+              </button>
+              <span className="text-grey-300">|</span>
+              <button type="button" onClick={onEdit} className="hover:text-grey-800">
+                내 생각 고치기
+              </button>
+            </div>
           </div>
         </div>
       </div>

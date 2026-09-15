@@ -3,7 +3,7 @@ import { formatRate, formatScore, type StudentReport } from "@/lib/report";
 import type { QuizType } from "@/lib/types";
 import { QUIZ_TYPE_LABEL } from "@/lib/utils";
 
-/** 학생 홈: 지금까지 푼 어휘 퀴즈·요약을 모은 내 학습 분석과 AI 응원 한마디 */
+/** 학생 홈: 지금까지 푼 퀴즈·요약을 모은 내 학습 분석과 AI 응원 한마디 */
 export function MyReport({ report, message }: { report: StudentReport; message: string }) {
   if (report.articleCount === 0) return null;
   const types = (Object.keys(report.quiz.byType) as QuizType[]).filter((t) => report.quiz.byType[t].answered > 0);
@@ -26,7 +26,7 @@ export function MyReport({ report, message }: { report: StudentReport; message: 
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-3xl bg-white p-5 md:p-6">
-          <p className="text-[14px] font-semibold text-grey-500">어휘 퀴즈</p>
+          <p className="text-[14px] font-semibold text-grey-500">퀴즈</p>
           <p className="mt-1 text-[28px] font-bold tracking-tight text-grey-900">
             {formatRate(report.quiz.rate)}
             <span className="ml-1.5 text-[14px] font-medium text-grey-500">

@@ -901,7 +901,7 @@ function StudentDetail({
       </div>
 
       <section>
-        <h4 className="text-[16px] font-bold text-grey-900">어휘 퀴즈</h4>
+        <h4 className="text-[16px] font-bold text-grey-900">퀴즈</h4>
         <ul className="mt-2 space-y-2">
           {article.quiz.map((item, i) => {
             const a = sub.quizAnswers[item.id];
