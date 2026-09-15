@@ -79,6 +79,19 @@ create table if not exists weekly_sets (
   primary key (week, grade_level)
 );
 
+-- 결과 분석표 AI 의견: 반마다 하나. 학생용 문장은 학생 화면에, 교사용 메모는 교사 화면에만 보인다.
+-- pending 은 Claude Batch API로 만드는 중인 요청(batch id, 기간, 학생 묶음)이다.
+create table if not exists class_reports (
+  class_id uuid primary key references classes(id) on delete cascade,
+  comments jsonb not null default '{}'::jsonb,
+  comments_from date,
+  comments_to date,
+  completed_at timestamptz,
+  pending jsonb,
+  error text,
+  updated_at timestamptz not null default now()
+);
+
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
@@ -90,3 +103,4 @@ alter table worksheets enable row level security;
 alter table submissions enable row level security;
 alter table email_verifications enable row level security;
 alter table weekly_sets enable row level security;
+alter table class_reports enable row level security;

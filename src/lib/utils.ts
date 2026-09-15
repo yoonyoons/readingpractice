@@ -59,6 +59,17 @@ export function weekKey(date = new Date()) {
   return new Date(seoulMonday(date)).toISOString().slice(0, 10);
 }
 
+/** 그 시각의 서울 날짜 (YYYY-MM-DD) */
+export function seoulDate(date: string | Date) {
+  const time = typeof date === "string" ? Date.parse(date) : date.getTime();
+  return new Date(time + KST_MS).toISOString().slice(0, 10);
+}
+
+/** 오늘을 포함한 최근 days일 (서울 날짜) */
+export function recentDays(days: number, now = new Date()) {
+  return { from: seoulDate(new Date(now.getTime() - (days - 1) * DAY_MS)), to: seoulDate(now) };
+}
+
 /** "9월 셋째 주". 그 주 목요일이 속한 달로 세어 월요일에 불러오든 금요일에 불러오든 같은 이름이 된다 */
 export function weekLabel(date = new Date()) {
   const thursday = new Date(seoulMonday(date) + 3 * DAY_MS);

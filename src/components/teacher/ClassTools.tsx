@@ -103,56 +103,6 @@ export function StudentRoster({ classId, students }: { classId: string; students
   );
 }
 
-export function AutoDraftToggle({ classId, initial }: { classId: string; initial: boolean }) {
-  const router = useRouter();
-  const [on, setOn] = useState(initial);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function toggle() {
-    const next = !on;
-    setOn(next);
-    setLoading(true);
-    setError("");
-    try {
-      await apiFetch(`/api/classes/${classId}`, { method: "PATCH", body: { autoDraft: next } });
-      router.refresh();
-    } catch (e) {
-      setOn(!next);
-      setError(errorMessage(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="rounded-3xl bg-white p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[16px] font-bold text-grey-900">주간 초안 자동 준비</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-grey-500">
-            매주 월요일 아침 이번 주 기사가 준비되면 자동으로 불러와 초안을 만들어 둬요. 검토하고 배포만 하면 돼요.
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label="주간 초안 자동 준비"
-          onClick={toggle}
-          disabled={loading}
-          className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors ${on ? "bg-primary" : "bg-grey-300"}`}
-        >
-          <span
-            className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`}
-          />
-        </button>
-      </div>
-      <ErrorText>{error}</ErrorText>
-    </div>
-  );
-}
-
 export function DeleteClassButton({ classId, name }: { classId: string; name: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);

@@ -8,7 +8,7 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 let client: Anthropic | undefined;
 
-function ai() {
+export function ai() {
   client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   return client;
 }

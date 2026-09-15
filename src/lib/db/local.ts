@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type {
+  ClassReport,
   ClassRoom,
   EmailVerification,
   StudentRecord,
@@ -24,6 +25,7 @@ interface Data {
   submissions: Submission[];
   verifications: EmailVerification[];
   weeklySets: WeeklySet[];
+  classReports: ClassReport[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -40,6 +42,7 @@ async function load(): Promise<Data> {
     // 예전 파일에는 없던 목록
     state.data.verifications ??= [];
     state.data.weeklySets ??= [];
+    state.data.classReports ??= [];
   } catch {
     state.data = {
       teachers: [],
@@ -49,6 +52,7 @@ async function load(): Promise<Data> {
       submissions: [],
       verifications: [],
       weeklySets: [],
+      classReports: [],
     };
   }
   return state.data;
@@ -124,21 +128,13 @@ export function createLocalRepo(): Repo {
         const studentIds = new Set(d.students.filter((s) => s.classId === id).map((s) => s.id));
         const worksheetIds = new Set(d.worksheets.filter((w) => w.classId === id).map((w) => w.id));
         d.classes = d.classes.filter((x) => x.id !== id);
+        d.classReports = d.classReports.filter((r) => r.classId !== id);
         d.students = d.students.filter((s) => s.classId !== id);
         d.worksheets = d.worksheets.filter((w) => w.classId !== id);
         d.submissions = d.submissions.filter(
           (s) => !studentIds.has(s.studentId) && !worksheetIds.has(s.worksheetId),
         );
       }),
-
-    updateClass: (id, patch) =>
-      write((d) => {
-        const c = d.classes.find((x) => x.id === id);
-        if (!c) throw new Error("반을 찾을 수 없어요.");
-        Object.assign(c, patch);
-        return c;
-      }),
-    listAutoDraftClasses: () => read((d) => d.classes.filter((x) => x.autoDraft)),
 
     createStudent: (student) =>
       write((d) => {
@@ -194,6 +190,15 @@ export function createLocalRepo(): Repo {
         d.weeklySets = d.weeklySets.filter((x) => !(x.week === set.week && x.gradeLevel === set.gradeLevel));
         d.weeklySets.push(set);
         return set;
+      }),
+
+    getClassReport: (classId) => read((d) => d.classReports.find((r) => r.classId === classId) ?? null),
+    listPendingClassReports: () => read((d) => d.classReports.filter((r) => r.pending)),
+    saveClassReport: (report) =>
+      write((d) => {
+        d.classReports = d.classReports.filter((r) => r.classId !== report.classId);
+        d.classReports.push(report);
+        return report;
       }),
 
     getSubmission: (worksheetId, articleId, studentId) =>

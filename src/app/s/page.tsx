@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/LogoutButton";
+import { MyReport } from "@/components/student/MyReport";
 import { Badge, CheckIcon, ChevronRight, EmptyState, ProgressBar } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { buildStudentReport } from "@/lib/report";
+import { loadClassReport } from "@/lib/report-ai";
 import { getStudentSession } from "@/lib/session";
 import type { Article, Submission, Worksheet } from "@/lib/types";
 import { cn, formatDate, hasOpinionStep, isArticleDone, latestSummary } from "@/lib/utils";
@@ -27,9 +30,11 @@ export default async function StudentHome() {
   const { student, classRoom } = session;
 
   const db = getDb();
-  const [worksheets, submissions] = await Promise.all([
+  const [worksheets, submissions, classReport] = await Promise.all([
     db.listWorksheets(classRoom.id),
     db.listSubmissionsByStudent(student.id),
+    // 만드는 중인 AI 의견이 도착했으면 가져온다 (1분에 한 번만 확인)
+    loadClassReport(classRoom.id, true),
   ]);
   const published = worksheets
     .filter((w) => w.status === "published")
@@ -66,6 +71,11 @@ export default async function StudentHome() {
       ) : (
         <WorksheetSection worksheet={current} subMap={subMap} />
       )}
+
+      <MyReport
+        report={buildStudentReport(student, worksheets, submissions, null)}
+        message={classReport?.comments[student.id]?.studentMessage ?? ""}
+      />
 
       {past.length > 0 && (
         <section className="mt-8 px-5 md:px-0">

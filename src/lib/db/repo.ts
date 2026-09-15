@@ -1,4 +1,5 @@
 import type {
+  ClassReport,
   ClassRoom,
   EmailVerification,
   GradeLevel,
@@ -25,8 +26,6 @@ export interface Repo {
   getClassByCode(code: string): Promise<ClassRoom | null>;
   listClasses(teacherId: string): Promise<ClassRoom[]>;
   deleteClass(id: string): Promise<void>;
-  updateClass(id: string, patch: Partial<Pick<ClassRoom, "name" | "autoDraft">>): Promise<ClassRoom>;
-  listAutoDraftClasses(): Promise<ClassRoom[]>;
 
   createStudent(student: StudentRecord): Promise<StudentRecord>;
   getStudent(id: string): Promise<StudentRecord | null>;
@@ -50,6 +49,12 @@ export interface Repo {
   listWeeklySets(week: string): Promise<WeeklySet[]>;
   /** 같은 주·학년군 묶음이 있으면 덮어쓴다 */
   saveWeeklySet(set: WeeklySet): Promise<WeeklySet>;
+
+  /** 결과 분석표 AI 의견 (반마다 하나) */
+  getClassReport(classId: string): Promise<ClassReport | null>;
+  /** Batch API 결과를 기다리는 반들 */
+  listPendingClassReports(): Promise<ClassReport[]>;
+  saveClassReport(report: ClassReport): Promise<ClassReport>;
 
   getSubmission(worksheetId: string, articleId: string, studentId: string): Promise<Submission | null>;
   listSubmissionsByWorksheet(worksheetId: string): Promise<Submission[]>;

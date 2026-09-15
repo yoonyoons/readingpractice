@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { AutoDraftToggle, ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
+import { ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
 import { CustomWorksheetPanel } from "@/components/teacher/CustomWorksheetPanel";
+import { ReportSummaryCard } from "@/components/teacher/ReportSummaryCard";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WeeklyArticlesPanel } from "@/components/teacher/WeeklyArticlesPanel";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
@@ -10,8 +11,10 @@ import { getDb } from "@/lib/db";
 import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
+import { buildClassReport } from "@/lib/report";
+import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
-import { formatDate, isArticleDone, weekLabel } from "@/lib/utils";
+import { formatDate, isArticleDone, recentDays, weekLabel } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
@@ -29,7 +32,11 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
     db.listWorksheets(classId),
     getWeeklySet(classRoom.gradeLevel),
   ]);
-  const submissionLists = await Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id)));
+  const [submissionLists, report] = await Promise.all([
+    Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id))),
+    loadClassReport(classId),
+  ]);
+  const recentStats = buildClassReport(students, worksheets, submissionLists.flat(), recentDays(28));
 
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
@@ -116,7 +123,6 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
         <div className="space-y-5">
           <ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />
-          <AutoDraftToggle classId={classRoom.id} initial={Boolean(classRoom.autoDraft)} />
           <Card>
             <div className="flex items-baseline justify-between">
               <h2 className="text-[18px] font-bold">학생</h2>
@@ -129,6 +135,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
               />
             </div>
           </Card>
+          <ReportSummaryCard classId={classRoom.id} stats={recentStats} report={report} />
         </div>
       </div>
     </TeacherShell>

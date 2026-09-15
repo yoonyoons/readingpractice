@@ -24,7 +24,6 @@ export const POST = route(async (req) => {
     name: body.name,
     gradeLevel: body.gradeLevel,
     code,
-    autoDraft: false,
     createdAt: nowIso(),
   });
   return Response.json({ classRoom });

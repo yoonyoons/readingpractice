@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabaseConfig } from "../env";
 import type {
+  ClassReport,
   ClassRoom,
   GradeLevel,
   StudentRecord,
@@ -28,7 +29,6 @@ const toClass = (r: any): ClassRoom => ({
   name: r.name,
   gradeLevel: r.grade_level as GradeLevel,
   code: r.code,
-  autoDraft: Boolean(r.auto_draft),
   createdAt: r.created_at,
 });
 
@@ -58,6 +58,17 @@ const toWeeklySet = (r: any): WeeklySet => ({
   gradeLevel: r.grade_level as GradeLevel,
   articles: r.articles ?? [],
   createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const toClassReport = (r: any): ClassReport => ({
+  classId: r.class_id,
+  comments: r.comments ?? {},
+  commentsFrom: r.comments_from,
+  commentsTo: r.comments_to,
+  completedAt: r.completed_at,
+  pending: r.pending ?? null,
+  error: r.error,
   updatedAt: r.updated_at,
 });
 
@@ -135,7 +146,6 @@ export function createSupabaseRepo(): Repo {
             name: c.name,
             grade_level: c.gradeLevel,
             code: c.code,
-            auto_draft: c.autoDraft,
             created_at: c.createdAt,
           })
           .select()
@@ -157,16 +167,6 @@ export function createSupabaseRepo(): Repo {
     },
     async deleteClass(id) {
       check(await sb.from("classes").delete().eq("id", id));
-    },
-    async updateClass(id, patch) {
-      const row: Record<string, unknown> = {};
-      if (patch.name !== undefined) row.name = patch.name;
-      if (patch.autoDraft !== undefined) row.auto_draft = patch.autoDraft;
-      return toClass(check(await sb.from("classes").update(row).eq("id", id).select().single()));
-    },
-    async listAutoDraftClasses() {
-      const rows = check(await sb.from("classes").select().eq("auto_draft", true));
-      return (rows ?? []).map(toClass);
     },
 
     async createStudent(s) {
@@ -284,6 +284,37 @@ export function createSupabaseRepo(): Repo {
           .single(),
       );
       return toWeeklySet(row);
+    },
+
+    async getClassReport(classId) {
+      const row = check(await sb.from("class_reports").select().eq("class_id", classId).maybeSingle());
+      return row ? toClassReport(row) : null;
+    },
+    async listPendingClassReports() {
+      const rows = check(await sb.from("class_reports").select().not("pending", "is", null));
+      return (rows ?? []).map(toClassReport);
+    },
+    async saveClassReport(r) {
+      const row = check(
+        await sb
+          .from("class_reports")
+          .upsert(
+            {
+              class_id: r.classId,
+              comments: r.comments,
+              comments_from: r.commentsFrom,
+              comments_to: r.commentsTo,
+              completed_at: r.completedAt,
+              pending: r.pending,
+              error: r.error,
+              updated_at: r.updatedAt,
+            },
+            { onConflict: "class_id" },
+          )
+          .select()
+          .single(),
+      );
+      return toClassReport(row);
     },
 
     async getSubmission(worksheetId, articleId, studentId) {

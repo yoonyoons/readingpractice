@@ -1,5 +1,4 @@
 import { getDb } from "./db";
-import { DEMO_TEACHER_EMAIL } from "./demo-account";
 import { isDemoGeneration } from "./env";
 import { buildAllArticles, cloneArticles, emptyArticle, pickTopics, type TopicPick } from "./generation";
 import { GRADE_LIST, GRADES } from "./grades";
@@ -122,28 +121,9 @@ export async function buildWeeklySets(now = new Date()): Promise<WeeklySet[]> {
   );
 }
 
-/**
- * Cron: 이번 주 기사 묶음을 채우고, 이번 실행에서 준비된 학년군 중 '주간 초안 자동 준비'를 켠 반에는 초안으로 불러온다.
- * 이미 모두 준비돼 있으면 AI를 부르지 않고 끝난다.
- */
+/** Cron: 이번 주 기사 묶음을 채운다. 이미 모두 준비돼 있으면 AI를 부르지 않고 끝난다 */
 export async function runWeeklyJob(now = new Date()) {
-  const db = getDb();
   const sets = await buildWeeklySets(now);
-  const ready = new Map(sets.filter((s) => readyArticles(s).length > 0).map((s) => [s.gradeLevel, s]));
-
-  let drafts = 0;
-  if (ready.size > 0) {
-    const demoTeacher = await db.getTeacherByEmail(DEMO_TEACHER_EMAIL);
-    for (const classRoom of await db.listAutoDraftClasses()) {
-      const set = ready.get(classRoom.gradeLevel);
-      // 여러 사람이 함께 쓰는 베타 체험 계정의 반에는 자동으로 넣지 않는다
-      if (!set || classRoom.teacherId === demoTeacher?.id) continue;
-      if (findLoadedWorksheet(await db.listWorksheets(classRoom.id), set, now)) continue;
-      await copyWeeklySet(classRoom, set);
-      drafts++;
-    }
-  }
-
   return {
     week: weekKey(now),
     sets: sets.map((s) => ({
@@ -152,6 +132,5 @@ export async function runWeeklyJob(now = new Date()) {
       failed: s.articles.filter((a) => a.status !== "ready").map((a) => `${a.topic}: ${a.error ?? "만들지 못함"}`),
     })),
     topics: [...new Set(sets.flatMap((s) => s.articles.map((a) => a.topic)))],
-    drafts,
   };
 }

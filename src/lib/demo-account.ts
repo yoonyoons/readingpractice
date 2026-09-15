@@ -41,7 +41,6 @@ export async function ensureDemoTeacher(): Promise<Teacher> {
       name: DEMO_CLASS_NAME,
       gradeLevel: "elem56",
       code,
-      autoDraft: false,
       createdAt: nowIso(),
     });
     const topics = await pickTopics(2, true);
