@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Button, Card, ErrorText, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
+import { Button, Card, CardHeading, ErrorText, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 
 export function CustomWorksheetPanel({ classId, gradeLabel, demo }: { classId: string; gradeLabel: string; demo: boolean }) {
@@ -37,9 +37,8 @@ export function CustomWorksheetPanel({ classId, gradeLabel, demo }: { classId: s
 
   return (
     <Card>
-      <p className="text-[13px] font-semibold text-primary">우리 반 맞춤</p>
-      <h3 className="mt-1 text-[20px] font-bold text-grey-900">나만의 학습지 제작하기</h3>
-      <p className="mt-2 text-[14px] leading-relaxed text-grey-600">
+      <CardHeading icon="✏️" eyebrow="우리 반 맞춤" title="나만의 학습지 제작하기" />
+      <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
         수업에 쓰고 싶은 신문 기사의 주소를 붙여넣으면 AI가 기사를 분석해 <b>{gradeLabel}</b> 수준으로 기사를 다시 쓰고
         어휘·퀴즈·생각 나누기 질문을 만들어요. 1~2분 정도 걸리고, 배포 전에 미리 보고 고칠 수 있어요.
       </p>

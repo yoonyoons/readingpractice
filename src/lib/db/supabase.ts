@@ -6,6 +6,7 @@ import type {
   StudentRecord,
   Submission,
   TeacherRecord,
+  WeeklySet,
   Worksheet,
   WorksheetStatus,
 } from "../types";
@@ -50,6 +51,14 @@ const toWorksheet = (r: any): Worksheet => ({
   articles: r.articles ?? [],
   createdAt: r.created_at,
   publishedAt: r.published_at,
+});
+
+const toWeeklySet = (r: any): WeeklySet => ({
+  week: r.week,
+  gradeLevel: r.grade_level as GradeLevel,
+  articles: r.articles ?? [],
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
 });
 
 const toSubmission = (r: any): Submission => ({
@@ -234,18 +243,6 @@ export function createSupabaseRepo(): Repo {
       );
       return (rows ?? []).map(toWorksheet);
     },
-    async listWorksheetsSince(gradeLevel, sinceIso) {
-      const rows = check(
-        await sb
-          .from("worksheets")
-          .select("*, classes!inner(grade_level)")
-          .eq("classes.grade_level", gradeLevel)
-          .gte("created_at", sinceIso)
-          .order("created_at", { ascending: false })
-          .limit(100),
-      );
-      return (rows ?? []).map(toWorksheet);
-    },
     async updateWorksheet(id, patch) {
       const row: Record<string, unknown> = {};
       if (patch.title !== undefined) row.title = patch.title;
@@ -257,6 +254,36 @@ export function createSupabaseRepo(): Repo {
     },
     async deleteWorksheet(id) {
       check(await sb.from("worksheets").delete().eq("id", id));
+    },
+
+    async getWeeklySet(week, gradeLevel) {
+      const row = check(
+        await sb.from("weekly_sets").select().eq("week", week).eq("grade_level", gradeLevel).maybeSingle(),
+      );
+      return row ? toWeeklySet(row) : null;
+    },
+    async listWeeklySets(week) {
+      const rows = check(await sb.from("weekly_sets").select().eq("week", week));
+      return (rows ?? []).map(toWeeklySet);
+    },
+    async saveWeeklySet(s) {
+      const row = check(
+        await sb
+          .from("weekly_sets")
+          .upsert(
+            {
+              week: s.week,
+              grade_level: s.gradeLevel,
+              articles: s.articles,
+              created_at: s.createdAt,
+              updated_at: s.updatedAt,
+            },
+            { onConflict: "week,grade_level" },
+          )
+          .select()
+          .single(),
+      );
+      return toWeeklySet(row);
     },
 
     async getSubmission(worksheetId, articleId, studentId) {

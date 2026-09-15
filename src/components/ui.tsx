@@ -69,6 +69,39 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("rounded-3xl bg-white p-6", className)} {...props} />;
 }
 
+/** 카드 맨 위 제목: 아이콘 타일 + 작은 설명(옆에 badge) + 제목 */
+export function CardHeading({
+  icon,
+  eyebrow,
+  title,
+  iconClassName,
+  badge,
+}: {
+  icon: string;
+  eyebrow: string;
+  title: string;
+  iconClassName?: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <span
+        aria-hidden
+        className={cn("flex size-12 shrink-0 items-center justify-center rounded-2xl text-[24px]", iconClassName ?? "bg-grey-100")}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="text-[13px] font-semibold text-primary">{eyebrow}</p>
+          {badge}
+        </div>
+        <h3 className="mt-0.5 text-[20px] font-bold text-grey-900">{title}</h3>
+      </div>
+    </div>
+  );
+}
+
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className="block">

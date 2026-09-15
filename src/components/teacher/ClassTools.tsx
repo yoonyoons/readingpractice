@@ -131,7 +131,7 @@ export function AutoDraftToggle({ classId, initial }: { classId: string; initial
         <div>
           <p className="text-[16px] font-bold text-grey-900">주간 초안 자동 준비</p>
           <p className="mt-1 text-[13px] leading-relaxed text-grey-500">
-            매주 월요일 오전 6시에 이번 주 학습지 초안을 미리 만들어 둬요. 검토하고 배포만 하면 돼요.
+            매주 월요일 아침 이번 주 기사가 준비되면 자동으로 불러와 초안을 만들어 둬요. 검토하고 배포만 하면 돼요.
           </p>
         </div>
         <button

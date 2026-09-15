@@ -26,7 +26,7 @@ export interface ClassRoom {
   name: string;
   gradeLevel: GradeLevel;
   code: string;
-  /** 매주 월요일 아침에 학습지 초안을 자동으로 만들지 */
+  /** 매주 이번 주 기사가 준비되면 자동으로 불러와 학습지 초안을 만들지 */
   autoDraft: boolean;
   createdAt: string;
 }
@@ -105,6 +105,16 @@ export interface Worksheet {
   articles: Article[];
   createdAt: string;
   publishedAt: string | null;
+}
+
+/** 이번 주 기사: 서버가 매주 학년군별로 미리 만들어 두는 기사 묶음. 교사가 불러오면 반 학습지 초안으로 복사된다 */
+export interface WeeklySet {
+  /** 서울 시간 기준 그 주 월요일 (YYYY-MM-DD) */
+  week: string;
+  gradeLevel: GradeLevel;
+  articles: Article[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SummaryFeedback {

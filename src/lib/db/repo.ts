@@ -6,6 +6,7 @@ import type {
   Submission,
   Teacher,
   TeacherRecord,
+  WeeklySet,
   Worksheet,
 } from "../types";
 
@@ -38,13 +39,17 @@ export interface Repo {
   getWorksheet(id: string): Promise<Worksheet | null>;
   /** 최신순 */
   listWorksheets(classId: string): Promise<Worksheet[]>;
-  /** 이 학년군 반들의 학습지 중 sinceIso 이후에 만든 것 (최신순, 모든 교사) */
-  listWorksheetsSince(gradeLevel: GradeLevel, sinceIso: string): Promise<Worksheet[]>;
   updateWorksheet(
     id: string,
     patch: Partial<Pick<Worksheet, "title" | "status" | "articles" | "publishedAt">>,
   ): Promise<Worksheet>;
   deleteWorksheet(id: string): Promise<void>;
+
+  /** 이번 주 기사 묶음 (주·학년군마다 하나) */
+  getWeeklySet(week: string, gradeLevel: GradeLevel): Promise<WeeklySet | null>;
+  listWeeklySets(week: string): Promise<WeeklySet[]>;
+  /** 같은 주·학년군 묶음이 있으면 덮어쓴다 */
+  saveWeeklySet(set: WeeklySet): Promise<WeeklySet>;
 
   getSubmission(worksheetId: string, articleId: string, studentId: string): Promise<Submission | null>;
   listSubmissionsByWorksheet(worksheetId: string): Promise<Submission[]>;

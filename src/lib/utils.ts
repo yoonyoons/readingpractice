@@ -39,29 +39,34 @@ export function makeClassCode() {
 }
 
 const ORDINALS = ["첫째", "둘째", "셋째", "넷째", "다섯째"];
+const DAY_MS = 24 * 60 * 60 * 1000;
+const KST_MS = 9 * 60 * 60 * 1000;
 
-function seoulParts(date: Date) {
-  const parts = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return { month: get("month"), day: get("day") };
+/** 서울 시간 기준 그 주 월요일 0시의 날짜·시각을 UTC 값처럼 담은 밀리초 (getUTC* 로 서울 날짜를 읽는다) */
+function seoulMonday(date: Date) {
+  const kst = new Date(date.getTime() + KST_MS);
+  const daysSinceMonday = (kst.getUTCDay() + 6) % 7;
+  return Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - daysSinceMonday);
 }
 
 /** 서울 시간 기준 이번 주 월요일 0시 (ISO 문자열) */
 export function weekStartIso(date = new Date()) {
-  const KST = 9 * 60 * 60 * 1000;
-  const kst = new Date(date.getTime() + KST);
-  const daysSinceMonday = (kst.getUTCDay() + 6) % 7;
-  const mondayKst = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - daysSinceMonday);
-  return new Date(mondayKst - KST).toISOString();
+  return new Date(seoulMonday(date) - KST_MS).toISOString();
+}
+
+/** 서울 시간 기준 이번 주 월요일 날짜 (YYYY-MM-DD). 이번 주 기사 묶음을 찾는 열쇠 */
+export function weekKey(date = new Date()) {
+  return new Date(seoulMonday(date)).toISOString().slice(0, 10);
+}
+
+/** "9월 셋째 주". 그 주 목요일이 속한 달로 세어 월요일에 불러오든 금요일에 불러오든 같은 이름이 된다 */
+export function weekLabel(date = new Date()) {
+  const thursday = new Date(seoulMonday(date) + 3 * DAY_MS);
+  return `${thursday.getUTCMonth() + 1}월 ${ORDINALS[Math.ceil(thursday.getUTCDate() / 7) - 1]} 주`;
 }
 
 export function weekTitle(date = new Date()) {
-  const { month, day } = seoulParts(date);
-  return `${month}월 ${ORDINALS[Math.ceil(day / 7) - 1]} 주 시사 학습지`;
+  return `${weekLabel(date)} 시사 학습지`;
 }
 
 export function formatDate(iso: string | null | undefined) {

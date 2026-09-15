@@ -1,6 +1,14 @@
 import { promises as fs } from "fs";
 import path from "path";
-import type { ClassRoom, EmailVerification, StudentRecord, Submission, TeacherRecord, Worksheet } from "../types";
+import type {
+  ClassRoom,
+  EmailVerification,
+  StudentRecord,
+  Submission,
+  TeacherRecord,
+  WeeklySet,
+  Worksheet,
+} from "../types";
 import type { Repo } from "./repo";
 
 /**
@@ -15,6 +23,7 @@ interface Data {
   worksheets: Worksheet[];
   submissions: Submission[];
   verifications: EmailVerification[];
+  weeklySets: WeeklySet[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -30,8 +39,17 @@ async function load(): Promise<Data> {
     state.data = JSON.parse(await fs.readFile(FILE, "utf8")) as Data;
     // 예전 파일에는 없던 목록
     state.data.verifications ??= [];
+    state.data.weeklySets ??= [];
   } catch {
-    state.data = { teachers: [], classes: [], students: [], worksheets: [], submissions: [], verifications: [] };
+    state.data = {
+      teachers: [],
+      classes: [],
+      students: [],
+      worksheets: [],
+      submissions: [],
+      verifications: [],
+      weeklySets: [],
+    };
   }
   return state.data;
 }
@@ -155,13 +173,6 @@ export function createLocalRepo(): Repo {
           .filter((x) => x.classId === classId)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       ),
-    listWorksheetsSince: (gradeLevel, sinceIso) =>
-      read((d) => {
-        const classIds = new Set(d.classes.filter((c) => c.gradeLevel === gradeLevel).map((c) => c.id));
-        return d.worksheets
-          .filter((w) => classIds.has(w.classId) && w.createdAt >= sinceIso)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      }),
     updateWorksheet: (id, patch) =>
       write((d) => {
         const w = d.worksheets.find((x) => x.id === id);
@@ -173,6 +184,16 @@ export function createLocalRepo(): Repo {
       write((d) => {
         d.worksheets = d.worksheets.filter((x) => x.id !== id);
         d.submissions = d.submissions.filter((x) => x.worksheetId !== id);
+      }),
+
+    getWeeklySet: (week, gradeLevel) =>
+      read((d) => d.weeklySets.find((x) => x.week === week && x.gradeLevel === gradeLevel) ?? null),
+    listWeeklySets: (week) => read((d) => d.weeklySets.filter((x) => x.week === week)),
+    saveWeeklySet: (set) =>
+      write((d) => {
+        d.weeklySets = d.weeklySets.filter((x) => !(x.week === set.week && x.gradeLevel === set.gradeLevel));
+        d.weeklySets.push(set);
+        return set;
       }),
 
     getSubmission: (worksheetId, articleId, studentId) =>
