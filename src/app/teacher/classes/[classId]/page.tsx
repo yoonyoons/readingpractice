@@ -62,20 +62,23 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          <WeeklyArticlesPanel
-            classId={classRoom.id}
-            gradeLabel={grade.label}
-            weekLabel={weekLabel()}
-            articles={readyArticles(weekly).map((a) => ({
-              title: a.title,
-              topic: a.topic,
-              sourceCount: a.sources.length,
-              demo: a.sourceMode === "demo",
-            }))}
-            loadedWorksheetId={findLoadedWorksheet(worksheets, weekly)?.id ?? null}
-            prepareOnLoad={isDemoGeneration()}
-          />
-          <CustomWorksheetPanel classId={classRoom.id} gradeLabel={grade.label} demo={demo} />
+          {/* 학습지를 만드는 두 가지 길(불러오기 · 직접 제작)을 같은 높이로 나란히 둔다 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <WeeklyArticlesPanel
+              classId={classRoom.id}
+              gradeLabel={grade.label}
+              weekLabel={weekLabel()}
+              articles={readyArticles(weekly).map((a) => ({
+                title: a.title,
+                topic: a.topic,
+                sourceCount: a.sources.length,
+                demo: a.sourceMode === "demo",
+              }))}
+              loadedWorksheetId={findLoadedWorksheet(worksheets, weekly)?.id ?? null}
+              prepareOnLoad={isDemoGeneration()}
+            />
+            <CustomWorksheetPanel classId={classRoom.id} gradeLabel={grade.label} demo={demo} />
+          </div>
 
           <Card>
             <h2 className="text-[18px] font-bold">학습지</h2>

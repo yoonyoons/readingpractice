@@ -87,7 +87,7 @@ export function FindAccountForm({ mode }: Props) {
     return (
       <form onSubmit={run(isFindEmail ? checkEmail : sendCode)} className="space-y-4">
         <Field
-          label={isFindEmail ? "계정 가입 여부 확인" "가입한 이메일 주소"}
+          label={isFindEmail ? "계정 가입 여부 확인" : "가입한 이메일 주소"}
           hint={
             isFindEmail
               ? "가입할 때 쓴 교육청 메일 주소를 넣어 보세요. 가입돼 있는지 확인해 드려요."
