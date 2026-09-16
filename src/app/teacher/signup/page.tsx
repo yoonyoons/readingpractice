@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Byline } from "@/components/Byline";
 import { AuthForm } from "@/components/teacher/AuthForm";
 import { Card } from "@/components/ui";
 import { getTeacher } from "@/lib/session";
@@ -27,6 +28,9 @@ export default async function TeacherSignupPage() {
         <Link href="/teacher/beta" className="text-[12px] text-grey-400 underline-offset-2 hover:underline">
           가입 전에 베타 테스트로 먼저 체험해 보기
         </Link>
+      </p>
+      <p className="mt-6 text-center text-[13px] text-grey-400">
+        <Byline />
       </p>
     </main>
   );

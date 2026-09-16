@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { Byline } from "@/components/Byline";
 import { ModeNotice } from "@/components/ModeNotice";
 import { ChevronRight } from "@/components/ui";
 
@@ -77,7 +78,8 @@ export default async function Home() {
             기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
             <Link href="/policy" className="underline underline-offset-2">
               운영 정책
-            </Link>
+            </Link>{" "}
+            · <Byline />
           </p>
         </div>
       </div>

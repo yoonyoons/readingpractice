@@ -115,6 +115,9 @@ export function createSupabaseRepo(): Repo {
       const row = check(await sb.from("teachers").select().eq("email", email).maybeSingle());
       return row ? toTeacher(row) : null;
     },
+    async updateTeacherPassword(id, passwordHash) {
+      check(await sb.from("teachers").update({ password_hash: passwordHash }).eq("id", id));
+    },
 
     async saveVerification(v) {
       check(

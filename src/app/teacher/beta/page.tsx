@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Byline } from "@/components/Byline";
 import { BetaEnterButton } from "@/components/teacher/BetaEnterButton";
 import { Card } from "@/components/ui";
 import { getTeacher } from "@/lib/session";
@@ -41,6 +42,9 @@ export default async function TeacherBetaPage() {
         <Link href="/teacher/signup" className="font-semibold text-primary">
           교육청 메일로 회원가입
         </Link>
+      </p>
+      <p className="mt-6 text-center text-[13px] text-grey-400">
+        <Byline />
       </p>
     </main>
   );

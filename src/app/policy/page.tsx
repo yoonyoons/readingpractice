@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Byline } from "@/components/Byline";
 import { ChevronLeft } from "@/components/ui";
 
 export const metadata: Metadata = { title: "운영 정책 · 시사 문해력 기르기 학습지" };
@@ -87,6 +88,10 @@ export default function PolicyPage() {
       <Section title="7. 문의">
         <p>서비스 이용이나 개인정보에 관한 문의는 담당 선생님께 해 주세요.</p>
       </Section>
+
+      <p className="mt-10 text-center text-[13px] text-grey-400">
+        <Byline />
+      </p>
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Byline } from "@/components/Byline";
 import { LogoutButton } from "@/components/LogoutButton";
 import { MyReport } from "@/components/student/MyReport";
 import { Badge, CheckIcon, ChevronRight, EmptyState, ProgressBar } from "@/components/ui";
@@ -103,7 +104,8 @@ export default async function StudentHome() {
         기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
         <Link href="/policy" className="underline underline-offset-2">
           운영 정책
-        </Link>
+        </Link>{" "}
+        · <Byline />
       </p>
     </main>
   );

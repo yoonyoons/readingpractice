@@ -39,13 +39,28 @@ function hashCode(email: string, code: string) {
     .digest("hex");
 }
 
+/** 인증 코드의 쓰임새. 가입은 계정이 없어야 하고, 재설정은 이미 있는 계정이어야 한다. */
+export type CodePurpose = "signup" | "reset";
+
+const MAIL_COPY: Record<CodePurpose, { subject: string; lead: string }> = {
+  signup: { subject: "선생님 가입 인증 코드", lead: "시사 문해력 학습지 선생님 가입 인증 코드입니다." },
+  reset: { subject: "비밀번호 재설정 인증 코드", lead: "시사 문해력 학습지 비밀번호 재설정 인증 코드입니다." },
+};
+
 /** 인증 코드를 만들어 저장하고 메일로 보낸다. 개발 환경에서 메일 설정이 없으면 코드를 돌려준다. */
-export async function requestVerificationCode(email: string): Promise<{ devCode?: string }> {
+export async function requestVerificationCode(
+  email: string,
+  purpose: CodePurpose = "signup",
+): Promise<{ devCode?: string }> {
   if (!isTeacherEmailAllowed(email)) {
     throw new HttpError(403, `${teacherDomainHint()} 주소로만 선생님 계정을 만들 수 있어요.`);
   }
   const db = getDb();
-  if (await db.getTeacherByEmail(email)) throw new HttpError(409, "이미 가입된 이메일이에요. 로그인해 주세요.");
+  const teacher = await db.getTeacherByEmail(email);
+  if (purpose === "signup" && teacher) throw new HttpError(409, "이미 가입된 이메일이에요. 로그인해 주세요.");
+  if (purpose === "reset" && !teacher) {
+    throw new HttpError(404, "이 주소로 가입한 기록이 없어요. 주소를 다시 확인해 주세요.");
+  }
 
   const existing = await db.getVerification(email);
   if (existing && Date.now() - Date.parse(existing.sentAt) < RESEND_INTERVAL_MS) {
@@ -62,12 +77,13 @@ export async function requestVerificationCode(email: string): Promise<{ devCode?
   });
 
   if (hasMailer()) {
+    const copy = MAIL_COPY[purpose];
     await sendMail({
       to: email,
-      subject: `[시사 문해력 학습지] 선생님 가입 인증 코드 ${code}`,
-      text: `선생님 가입 인증 코드는 ${code} 입니다. ${CODE_TTL_MINUTES}분 안에 입력해 주세요.\n본인이 요청한 것이 아니라면 이 메일은 무시하셔도 됩니다.`,
+      subject: `[시사 문해력 학습지] ${copy.subject} ${code}`,
+      text: `${copy.lead} 인증 코드는 ${code} 입니다. ${CODE_TTL_MINUTES}분 안에 입력해 주세요.\n본인이 요청한 것이 아니라면 이 메일은 무시하셔도 됩니다.`,
       html: `<div style="font-family:sans-serif;line-height:1.6">
-<p>시사 문해력 학습지 선생님 가입 인증 코드입니다.</p>
+<p>${copy.lead}</p>
 <p style="font-size:32px;font-weight:700;letter-spacing:6px">${code}</p>
 <p>${CODE_TTL_MINUTES}분 안에 입력해 주세요. 본인이 요청한 것이 아니라면 이 메일은 무시하셔도 됩니다.</p>
 </div>`,
@@ -79,7 +95,7 @@ export async function requestVerificationCode(email: string): Promise<{ devCode?
     throw new HttpError(500, "메일 발송 설정이 없어 인증 코드를 보낼 수 없어요. 관리자에게 문의해 주세요.");
   }
   // 개발 환경: 메일 대신 콘솔과 응답으로 코드를 알려 준다
-  console.warn(`[teacher-email] SMTP 설정이 없어 메일을 보내지 않았어요. ${email} 인증 코드: ${code}`);
+  console.warn(`[teacher-email] SMTP 설정이 없어 메일을 보내지 않았어요. ${email} 인증 코드(${purpose}): ${code}`);
   return { devCode: code };
 }
 

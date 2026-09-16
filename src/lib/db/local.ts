@@ -98,6 +98,11 @@ export function createLocalRepo(): Repo {
         return t ? stripTeacher(t) : null;
       }),
     getTeacherByEmail: (email) => read((d) => d.teachers.find((x) => x.email === email) ?? null),
+    updateTeacherPassword: (id, passwordHash) =>
+      write((d) => {
+        const t = d.teachers.find((x) => x.id === id);
+        if (t) t.passwordHash = passwordHash;
+      }),
 
     saveVerification: (v) =>
       write((d) => {

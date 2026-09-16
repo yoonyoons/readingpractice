@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Byline } from "@/components/Byline";
 import { BottomBar, Button, ChevronLeft, ErrorText, Field, Input } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 
@@ -95,6 +96,9 @@ export function JoinForm() {
               운영 정책 보기
             </Link>
           </div>
+          <p className="mt-3 text-center text-[12px] text-grey-400">
+            <Byline />
+          </p>
           <BottomBar inline>
             <Button type="submit" form="code-form" size="lg" className="w-full" disabled={code.length !== 6} loading={loading}>
               다음

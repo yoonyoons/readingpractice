@@ -15,6 +15,8 @@ export interface Repo {
   createTeacher(teacher: TeacherRecord): Promise<Teacher>;
   getTeacher(id: string): Promise<Teacher | null>;
   getTeacherByEmail(email: string): Promise<TeacherRecord | null>;
+  /** 비밀번호 재설정용 */
+  updateTeacherPassword(id: string, passwordHash: string): Promise<void>;
 
   /** 이메일당 하나만 보관한다 (같은 이메일이면 덮어쓴다) */
   saveVerification(verification: EmailVerification): Promise<void>;

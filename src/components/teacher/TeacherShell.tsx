@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Byline } from "@/components/Byline";
 import { LogoutButton } from "@/components/LogoutButton";
 import { isDemoTeacher } from "@/lib/demo-account";
 import type { Teacher } from "@/lib/types";
@@ -35,7 +36,8 @@ export function TeacherShell({ teacher, children }: { teacher: Teacher; children
         AI(Claude)가 만든 내용은 틀릴 수 있으니 배포 전에 꼭 확인해 주세요 ·{" "}
         <Link href="/policy" className="underline underline-offset-2">
           운영 정책
-        </Link>
+        </Link>{" "}
+        · <Byline />
       </footer>
     </div>
   );
