@@ -73,6 +73,7 @@ export default async function ReportPage(props: PageProps<"/teacher/classes/[cla
           }
         }
         demo={isDemoTeacher(teacher) || !hasAnthropic()}
+        initialStudentId={stats.students.find((s) => s.studentId === query.student)?.studentId ?? null}
       />
     </TeacherShell>
   );

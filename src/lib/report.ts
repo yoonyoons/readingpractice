@@ -1,5 +1,5 @@
 import type { Article, QuizType, StudentRecord, Submission, Worksheet } from "./types";
-import { seoulDate, weekKey } from "./utils";
+import { QUIZ_TYPE_LABEL, seoulDate, weekKey } from "./utils";
 
 /*
  * 결과 분석표
@@ -17,6 +17,10 @@ export interface DateRange {
 export const HELP_RATE = 0.3;
 /** 도움 필요 여부는 학생이 제출한 최근 3주(주마다 보통 기사 2개)로 판단한다 */
 export const RECENT_WEEKS = 3;
+/** 반 화면의 결과 분석표와 성적 추이는 이번 주를 포함한 최근 4주를 본다 */
+export const TREND_WEEKS = 4;
+/** 이 비율 미만인 퀴즈 유형·요약 항목을 취약 영역으로 보여 준다 */
+export const WEAK_RATE = 0.4;
 
 export interface Tally {
   answered: number;
@@ -52,6 +56,8 @@ export interface StudentReport {
     /** 제출 순서대로 */
     history: { date: string; score: number; title: string }[];
   };
+  /** 기록이 있는 주별 결과 (주 시작 월요일 YYYY-MM-DD, 오래된 주부터) */
+  weekly: { week: string; quizRate: number | null; summaryAverage: number | null }[];
   recent: {
     /** 실제로 센 주 수 (최대 RECENT_WEEKS) */
     weeks: number;
@@ -156,7 +162,8 @@ export function buildStudentReport(
   const answered = quizWeeks.reduce((n, t) => n + t.answered, 0);
   const correct = quizWeeks.reduce((n, t) => n + t.correct, 0);
 
-  const weeks = [...new Set([...quizWeeks, ...summaries].map((x) => x.week))].sort().reverse().slice(0, RECENT_WEEKS);
+  const allWeeks = [...new Set([...quizWeeks, ...summaries].map((x) => x.week))].sort();
+  const weeks = allWeeks.slice(-RECENT_WEEKS);
   const recentQuiz = quizWeeks.filter((t) => weeks.includes(t.week));
   const recentAnswered = recentQuiz.reduce((n, t) => n + t.answered, 0);
   const quizRate = recentAnswered ? recentQuiz.reduce((n, t) => n + t.correct, 0) / recentAnswered : null;
@@ -182,6 +189,15 @@ export function buildStudentReport(
       sentence: average(summaries.map((s) => s.breakdown[2])),
       history: summaries.map(({ date, score, title }) => ({ date, score, title })),
     },
+    weekly: allWeeks.map((week) => {
+      const quiz = quizWeeks.filter((t) => t.week === week);
+      const answeredInWeek = quiz.reduce((n, t) => n + t.answered, 0);
+      return {
+        week,
+        quizRate: answeredInWeek ? quiz.reduce((n, t) => n + t.correct, 0) / answeredInWeek : null,
+        summaryAverage: average(summaries.filter((s) => s.week === week).map((s) => s.score)),
+      };
+    }),
     recent: {
       weeks: weeks.length,
       quizRate,
@@ -214,6 +230,33 @@ export function buildClassReport(
     needsHelpCount: reports.filter((r) => r.recent.needsHelp).length,
     missedWords: sortWords(missed, 5),
   };
+}
+
+export interface WeakArea {
+  label: string;
+  detail: string;
+}
+
+/** 퀴즈 유형과 요약 항목 중 WEAK_RATE 미만인 것 */
+export function weakAreas(student: StudentReport): WeakArea[] {
+  const areas: WeakArea[] = [];
+  for (const [type, label] of Object.entries(QUIZ_TYPE_LABEL) as [QuizType, string][]) {
+    const { answered, correct } = student.quiz.byType[type];
+    if (answered && correct / answered < WEAK_RATE) {
+      areas.push({ label: `${label} 퀴즈`, detail: `${Math.round((correct / answered) * 100)}% (${correct}/${answered})` });
+    }
+  }
+  const parts: [string, number | null, number][] = [
+    ["핵심 내용", student.summary.content, 50],
+    ["내 말로 표현", student.summary.ownWords, 30],
+    ["문장 완성도", student.summary.sentence, 20],
+  ];
+  for (const [label, value, max] of parts) {
+    if (value !== null && value / max < WEAK_RATE) {
+      areas.push({ label: `요약 · ${label}`, detail: `${Math.round(value)}/${max}점` });
+    }
+  }
+  return areas;
 }
 
 /** 0~1 비율을 "71%"로, 없으면 "-" */

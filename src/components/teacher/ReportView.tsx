@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Badge, Button, Card, ErrorText, Input, ProgressBar, Textarea } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 import {
@@ -120,6 +120,7 @@ export function ReportView({
   stats,
   report,
   demo,
+  initialStudentId,
 }: {
   classId: string;
   range: DateRange;
@@ -127,16 +128,22 @@ export function ReportView({
   report: ReportViewData | null;
   /** AI 대신 규칙으로 예시 의견을 만드는지 (체험 계정·API 키 없음) */
   demo: boolean;
+  /** 처음부터 펼쳐 둘 학생 (반 화면에서 고른 학생) */
+  initialStudentId?: string | null;
 }) {
   const router = useRouter();
   const [from, setFrom] = useState(range.from);
   const [to, setTo] = useState(range.to);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "number", dir: 1 });
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialStudentId ?? null);
   const [comments, setComments] = useState(report?.comments ?? {});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (initialStudentId) document.getElementById(`student-${initialStudentId}`)?.scrollIntoView({ block: "center" });
+  }, [initialStudentId]);
 
   const pending = report?.pending ?? null;
   const column = COLUMNS.find((c) => c.key === sort.key)!;
@@ -280,6 +287,7 @@ export function ReportView({
                 {rows.map((s) => (
                   <Fragment key={s.studentId}>
                     <tr
+                      id={`student-${s.studentId}`}
                       onClick={() => setOpenId((id) => (id === s.studentId ? null : s.studentId))}
                       className={cn(
                         "cursor-pointer border-b border-grey-100 transition hover:bg-grey-50",

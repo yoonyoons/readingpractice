@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { ClassCode, DeleteClassButton, StudentRoster } from "@/components/teacher/ClassTools";
+import { ClassInsights } from "@/components/teacher/ClassInsights";
+import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
 import { CustomWorksheetPanel } from "@/components/teacher/CustomWorksheetPanel";
-import { ReportSummaryCard } from "@/components/teacher/ReportSummaryCard";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WeeklyArticlesPanel } from "@/components/teacher/WeeklyArticlesPanel";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
@@ -11,10 +11,10 @@ import { getDb } from "@/lib/db";
 import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
-import { buildClassReport } from "@/lib/report";
+import { buildClassReport, TREND_WEEKS } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
-import { formatDate, isArticleDone, recentDays, weekLabel } from "@/lib/utils";
+import { formatDate, isArticleDone, recentWeekKeys, seoulDate, weekLabel } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
@@ -36,7 +36,10 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
     Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id))),
     loadClassReport(classId),
   ]);
-  const recentStats = buildClassReport(students, worksheets, submissionLists.flat(), recentDays(28));
+  // 결과 분석표와 성적 추이가 같은 기간을 보도록 이번 주를 포함한 최근 4주의 월요일부터 센다
+  const weeks = recentWeekKeys(TREND_WEEKS);
+  const range = { from: weeks[0], to: seoulDate(new Date()) };
+  const recentStats = buildClassReport(students, worksheets, submissionLists.flat(), range);
 
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
@@ -123,19 +126,14 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
         <div className="space-y-5">
           <ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />
-          <Card>
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-[18px] font-bold">학생</h2>
-              <span className="text-[14px] text-grey-500">{students.length}명</span>
-            </div>
-            <div className="mt-3">
-              <StudentRoster
-                classId={classRoom.id}
-                students={students.map((s) => ({ id: s.id, number: s.number, name: s.name, hasPin: Boolean(s.pinHash) }))}
-              />
-            </div>
-          </Card>
-          <ReportSummaryCard classId={classRoom.id} stats={recentStats} report={report} />
+          <ClassInsights
+            classId={classRoom.id}
+            students={students.map((s) => ({ id: s.id, number: s.number, name: s.name, hasPin: Boolean(s.pinHash) }))}
+            stats={recentStats}
+            weeks={weeks}
+            range={range}
+            report={{ pending: Boolean(report?.pending), completedAt: report?.completedAt ?? null }}
+          />
         </div>
       </div>
     </TeacherShell>

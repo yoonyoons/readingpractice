@@ -70,6 +70,11 @@ export function recentDays(days: number, now = new Date()) {
   return { from: seoulDate(new Date(now.getTime() - (days - 1) * DAY_MS)), to: seoulDate(now) };
 }
 
+/** 이번 주를 포함한 최근 count주의 월요일 날짜 (서울, 오래된 주부터) */
+export function recentWeekKeys(count: number, now = new Date()) {
+  return Array.from({ length: count }, (_, i) => weekKey(new Date(now.getTime() - (count - 1 - i) * 7 * DAY_MS)));
+}
+
 /** "9월 셋째 주". 그 주 목요일이 속한 달로 세어 월요일에 불러오든 금요일에 불러오든 같은 이름이 된다 */
 export function weekLabel(date = new Date()) {
   const thursday = new Date(seoulMonday(date) + 3 * DAY_MS);
