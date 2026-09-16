@@ -11,15 +11,19 @@ type Ctx = RouteContext<"/api/classes/[classId]/report/comments">;
 
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "기간을 다시 골라 주세요.");
 const RequestBody = z
-  .object({ from: DATE, to: DATE })
+  .object({
+    from: DATE,
+    to: DATE,
+    studentIds: z.array(z.string().min(1)).min(1, "의견을 만들 학생을 골라 주세요.").max(200),
+  })
   .refine((b) => b.from <= b.to, { message: "시작일이 종료일보다 늦어요." });
 
-/** 결과 분석표: 고른 기간의 결과로 반 전체 AI 의견을 요청한다 (Batch API) */
+/** 결과 분석표: 고른 기간의 결과로 고른 학생들의 AI 의견을 요청한다 (Batch API) */
 export const POST = route(async (req: NextRequest, ctx: Ctx) => {
   const { classId } = await ctx.params;
   const { teacher, classRoom } = await requireTeacherClass(classId);
-  const range = await readJson(req, RequestBody);
-  const report = await requestReportComments(classRoom, range, isDemoTeacher(teacher));
+  const { from, to, studentIds } = await readJson(req, RequestBody);
+  const report = await requestReportComments(classRoom, { from, to }, isDemoTeacher(teacher), studentIds);
   return Response.json({ pending: Boolean(report.pending) });
 });
 
@@ -41,7 +45,8 @@ export const PATCH = route(async (req: NextRequest, ctx: Ctx) => {
   const report = (await db.getClassReport(classId)) ?? emptyReport(classId);
   const saved = await db.saveClassReport({
     ...report,
-    comments: { ...report.comments, [studentId]: { studentMessage, teacherMemo } },
+    // 고쳐도 의견을 만든 기간·시각은 남긴다
+    comments: { ...report.comments, [studentId]: { ...report.comments[studentId], studentMessage, teacherMemo } },
     updatedAt: nowIso(),
   });
   return Response.json({ comment: saved.comments[studentId] });

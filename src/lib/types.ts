@@ -121,6 +121,11 @@ export interface StudentComment {
   studentMessage: string;
   /** 교사만 보는 지도 메모 */
   teacherMemo: string;
+  /** 이 의견을 만들 때 쓴 기간 (서울 날짜 YYYY-MM-DD). 교사가 처음부터 직접 쓴 의견은 없다 */
+  from?: string;
+  to?: string;
+  /** 이 의견을 만든 시각. 같은 요청으로 만든 의견은 ClassReport.completedAt과 같다 */
+  createdAt?: string;
 }
 
 /** Claude Batch API로 만드는 중인 결과 분석표 AI 의견 요청 */
@@ -134,16 +139,18 @@ export interface PendingReportBatch {
   checkedAt: string;
   /** Batch 요청(custom_id)마다 key 순서대로 담은 학생 id */
   groups: Record<string, string[]>;
-  /** AI에 보내지 않고 미리 정한 의견 (기간 안에 기록이 없는 학생) */
+  /** AI에 보내지 않고 미리 정한 의견 (이전 버전에서 기록이 없던 학생) */
   presets: Record<string, StudentComment>;
 }
 
-/** 결과 분석표 AI 의견. 반마다 하나이며, 새로 만든 결과가 도착하면 통째로 바뀐다 */
+/**
+ * 결과 분석표 AI 의견. 반마다 하나이며, 교사가 고른 학생의 의견만 새로 만들어 덮어쓰고 나머지 학생의 의견은 그대로 둔다.
+ */
 export interface ClassReport {
   classId: string;
   /** 학생 id → 의견 */
   comments: Record<string, StudentComment>;
-  /** 지금 의견을 만들 때 쓴 기간 */
+  /** 마지막으로 의견을 만들 때 쓴 기간 (학생마다 다를 수 있어 의견마다 from·to도 따로 둔다) */
   commentsFrom: string | null;
   commentsTo: string | null;
   completedAt: string | null;

@@ -13,6 +13,7 @@ import { clean, nowIso, QUIZ_TYPE_LABEL } from "./utils";
 /*
  * 결과 분석표 AI 의견
  * 비용을 줄이려고 가장 저렴한 모델(Claude Haiku 4.5)을 Batch API(요금 50%, 결과는 몇 분~최대 24시간 뒤)로 부른다.
+ * 반 전체가 아니라 교사가 고른 학생만 만들고, 고르지 않은 학생의 의견은 그대로 둔다.
  * 학생 10명씩 한 요청에 묶어 지시문을 나눠 쓰고, 학생 이름·번호 대신 key만 보낸다.
  * 결과는 교사가 분석표를 열 때, 학생이 홈을 열 때(1분에 한 번), 매일 아침 Cron에서 가져온다.
  */
@@ -27,8 +28,6 @@ const CommentsSchema = z.object({
 
 const SYSTEM =
   "너는 초·중학교 선생님을 돕는 학습 분석 도우미다. 주어진 학습 기록 수치만 근거로 쓰고, 기록에 없는 사실(성격·태도·가정환경 등)을 지어내지 않는다.";
-
-const NO_RECORD: StudentComment = { studentMessage: "", teacherMemo: "이 기간에 제출한 어휘 퀴즈·요약이 없어요." };
 
 export function emptyReport(classId: string): ClassReport {
   return {
@@ -112,11 +111,23 @@ function ruleComment(s: StudentReport): StudentComment {
   };
 }
 
+/** 기간이 없는 예전 의견(반 전체를 한꺼번에 만들던 때)에 그때의 반 기간을 붙여, 새 의견과 섞여도 구분되게 한다 */
+function withPeriods(report: ClassReport): Record<string, StudentComment> {
+  const { commentsFrom: from, commentsTo: to } = report;
+  if (!from || !to) return { ...report.comments };
+  return Object.fromEntries(
+    Object.entries(report.comments).map(([id, c]) => [
+      id,
+      c.from ? c : { ...c, from, to, createdAt: report.completedAt ?? undefined },
+    ]),
+  );
+}
+
 /**
- * 기간 안의 결과로 반 학생 모두의 의견을 요청한다.
- * 기록이 없는 학생은 AI를 부르지 않고 정해진 메모를 쓰고, 데모면 규칙으로 바로 만든다.
+ * 기간 안의 결과로 고른 학생들의 의견을 요청한다. 고르지 않은 학생의 의견은 건드리지 않는다.
+ * 기간 안에 기록이 없는 학생은 만들 의견이 없어 빼고, 데모면 AI 대신 규칙으로 바로 만든다.
  */
-export async function requestReportComments(classRoom: ClassRoom, range: DateRange, demo: boolean) {
+export async function requestReportComments(classRoom: ClassRoom, range: DateRange, demo: boolean, studentIds: string[]) {
   const db = getDb();
   const [students, worksheets, saved] = await Promise.all([
     db.listStudents(classRoom.id),
@@ -127,23 +138,25 @@ export async function requestReportComments(classRoom: ClassRoom, range: DateRan
   const report = saved ?? emptyReport(classRoom.id);
   if (report.pending) throw new HttpError(409, "AI 의견을 만들고 있어요. 결과가 도착한 뒤에 다시 만들어 주세요.");
 
+  const picked = new Set(studentIds);
   const submissions = (await Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id)))).flat();
-  const stats = buildClassReport(students, worksheets, submissions, range);
-  const useAi = !demo && hasAnthropic();
-
-  const presets: Record<string, StudentComment> = {};
-  const active: StudentReport[] = [];
-  for (const s of stats.students) {
-    if (s.articleCount === 0) presets[s.studentId] = NO_RECORD;
-    else if (!useAi) presets[s.studentId] = ruleComment(s);
-    else active.push(s);
-  }
+  const stats = buildClassReport(
+    students.filter((s) => picked.has(s.id)),
+    worksheets,
+    submissions,
+    range,
+  );
+  const active = stats.students.filter((s) => s.articleCount > 0);
+  if (active.length === 0) throw new HttpError(400, "고른 학생 중 이 기간에 기록이 있는 학생이 없어요.");
 
   const now = nowIso();
-  if (active.length === 0) {
+  if (demo || !hasAnthropic()) {
+    const made = Object.fromEntries(
+      active.map((s) => [s.studentId, { ...ruleComment(s), from: range.from, to: range.to, createdAt: now }]),
+    );
     return db.saveClassReport({
       ...report,
-      comments: presets,
+      comments: { ...withPeriods(report), ...made },
       commentsFrom: range.from,
       commentsTo: range.to,
       completedAt: now,
@@ -182,7 +195,7 @@ export async function requestReportComments(classRoom: ClassRoom, range: DateRan
   const batch = await ai().messages.batches.create({ requests });
   return db.saveClassReport({
     ...report,
-    pending: { batchId: batch.id, from: range.from, to: range.to, requestedAt: now, checkedAt: now, groups, presets },
+    pending: { batchId: batch.id, from: range.from, to: range.to, requestedAt: now, checkedAt: now, groups, presets: {} },
     error: null,
     updatedAt: now,
   });
@@ -219,7 +232,9 @@ export async function collectReportComments(report: ClassReport, throttle = fals
     return db.saveClassReport({ ...report, pending: { ...pending, checkedAt: now }, updatedAt: now });
   }
 
-  const comments: Record<string, StudentComment> = { ...pending.presets };
+  const period = { from: pending.from, to: pending.to, createdAt: now };
+  const fresh: Record<string, StudentComment> = {};
+  for (const [id, c] of Object.entries(pending.presets)) fresh[id] = { ...c, ...period };
   let written = 0;
   for await (const item of await ai().messages.batches.results(pending.batchId)) {
     const ids = pending.groups[item.custom_id];
@@ -227,8 +242,8 @@ export async function collectReportComments(report: ClassReport, throttle = fals
     if (!ids || !parsed) continue;
     for (const c of parsed) {
       const id = ids[Number(c.key.match(/\d+/)?.[0]) - 1];
-      if (!id || comments[id]) continue;
-      comments[id] = { studentMessage: clean(c.studentMessage), teacherMemo: clean(c.teacherMemo) };
+      if (!id || fresh[id]) continue;
+      fresh[id] = { studentMessage: clean(c.studentMessage), teacherMemo: clean(c.teacherMemo), ...period };
       written++;
     }
   }
@@ -241,12 +256,13 @@ export async function collectReportComments(report: ClassReport, throttle = fals
   }
   return db.saveClassReport({
     ...report,
-    comments,
+    // 요청에 넣지 않은 학생의 의견은 그대로 두고, 이번에 만든 학생만 덮어쓴다
+    comments: { ...withPeriods(report), ...fresh },
     commentsFrom: pending.from,
     commentsTo: pending.to,
     completedAt: now,
     pending: null,
-    error: missing > 0 ? `학생 ${missing}명의 의견을 만들지 못했어요. 다시 만들면 채워져요.` : null,
+    error: missing > 0 ? `학생 ${missing}명의 의견을 만들지 못했어요. 의견이 비어 있는 학생을 골라 다시 만들어 주세요.` : null,
     updatedAt: now,
   });
 }

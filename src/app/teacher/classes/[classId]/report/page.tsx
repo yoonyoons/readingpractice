@@ -69,6 +69,7 @@ export default async function ReportPage(props: PageProps<"/teacher/classes/[cla
               from: report.pending.from,
               to: report.pending.to,
               requestedAt: report.pending.requestedAt,
+              count: Object.values(report.pending.groups).flat().length + Object.keys(report.pending.presets).length,
             },
           }
         }

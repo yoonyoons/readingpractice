@@ -23,7 +23,8 @@ export interface ReportViewData {
   commentsTo: string | null;
   completedAt: string | null;
   error: string | null;
-  pending: { from: string; to: string; requestedAt: string } | null;
+  /** count: 이번 요청에 넣은 학생 수 */
+  pending: { from: string; to: string; requestedAt: string; count: number } | null;
 }
 
 const day = (date: string | null) => (date ? formatDate(`${date}T00:00:00+09:00`) : "-");
@@ -108,6 +109,48 @@ const COLUMNS: Column[] = [
   },
 ];
 
+/** 의견을 만든 기간·시각 안내. 기간이 없는 예전 의견은 반 전체로 마지막에 만든 기간으로 본다 */
+function commentPeriod(comment: StudentComment | undefined, report: ReportViewData | null) {
+  if (!comment) return "";
+  const from = comment.from ?? report?.commentsFrom;
+  const to = comment.to ?? report?.commentsTo;
+  if (!from || !to) return "";
+  const at = comment.from ? comment.createdAt : report?.completedAt;
+  return `${day(from)} ~ ${day(to)} 기록으로${at ? ` ${formatDateTime(at)}에` : ""} 만든 의견이에요.`;
+}
+
+function Checkbox({
+  checked,
+  indeterminate = false,
+  disabled,
+  onChange,
+  label,
+  title,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  title?: string;
+}) {
+  return (
+    <label className={cn("flex items-center", disabled ? "cursor-not-allowed" : "cursor-pointer")} title={title}>
+      <input
+        type="checkbox"
+        ref={(el) => {
+          if (el) el.indeterminate = indeterminate;
+        }}
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={label}
+        className="size-[18px] cursor-[inherit] accent-primary disabled:opacity-40"
+      />
+    </label>
+  );
+}
+
 function compare(a: number | string | null, b: number | string | null, dir: 1 | -1) {
   if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1; // 기록 없음은 항상 아래로
   if (typeof a === "string" || typeof b === "string") return String(a).localeCompare(String(b)) * dir;
@@ -137,6 +180,8 @@ export function ReportView({
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "number", dir: 1 });
   const [openId, setOpenId] = useState<string | null>(initialStudentId ?? null);
   const [comments, setComments] = useState(report?.comments ?? {});
+  // AI 의견을 만들 학생. 기간 안에 기록이 있는 학생만 고를 수 있다
+  const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -146,6 +191,8 @@ export function ReportView({
   }, [initialStudentId]);
 
   const pending = report?.pending ?? null;
+  const pickable = stats.students.filter((s) => s.articleCount > 0).map((s) => s.studentId);
+  const lastCount = Object.values(report?.comments ?? {}).filter((c) => c.createdAt && c.createdAt === report?.completedAt).length;
   const column = COLUMNS.find((c) => c.key === sort.key)!;
   const rows = [...stats.students].sort(
     (a, b) => compare(column.value(a), column.value(b), sort.dir) || a.number - b.number,
@@ -158,18 +205,25 @@ export function ReportView({
   }
 
   async function generate() {
-    const hasComments = Object.keys(comments).length > 0;
-    if (hasComments && !window.confirm("새로 만들면 지금 의견(고친 내용 포함)이 새 결과로 바뀌어요. 만들까요?")) return;
+    const overwrite = picked.filter((id) => comments[id]).length;
+    if (
+      overwrite > 0 &&
+      !window.confirm(`고른 학생 중 ${overwrite}명은 이미 의견이 있어요. 새로 만들면 고친 내용도 새 결과로 바뀌어요. 만들까요?`)
+    )
+      return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const r = await apiFetch<{ pending: boolean }>(`/api/classes/${classId}/report/comments`, { body: range });
+      const r = await apiFetch<{ pending: boolean }>(`/api/classes/${classId}/report/comments`, {
+        body: { ...range, studentIds: picked },
+      });
       setNotice(
         r.pending
-          ? "요청했어요. 몇 분에서 최대 24시간 뒤에 도착하고, 도착하면 학생용 문장은 바로 학생 화면에 보여요."
-          : "의견을 만들었어요.",
+          ? `${picked.length}명의 의견을 요청했어요. 몇 분에서 최대 24시간 뒤에 도착하고, 도착하면 학생용 문장은 바로 학생 화면에 보여요.`
+          : `${picked.length}명의 의견을 만들었어요.`,
       );
+      setPicked([]);
       router.refresh();
     } catch (e) {
       setError(errorMessage(e));
@@ -225,16 +279,21 @@ export function ReportView({
             <h2 className="text-[18px] font-bold">AI 종합 의견</h2>
             <p className="mt-1 text-[14px] leading-relaxed text-grey-600">
               {pending
-                ? `${day(pending.from)} ~ ${day(pending.to)} 기간으로 만들고 있어요 (${formatDateTime(pending.requestedAt)} 요청). 몇 분에서 최대 24시간 걸려요.`
+                ? `${day(pending.from)} ~ ${day(pending.to)} 기간으로 ${pending.count}명의 의견을 만들고 있어요 (${formatDateTime(pending.requestedAt)} 요청). 몇 분에서 최대 24시간 걸려요.`
                 : report?.completedAt
-                  ? `${day(report.commentsFrom)} ~ ${day(report.commentsTo)} 기간으로 ${formatDateTime(report.completedAt)}에 만들었어요. 학생 이름을 누르면 보고 고칠 수 있어요.`
+                  ? `마지막으로 ${day(report.commentsFrom)} ~ ${day(report.commentsTo)} 기간으로 ${formatDateTime(report.completedAt)}에 ${lastCount > 0 ? `${lastCount}명의 ` : ""}의견을 만들었어요. 학생 이름을 누르면 보고 고칠 수 있어요.`
                   : "학생마다 학생용 격려 문장과 선생님용 지도 메모를 만들어요. 학생용 문장은 도착하면 바로 학생 화면에 보여요."}
             </p>
-            <p className="mt-1 text-[13px] text-grey-400">
-              {demo
-                ? "체험 계정·데모 모드에서는 AI를 부르지 않고 예시 의견을 바로 만들어요."
-                : "Claude Haiku 4.5를 Batch API로 불러 비용을 줄여요. 학생 이름·번호는 보내지 않아요."}
-            </p>
+            {!pending && stats.students.length > 0 && (
+              <p className="mt-1 text-[14px] font-medium text-primary">
+                {picked.length > 0
+                  ? `체크한 ${picked.length}명의 의견만 만들어요. 체크하지 않은 학생의 의견은 그대로 남아요.`
+                  : "아래 학생별 결과에서 의견을 만들 학생을 체크해 주세요."}
+              </p>
+            )}
+            {demo && (
+              <p className="mt-1 text-[13px] text-grey-400">체험 계정·데모 모드에서는 AI를 부르지 않고 예시 의견을 바로 만들어요.</p>
+            )}
           </div>
           <div className="flex shrink-0 gap-2">
             {pending && (
@@ -242,8 +301,8 @@ export function ReportView({
                 결과 확인
               </Button>
             )}
-            <Button onClick={generate} loading={busy} disabled={Boolean(pending) || stats.students.length === 0}>
-              {day(range.from)} ~ {day(range.to)} 기간으로 만들기
+            <Button onClick={generate} loading={busy} disabled={Boolean(pending) || picked.length === 0}>
+              {day(range.from)} ~ {day(range.to)} 기간으로 {picked.length > 0 && `${picked.length}명 `}만들기
             </Button>
           </div>
         </div>
@@ -258,7 +317,9 @@ export function ReportView({
       <Card className="overflow-hidden p-0">
         <div className="px-5 py-4">
           <h2 className="text-[18px] font-bold">학생별 결과</h2>
-          <p className="mt-0.5 text-[13px] text-grey-500">제목을 누르면 정렬하고, 학생을 누르면 자세히 봐요.</p>
+          <p className="mt-0.5 text-[13px] text-grey-500">
+            체크한 학생만 AI 의견을 만들어요. 제목을 누르면 정렬하고, 학생을 누르면 자세히 봐요.
+          </p>
         </div>
         {stats.students.length === 0 ? (
           <p className="mx-5 mb-5 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] text-grey-500">
@@ -269,6 +330,16 @@ export function ReportView({
             <table className="w-full min-w-[920px] text-[14px]">
               <thead>
                 <tr className="border-y border-grey-100 bg-grey-50 text-left text-[13px] text-grey-500">
+                  <th className="w-10 py-2.5 pl-5 pr-1">
+                    <Checkbox
+                      checked={pickable.length > 0 && picked.length === pickable.length}
+                      indeterminate={picked.length > 0 && picked.length < pickable.length}
+                      disabled={pickable.length === 0}
+                      onChange={(on) => setPicked(on ? pickable : [])}
+                      label="기록이 있는 학생 모두 고르기"
+                      title="기록이 있는 학생 모두 고르기"
+                    />
+                  </th>
                   {COLUMNS.map((c) => (
                     <th key={c.key} className="px-3 py-2.5 font-medium first:pl-5">
                       <button
@@ -295,6 +366,18 @@ export function ReportView({
                         s.articleCount === 0 && "text-grey-400",
                       )}
                     >
+                      {/* 체크박스를 눌러도 행이 펼쳐지지 않게 한다 */}
+                      <td className="py-2.5 pl-5 pr-1" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={picked.includes(s.studentId)}
+                          disabled={s.articleCount === 0}
+                          onChange={(on) =>
+                            setPicked((prev) => (on ? [...prev, s.studentId] : prev.filter((id) => id !== s.studentId)))
+                          }
+                          label={`${s.number}번 ${s.name} 고르기`}
+                          title={s.articleCount === 0 ? "이 기간에 기록이 없어 의견을 만들 수 없어요" : undefined}
+                        />
+                      </td>
                       {COLUMNS.map((c) => (
                         <td key={c.key} className="whitespace-nowrap px-3 py-2.5 first:pl-5">
                           {c.render ? c.render(s) : c.value(s)}
@@ -303,11 +386,12 @@ export function ReportView({
                     </tr>
                     {openId === s.studentId && (
                       <tr className="border-b border-grey-100 bg-grey-50/60">
-                        <td colSpan={COLUMNS.length} className="px-5 py-5">
+                        <td colSpan={COLUMNS.length + 1} className="px-5 py-5">
                           <StudentDetail
                             classId={classId}
                             student={s}
                             comment={comments[s.studentId]}
+                            period={commentPeriod(comments[s.studentId], report)}
                             locked={Boolean(pending)}
                             onSaved={(c) => setComments((prev) => ({ ...prev, [s.studentId]: c }))}
                           />
@@ -338,12 +422,15 @@ function StudentDetail({
   classId,
   student,
   comment,
+  period,
   locked,
   onSaved,
 }: {
   classId: string;
   student: StudentReport;
   comment: StudentComment | undefined;
+  /** 이 의견을 만든 기간·시각 안내 (없으면 빈 문자열) */
+  period: string;
   locked: boolean;
   onSaved: (comment: StudentComment) => void;
 }) {
@@ -422,6 +509,7 @@ function StudentDetail({
       </div>
 
       <div className="space-y-3">
+        {period && <p className="text-[13px] text-grey-500">{period}</p>}
         <label className="block">
           <span className="mb-1.5 block text-[13px] font-semibold text-grey-600">학생용 문장 · 학생 화면에 보여요</span>
           <Textarea
