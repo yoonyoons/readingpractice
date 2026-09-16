@@ -121,7 +121,7 @@ export function AuthForm({ mode, requireCode, domainHint }: Props) {
           </Field>
         </>
       ) : (
-        <Field label="이메일">
+        <Field label="이메일 주소">
           <Input
             type="email"
             value={email}

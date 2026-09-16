@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Button, ErrorText, Field, Input } from "@/components/ui";
+import { Button, ErrorText, Field, Input, LinkButton } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 
 type Step = "email" | "notFound" | "found" | "reset";
 
-/**
- * 계정 찾기.
- * 1) 쓰던 것 같은 이메일을 넣어 가입 여부를 확인하고,
- * 2) 맞으면 그 주소로 인증 코드를 받아 비밀번호를 새로 정한다.
- */
-export function FindAccountForm() {
+interface Props {
+  /** "email" = 이 주소로 가입돼 있는지 확인, "password" = 코드 받아 비밀번호 새로 정하기 */
+  mode: "email" | "password";
+}
+
+export function FindAccountForm({ mode }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -34,41 +34,40 @@ export function FindAccountForm() {
     setDevCode("");
   }
 
-  /** 1단계: 이 주소로 가입돼 있는지 확인 */
-  async function checkEmail(e: FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch<{ found: boolean; nameHint?: string }>("/api/teacher/find", { body: { email } });
-      setNameHint(res.nameHint ?? "");
-      setStep(res.found ? "found" : "notFound");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
+  /** 이메일 찾기: 이 주소로 가입돼 있는지 확인 */
+  async function checkEmail() {
+    const res = await apiFetch<{ found: boolean; nameHint?: string }>("/api/teacher/find", { body: { email } });
+    setNameHint(res.nameHint ?? "");
+    setStep(res.found ? "found" : "notFound");
   }
 
-  /** 2단계: 그 주소로 재설정 인증 코드 보내기 */
+  /** 비밀번호 찾기: 그 주소로 재설정 인증 코드 보내기 */
   async function sendCode() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch<{ expiresInMinutes: number; devCode?: string }>("/api/teacher/reset/request", {
-        body: { email },
-      });
-      setDevCode(res.devCode ?? "");
-      setNotice(`${email} 으로 인증 코드를 보냈어요. ${res.expiresInMinutes}분 안에 입력해 주세요.`);
-      setStep("reset");
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
+    const res = await apiFetch<{ expiresInMinutes: number; devCode?: string }>("/api/teacher/reset/request", {
+      body: { email },
+    });
+    setDevCode(res.devCode ?? "");
+    setNotice(`${email} 으로 인증 코드를 보냈어요. ${res.expiresInMinutes}분 안에 입력해 주세요.`);
+    setStep("reset");
   }
 
-  /** 3단계: 코드 확인 + 새 비밀번호 저장 */
+  /** 버튼 하나로 쓰는 래퍼 (로딩·오류 처리) */
+  function run(task: () => Promise<void>) {
+    return async (e?: FormEvent) => {
+      e?.preventDefault();
+      setLoading(true);
+      setError("");
+      try {
+        await task();
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setLoading(false);
+      }
+    };
+  }
+
+  /** 코드 확인 + 새 비밀번호 저장 */
   async function submitReset(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -84,9 +83,17 @@ export function FindAccountForm() {
   }
 
   if (step === "email") {
+    const isFindEmail = mode === "email";
     return (
-      <form onSubmit={checkEmail} className="space-y-4">
-        <Field label="쓰시던 것 같은 이메일" hint="가입할 때 쓴 교육청 메일 주소를 넣어 보세요. 가입돼 있는지 확인해 드려요.">
+      <form onSubmit={run(isFindEmail ? checkEmail : sendCode)} className="space-y-4">
+        <Field
+          label={isFindEmail ? "계정 가입 여부 확인" "가입한 이메일 주소"}
+          hint={
+            isFindEmail
+              ? "가입할 때 쓴 교육청 메일 주소를 넣어 보세요. 가입돼 있는지 확인해 드려요."
+              : "이 주소로 인증 코드를 보내 드려요."
+          }
+        >
           <Input
             type="email"
             value={email}
@@ -98,9 +105,15 @@ export function FindAccountForm() {
         </Field>
         <ErrorText>{error}</ErrorText>
         <Button type="submit" size="lg" className="w-full" loading={loading} disabled={!email.includes("@")}>
-          이 주소로 가입돼 있는지 확인하기
+          {isFindEmail ? "이 주소로 가입돼 있는지 확인하기" : "인증 코드 받기"}
         </Button>
-      </form>
+        <Link
+          href={isFindEmail ? "/teacher/find?mode=password" : "/teacher/find"}
+          className="block text-center text-[13px] text-grey-500 underline-offset-2 hover:underline"
+        >
+          {isFindEmail ? "비밀번호가 기억나지 않나요? 비밀번호 찾기" : "이메일이 기억나지 않나요? 이메일 찾기"}
+        </Link>
+      </form >
     );
   }
 
@@ -116,7 +129,7 @@ export function FindAccountForm() {
           다른 주소로 다시 확인하기
         </Button>
         <p className="text-center text-[14px] text-grey-500">
-          아직 계정이 없으신가요?{" "}
+          계정이 없으신가요?{" "}
           <Link href="/teacher/signup" className="font-semibold text-primary">
             회원가입
           </Link>
@@ -134,12 +147,12 @@ export function FindAccountForm() {
           {email} · {nameHint} 선생님
         </div>
         <ErrorText>{error}</ErrorText>
-        <Button size="lg" className="w-full" loading={loading} onClick={sendCode}>
-          비밀번호 재설정 코드 받기
+        <LinkButton href="/teacher/login" size="lg" className="w-full">
+          이 주소로 로그인하기
+        </LinkButton>
+        <Button variant="grey" size="lg" className="w-full" loading={loading} onClick={run(sendCode)}>
+          비밀번호도 잊었어요 · 재설정 코드 받기
         </Button>
-        <Link href="/teacher/login" className="block text-center text-[14px] font-semibold text-primary">
-          비밀번호가 기억났어요 · 로그인하기
-        </Link>
         <button
           type="button"
           onClick={backToEmail}
@@ -184,7 +197,7 @@ export function FindAccountForm() {
       </Button>
       <button
         type="button"
-        onClick={sendCode}
+        onClick={run(sendCode)}
         disabled={loading}
         className="w-full text-center text-[13px] text-grey-500 underline-offset-2 hover:underline"
       >
