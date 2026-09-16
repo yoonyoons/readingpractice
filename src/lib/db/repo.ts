@@ -58,6 +58,10 @@ export interface Repo {
   listPendingClassReports(): Promise<ClassReport[]>;
   saveClassReport(report: ClassReport): Promise<ClassReport>;
 
+  /** 나만의 학습지로 이 반이 그 주(월요일 날짜)에 만든 기사 수. 학습지를 지워도 줄지 않는다 */
+  getCustomUsage(classId: string, week: string): Promise<number>;
+  addCustomUsage(classId: string, week: string, articleCount: number): Promise<void>;
+
   getSubmission(worksheetId: string, articleId: string, studentId: string): Promise<Submission | null>;
   listSubmissionsByWorksheet(worksheetId: string): Promise<Submission[]>;
   listSubmissionsByStudent(studentId: string): Promise<Submission[]>;

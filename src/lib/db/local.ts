@@ -26,6 +26,7 @@ interface Data {
   verifications: EmailVerification[];
   weeklySets: WeeklySet[];
   classReports: ClassReport[];
+  customUsage: { classId: string; week: string; articleCount: number }[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -43,6 +44,7 @@ async function load(): Promise<Data> {
     state.data.verifications ??= [];
     state.data.weeklySets ??= [];
     state.data.classReports ??= [];
+    state.data.customUsage ??= [];
   } catch {
     state.data = {
       teachers: [],
@@ -53,6 +55,7 @@ async function load(): Promise<Data> {
       verifications: [],
       weeklySets: [],
       classReports: [],
+      customUsage: [],
     };
   }
   return state.data;
@@ -134,6 +137,7 @@ export function createLocalRepo(): Repo {
         const worksheetIds = new Set(d.worksheets.filter((w) => w.classId === id).map((w) => w.id));
         d.classes = d.classes.filter((x) => x.id !== id);
         d.classReports = d.classReports.filter((r) => r.classId !== id);
+        d.customUsage = d.customUsage.filter((u) => u.classId !== id);
         d.students = d.students.filter((s) => s.classId !== id);
         d.worksheets = d.worksheets.filter((w) => w.classId !== id);
         d.submissions = d.submissions.filter(
@@ -199,6 +203,15 @@ export function createLocalRepo(): Repo {
 
     getClassReport: (classId) => read((d) => d.classReports.find((r) => r.classId === classId) ?? null),
     listPendingClassReports: () => read((d) => d.classReports.filter((r) => r.pending)),
+
+    getCustomUsage: (classId, week) =>
+      read((d) => d.customUsage.find((u) => u.classId === classId && u.week === week)?.articleCount ?? 0),
+    addCustomUsage: (classId, week, articleCount) =>
+      write((d) => {
+        const row = d.customUsage.find((u) => u.classId === classId && u.week === week);
+        if (row) row.articleCount += articleCount;
+        else d.customUsage.push({ classId, week, articleCount });
+      }),
     saveClassReport: (report) =>
       write((d) => {
         d.classReports = d.classReports.filter((r) => r.classId !== report.classId);

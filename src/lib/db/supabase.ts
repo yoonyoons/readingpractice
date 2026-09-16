@@ -96,6 +96,13 @@ export function createSupabaseRepo(): Repo {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  async function customUsage(classId: string, week: string): Promise<number> {
+    const row = check(
+      await sb.from("custom_usage").select("article_count").eq("class_id", classId).eq("week", week).maybeSingle(),
+    );
+    return row?.article_count ?? 0;
+  }
+
   return {
     async createTeacher(t) {
       const row = check(
@@ -318,6 +325,16 @@ export function createSupabaseRepo(): Repo {
           .single(),
       );
       return toClassReport(row);
+    },
+
+    getCustomUsage: (classId, week) => customUsage(classId, week),
+    async addCustomUsage(classId, week, articleCount) {
+      const used = await customUsage(classId, week);
+      check(
+        await sb
+          .from("custom_usage")
+          .upsert({ class_id: classId, week, article_count: used + articleCount }, { onConflict: "class_id,week" }),
+      );
     },
 
     async getSubmission(worksheetId, articleId, studentId) {

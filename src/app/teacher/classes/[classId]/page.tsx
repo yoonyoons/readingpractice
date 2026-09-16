@@ -3,18 +3,16 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { ClassInsights } from "@/components/teacher/ClassInsights";
 import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
-import { CustomWorksheetPanel } from "@/components/teacher/CustomWorksheetPanel";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
-import { WeeklyArticlesPanel } from "@/components/teacher/WeeklyArticlesPanel";
+import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
 import { getDb } from "@/lib/db";
-import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
 import { buildClassReport, TREND_WEEKS } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
-import { formatDate, isArticleDone, recentWeekKeys, seoulDate, weekLabel } from "@/lib/utils";
+import { formatDate, isArticleDone, recentWeekKeys, seoulDate } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
@@ -26,7 +24,6 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   const classRoom = await db.getClass(classId);
   if (!classRoom || classRoom.teacherId !== teacher.id) notFound();
 
-  const demo = isDemoGeneration() || isDemoTeacher(teacher);
   const [students, worksheets, weekly] = await Promise.all([
     db.listStudents(classId),
     db.listWorksheets(classId),
@@ -62,23 +59,12 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          {/* 학습지를 만드는 두 가지 길(불러오기 · 직접 제작)을 같은 높이로 나란히 둔다 */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <WeeklyArticlesPanel
-              classId={classRoom.id}
-              gradeLabel={grade.label}
-              weekLabel={weekLabel()}
-              articles={readyArticles(weekly).map((a) => ({
-                title: a.title,
-                topic: a.topic,
-                sourceCount: a.sources.length,
-                demo: a.sourceMode === "demo",
-              }))}
-              loadedWorksheetId={findLoadedWorksheet(worksheets, weekly)?.id ?? null}
-              prepareOnLoad={isDemoGeneration()}
-            />
-            <CustomWorksheetPanel classId={classRoom.id} gradeLabel={grade.label} demo={demo} />
-          </div>
+          <WorksheetCreatePanel
+            classId={classRoom.id}
+            gradeLabel={grade.label}
+            weeklyReady={readyArticles(weekly).length > 0 || isDemoGeneration()}
+            weeklyLoaded={Boolean(findLoadedWorksheet(worksheets, weekly))}
+          />
 
           <Card>
             <h2 className="text-[18px] font-bold">학습지</h2>

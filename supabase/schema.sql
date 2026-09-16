@@ -92,6 +92,15 @@ create table if not exists class_reports (
   updated_at timestamptz not null default now()
 );
 
+-- 나만의 학습지 사용량: 반마다 한 주(서울 월요일)에 만든 기사 수.
+-- 학습지를 지워도 줄지 않도록 학습지와 따로 센다.
+create table if not exists custom_usage (
+  class_id uuid not null references classes(id) on delete cascade,
+  week date not null,
+  article_count int not null default 0,
+  primary key (class_id, week)
+);
+
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
@@ -104,3 +113,4 @@ alter table submissions enable row level security;
 alter table email_verifications enable row level security;
 alter table weekly_sets enable row level security;
 alter table class_reports enable row level security;
+alter table custom_usage enable row level security;
