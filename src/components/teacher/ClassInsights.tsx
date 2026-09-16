@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge, Button, buttonClass, Card, ChevronRight, ErrorText } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 import {
@@ -68,7 +68,11 @@ function linePath(values: (number | null)[], x: (i: number) => number, y: (v: nu
   return d.trim();
 }
 
-/** 반 화면 오른쪽: 학생 목록(성취도)과 반 결과 분석표. 학생을 고르면 분석표 아래에 그 학생의 상세 분석이 보인다 */
+/**
+ * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표, 오른쪽은 aside(반 코드) 아래에 학생 목록.
+ * 오른쪽 목록에서 학생을 고르면 왼쪽 분석표에 그 학생의 상세 분석이 보인다.
+ * 한 열로 쌓이는 좁은 화면에서는 학생 목록이 분석표보다 먼저 오도록 order로 순서를 바꾼다.
+ */
 export function ClassInsights({
   classId,
   students,
@@ -76,6 +80,8 @@ export function ClassInsights({
   weeks,
   range,
   report,
+  aside,
+  children,
 }: {
   classId: string;
   students: RosterStudent[];
@@ -84,6 +90,8 @@ export function ClassInsights({
   weeks: string[];
   range: DateRange;
   report: { pending: boolean; completedAt: string | null };
+  aside: ReactNode;
+  children: ReactNode;
 }) {
   const router = useRouter();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -123,130 +131,142 @@ export function ClassInsights({
   const reportHref = `/teacher/classes/${classId}/report?from=${range.from}&to=${range.to}${selected ? `&student=${selected.id}` : ""}`;
 
   return (
-    <>
-      <Card className="shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[18px] font-bold">
-            학생 및 성취도 <span className="text-grey-500">({students.length}명)</span>
-          </h2>
-          {students.length > 0 && (
-            <Button variant={managing ? "secondary" : "grey"} size="sm" onClick={() => setManageMode((m) => !m)} aria-pressed={managing}>
-              {managing ? "완료" : "PIN 초기화·삭제"}
-            </Button>
-          )}
-        </div>
+    <div className="mt-6 flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div className="contents lg:block lg:space-y-5">
+        <div className="order-1 space-y-5">{children}</div>
 
-        {students.length === 0 ? (
-          <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] leading-relaxed text-grey-500">
-            학생이 반 코드로 입장하면
-            <br />
-            여기에 나타나요.
-          </p>
-        ) : managing ? (
-          <div className="mt-3">
-            <ErrorText>{error}</ErrorText>
-            <ul className="space-y-1">
-              {students.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 px-2.5 py-1.5">
-                  <span className="w-5 shrink-0 text-right text-[13px] font-medium text-grey-400">{s.number}</span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-grey-800">
-                    {s.name}
-                    {!s.hasPin && <span className="ml-1.5 text-[12px] font-medium text-warning">PIN 초기화됨</span>}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id}>
-                    PIN 초기화
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => act(s, "delete")} disabled={busy === s.id} className="text-danger">
-                    삭제
-                  </Button>
-                </li>
-              ))}
-            </ul>
+        <Card className="order-4 shadow-sm">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            <h2 className="text-[18px] font-bold">
+              반 결과 분석표 <span className="text-grey-500">(최근 {TREND_WEEKS}주)</span>
+            </h2>
+            <p className="text-[13px] text-grey-500">
+              {day(range.from)} ~ {day(range.to)} · 기록 {stats.activeCount}명
+            </p>
           </div>
-        ) : (
-          <>
-            <div className={cn(ROW_GRID, "mt-4 border border-transparent px-2.5 text-[12px] text-grey-400")}>
-              <span />
-              <span>이름</span>
-              <span className="text-center">퀴즈 추이</span>
-              <span className="text-right">퀴즈</span>
-              <span className="text-right">요약</span>
-            </div>
-            <ul className="mt-1 space-y-1">
-              {students.map((s) => {
-                const r = reports.get(s.id);
-                const active = s.id === selected?.id;
-                const quizRate = r?.quiz.rate ?? null;
-                const summary = r?.summary.average ?? null;
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setSelectedStudentId(active ? null : s.id)}
-                      className={cn(
-                        ROW_GRID,
-                        "w-full rounded-2xl border px-2.5 py-2 text-left transition",
-                        active ? "border-primary bg-primary-weak" : "border-transparent hover:bg-grey-50",
-                      )}
-                    >
-                      <span className="text-right text-[13px] font-medium text-grey-400">{s.number}</span>
-                      <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
-                      <Sparkline values={trendOf(r, weeks).map((p) => p.quiz)} />
-                      <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(quizRate))}>
-                        {formatRate(quizRate)}
-                      </span>
-                      <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(summary === null ? null : summary / 100))}>
-                        {summary === null ? "-" : Math.round(summary)}
-                      </span>
-                    </button>
+
+          <p className="mt-4 text-[14px] font-bold text-grey-700">반 평균</p>
+          <dl className="mt-2 grid grid-cols-2 gap-2">
+            <Metric accent label="퀴즈 정답률" value={formatRate(stats.quizRate)} />
+            <Metric accent label="요약 평균" value={formatScore(stats.summaryAverage)} />
+          </dl>
+
+          <div className="my-5 border-t border-grey-100" />
+
+          {selected ? (
+            <StudentDetail key={selected.id} student={selected} report={reports.get(selected.id)} weeks={weeks} />
+          ) : (
+            <p className="rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
+              학생 목록에서 학생을 누르면
+              <br />
+              성적 추이와 취약 영역이 보여요.
+            </p>
+          )}
+
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13px] text-grey-500">
+              {report.pending
+                ? "AI 의견을 만들고 있어요"
+                : report.completedAt
+                  ? `AI 의견: ${formatDate(report.completedAt)}에 만들었어요`
+                  : "AI 의견을 아직 만들지 않았어요"}
+            </p>
+            <Link href={reportHref} className={buttonClass("primary", "md", "shrink-0")}>
+              상세 분석 페이지로 이동
+              <ChevronRight className="size-5" />
+            </Link>
+          </div>
+        </Card>
+      </div>
+
+      <div className="contents lg:block lg:space-y-5">
+        <div className="order-2">{aside}</div>
+
+        <Card className="order-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[18px] font-bold">
+              학생 및 성취도 <span className="text-grey-500">({students.length}명)</span>
+            </h2>
+            {students.length > 0 && (
+              <Button variant={managing ? "secondary" : "grey"} size="sm" onClick={() => setManageMode((m) => !m)} aria-pressed={managing}>
+                {managing ? "완료" : "PIN 초기화·삭제"}
+              </Button>
+            )}
+          </div>
+
+          {students.length === 0 ? (
+            <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] leading-relaxed text-grey-500">
+              학생이 반 코드로 입장하면
+              <br />
+              여기에 나타나요.
+            </p>
+          ) : managing ? (
+            <div className="mt-3">
+              <ErrorText>{error}</ErrorText>
+              <ul className="space-y-1">
+                {students.map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 px-2.5 py-1.5">
+                    <span className="w-5 shrink-0 text-right text-[13px] font-medium text-grey-400">{s.number}</span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-grey-800">
+                      {s.name}
+                      {!s.hasPin && <span className="ml-1.5 text-[12px] font-medium text-warning">PIN 초기화됨</span>}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id}>
+                      PIN 초기화
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => act(s, "delete")} disabled={busy === s.id} className="text-danger">
+                      삭제
+                    </Button>
                   </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
-      </Card>
-
-      <Card className="shadow-sm">
-        <h2 className="text-[18px] font-bold">
-          반 결과 분석표 <span className="text-grey-500">(최근 {TREND_WEEKS}주)</span>
-        </h2>
-        <p className="mt-0.5 text-[13px] text-grey-500">
-          {day(range.from)} ~ {day(range.to)} · 기록 {stats.activeCount}명
-        </p>
-
-        <p className="mt-4 text-[14px] font-bold text-grey-700">반 평균</p>
-        <dl className="mt-2 grid grid-cols-2 gap-2">
-          <Metric accent label="퀴즈 정답률" value={formatRate(stats.quizRate)} />
-          <Metric accent label="요약 평균" value={formatScore(stats.summaryAverage)} />
-        </dl>
-
-        <div className="my-5 border-t border-grey-100" />
-
-        {selected ? (
-          <StudentDetail key={selected.id} student={selected} report={reports.get(selected.id)} weeks={weeks} />
-        ) : (
-          <p className="rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
-            학생 목록에서 학생을 누르면
-            <br />
-            성적 추이와 취약 영역이 보여요.
-          </p>
-        )}
-
-        <p className="mt-4 text-[13px] text-grey-500">
-          {report.pending
-            ? "AI 의견을 만들고 있어요"
-            : report.completedAt
-              ? `AI 의견: ${formatDate(report.completedAt)}에 만들었어요`
-              : "AI 의견을 아직 만들지 않았어요"}
-        </p>
-        <Link href={reportHref} className={buttonClass("primary", "lg", "mt-3 w-full")}>
-          상세 분석 페이지로 이동
-          <ChevronRight className="size-5" />
-        </Link>
-      </Card>
-    </>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <>
+              <div className={cn(ROW_GRID, "mt-4 border border-transparent px-2.5 text-[12px] text-grey-400")}>
+                <span />
+                <span>이름</span>
+                <span className="text-center">퀴즈 추이</span>
+                <span className="text-right">퀴즈</span>
+                <span className="text-right">요약</span>
+              </div>
+              <ul className="mt-1 space-y-1">
+                {students.map((s) => {
+                  const r = reports.get(s.id);
+                  const active = s.id === selected?.id;
+                  const quizRate = r?.quiz.rate ?? null;
+                  const summary = r?.summary.average ?? null;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setSelectedStudentId(active ? null : s.id)}
+                        className={cn(
+                          ROW_GRID,
+                          "w-full rounded-2xl border px-2.5 py-2 text-left transition",
+                          active ? "border-primary bg-primary-weak" : "border-transparent hover:bg-grey-50",
+                        )}
+                      >
+                        <span className="text-right text-[13px] font-medium text-grey-400">{s.number}</span>
+                        <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
+                        <Sparkline values={trendOf(r, weeks).map((p) => p.quiz)} />
+                        <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(quizRate))}>
+                          {formatRate(quizRate)}
+                        </span>
+                        <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(summary === null ? null : summary / 100))}>
+                          {summary === null ? "-" : Math.round(summary)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -273,46 +293,48 @@ function StudentDetail({ student, report, weeks }: { student: RosterStudent; rep
         {!student.hasPin && <Badge tone="orange">PIN 초기화됨</Badge>}
       </div>
 
-      <div className="mt-3">
+      {/* 넓은 왼쪽 열에서는 차트와 수치를 나란히 둬서 차트가 지나치게 커지지 않게 한다 */}
+      <div className="mt-3 grid items-start gap-2 sm:grid-cols-2">
         <TrendChart points={trendOf(report, weeks)} />
-      </div>
+        <div className="space-y-2">
+          <dl className="grid grid-cols-2 gap-2">
+            <Metric label="퀴즈 평균" value={formatRate(report?.quiz.rate ?? null)} />
+            <Metric label="요약 평균" value={formatScore(report?.summary.average ?? null)} />
+          </dl>
 
-      <dl className="mt-2 grid grid-cols-2 gap-2">
-        <Metric label="퀴즈 평균" value={formatRate(report?.quiz.rate ?? null)} />
-        <Metric label="요약 평균" value={formatScore(report?.summary.average ?? null)} />
-      </dl>
-
-      <div className="mt-2 rounded-2xl bg-grey-50 px-4 py-3">
-        <p className="text-[13px] font-semibold text-grey-700">
-          취약 영역 <span className="font-normal text-grey-500">({WEAK_RATE * 100}% 미만)</span>
-        </p>
-        {!hasRecord ? (
-          <p className="mt-1 text-[13px] text-grey-500">최근 {TREND_WEEKS}주 기록이 없어 아직 분석할 수 없어요.</p>
-        ) : areas.length === 0 ? (
-          <p className="mt-1 text-[13px] text-grey-500">{WEAK_RATE * 100}% 미만인 영역이 없어요.</p>
-        ) : (
-          <ul className="mt-1.5 space-y-1">
-            {areas.map((a) => (
-              <li key={a.label} className="flex items-baseline justify-between gap-2 text-[13px]">
-                <span className="text-grey-800">{a.label}</span>
-                <span className="shrink-0 font-semibold tabular-nums text-danger">{a.detail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {words.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[12px] font-semibold text-grey-600">많이 틀린 낱말</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {words.map((w) => (
-                <Badge key={w.word} tone="orange">
-                  {w.word}
-                  {w.count > 1 && ` ×${w.count}`}
-                </Badge>
-              ))}
-            </div>
+          <div className="rounded-2xl bg-grey-50 px-4 py-3">
+            <p className="text-[13px] font-semibold text-grey-700">
+              취약 영역 <span className="font-normal text-grey-500">({WEAK_RATE * 100}% 미만)</span>
+            </p>
+            {!hasRecord ? (
+              <p className="mt-1 text-[13px] text-grey-500">최근 {TREND_WEEKS}주 기록이 없어 아직 분석할 수 없어요.</p>
+            ) : areas.length === 0 ? (
+              <p className="mt-1 text-[13px] text-grey-500">{WEAK_RATE * 100}% 미만인 영역이 없어요.</p>
+            ) : (
+              <ul className="mt-1.5 space-y-1">
+                {areas.map((a) => (
+                  <li key={a.label} className="flex items-baseline justify-between gap-2 text-[13px]">
+                    <span className="text-grey-800">{a.label}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-danger">{a.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {words.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[12px] font-semibold text-grey-600">많이 틀린 낱말</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {words.map((w) => (
+                    <Badge key={w.word} tone="orange">
+                      {w.word}
+                      {w.count > 1 && ` ×${w.count}`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

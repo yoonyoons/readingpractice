@@ -57,74 +57,68 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
         <DeleteClassButton classId={classRoom.id} name={classRoom.name} />
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-5">
-          <WorksheetCreatePanel
-            classId={classRoom.id}
-            gradeLabel={grade.label}
-            weeklyReady={readyArticles(weekly).length > 0 || isDemoGeneration()}
-            weeklyLoaded={Boolean(findLoadedWorksheet(worksheets, weekly))}
-          />
+      <ClassInsights
+        classId={classRoom.id}
+        students={students.map((s) => ({ id: s.id, number: s.number, name: s.name, hasPin: Boolean(s.pinHash) }))}
+        stats={recentStats}
+        weeks={weeks}
+        range={range}
+        report={{ pending: Boolean(report?.pending), completedAt: report?.completedAt ?? null }}
+        aside={<ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />}
+      >
+        <WorksheetCreatePanel
+          classId={classRoom.id}
+          gradeLabel={grade.label}
+          weeklyReady={readyArticles(weekly).length > 0 || isDemoGeneration()}
+          weeklyLoaded={Boolean(findLoadedWorksheet(worksheets, weekly))}
+        />
 
-          <Card>
-            <h2 className="text-[18px] font-bold">학습지</h2>
-            {worksheets.length === 0 ? (
-              <p className="mt-4 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] text-grey-500">
-                아직 만든 학습지가 없어요.
-              </p>
-            ) : (
-              <ul className="mt-3 divide-y divide-grey-100">
-                {worksheets.map((w, i) => {
-                  const ready = w.articles.filter((a) => a.status === "ready");
-                  const doneCount = submissionLists[i].filter((s) => {
-                    const article = ready.find((a) => a.id === s.articleId);
-                    return article ? isArticleDone(article, s) : false;
-                  }).length;
-                  const total = ready.length * students.length;
-                  return (
-                    <li key={w.id}>
-                      <Link
-                        href={`/teacher/classes/${classRoom.id}/worksheets/${w.id}`}
-                        className="-mx-3 flex items-center gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-grey-50"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge tone={w.status === "published" ? "green" : "grey"}>
-                              {w.status === "published" ? "배포 중" : "초안"}
-                            </Badge>
-                            <span className="truncate text-[16px] font-semibold text-grey-800">{w.title}</span>
-                          </div>
-                          <p className="mt-1 truncate text-[13px] text-grey-500">
-                            {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
-                          </p>
+        <Card>
+          <h2 className="text-[18px] font-bold">학습지</h2>
+          {worksheets.length === 0 ? (
+            <p className="mt-4 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] text-grey-500">
+              아직 만든 학습지가 없어요.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-grey-100">
+              {worksheets.map((w, i) => {
+                const ready = w.articles.filter((a) => a.status === "ready");
+                const doneCount = submissionLists[i].filter((s) => {
+                  const article = ready.find((a) => a.id === s.articleId);
+                  return article ? isArticleDone(article, s) : false;
+                }).length;
+                const total = ready.length * students.length;
+                return (
+                  <li key={w.id}>
+                    <Link
+                      href={`/teacher/classes/${classRoom.id}/worksheets/${w.id}`}
+                      className="-mx-3 flex items-center gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-grey-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge tone={w.status === "published" ? "green" : "grey"}>
+                            {w.status === "published" ? "배포 중" : "초안"}
+                          </Badge>
+                          <span className="truncate text-[16px] font-semibold text-grey-800">{w.title}</span>
                         </div>
-                        {w.status === "published" && total > 0 && (
-                          <span className="shrink-0 text-[13px] font-semibold text-primary">
-                            학습 완료 {doneCount}/{total}
-                          </span>
-                        )}
-                        <ChevronRight className="size-5 shrink-0 text-grey-300" />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Card>
-        </div>
-
-        <div className="space-y-5">
-          <ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />
-          <ClassInsights
-            classId={classRoom.id}
-            students={students.map((s) => ({ id: s.id, number: s.number, name: s.name, hasPin: Boolean(s.pinHash) }))}
-            stats={recentStats}
-            weeks={weeks}
-            range={range}
-            report={{ pending: Boolean(report?.pending), completedAt: report?.completedAt ?? null }}
-          />
-        </div>
-      </div>
+                        <p className="mt-1 truncate text-[13px] text-grey-500">
+                          {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
+                        </p>
+                      </div>
+                      {w.status === "published" && total > 0 && (
+                        <span className="shrink-0 text-[13px] font-semibold text-primary">
+                          학습 완료 {doneCount}/{total}
+                        </span>
+                      )}
+                      <ChevronRight className="size-5 shrink-0 text-grey-300" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      </ClassInsights>
     </TeacherShell>
   );
 }
