@@ -91,7 +91,7 @@ const COLUMNS: Column[] = [
     ),
   },
   { key: "content", label: "핵심 내용", value: (s) => s.summary.content, render: (s) => pointsCell(s.summary.content, 50) },
-  { key: "ownWords", label: "내 말로", value: (s) => s.summary.ownWords, render: (s) => pointsCell(s.summary.ownWords, 30) },
+  { key: "ownWords", label: "텍스트 재구성", value: (s) => s.summary.ownWords, render: (s) => pointsCell(s.summary.ownWords, 30) },
   { key: "sentence", label: "문장", value: (s) => s.summary.sentence, render: (s) => pointsCell(s.summary.sentence, 20) },
   {
     key: "help",

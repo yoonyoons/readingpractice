@@ -49,7 +49,7 @@ export interface StudentReport {
     count: number;
     /** 100점 만점 평균. 제출이 없으면 null */
     average: number | null;
-    /** 영역별 평균 (핵심 내용 50, 내 말로 표현 30, 문장 완성도 20점 만점) */
+    /** 영역별 평균 (핵심 내용 50, 텍스트 재구성 30, 문장 완성도 20점 만점) */
     content: number | null;
     ownWords: number | null;
     sentence: number | null;
@@ -248,7 +248,7 @@ export function weakAreas(student: StudentReport): WeakArea[] {
   }
   const parts: [string, number | null, number][] = [
     ["핵심 내용", student.summary.content, 50],
-    ["내 말로 표현", student.summary.ownWords, 30],
+    ["텍스트 재구성", student.summary.ownWords, 30],
     ["문장 완성도", student.summary.sentence, 20],
   ];
   for (const [label, value, max] of parts) {

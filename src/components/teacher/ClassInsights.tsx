@@ -15,6 +15,7 @@ import {
   type ClassReportStats,
   type DateRange,
   type StudentReport,
+  type WordCount,
 } from "@/lib/report";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -70,7 +71,7 @@ function linePath(values: (number | null)[], x: (i: number) => number, y: (v: nu
 
 /**
  * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표, 오른쪽은 aside(반 코드) 아래에 학생 목록.
- * 오른쪽 목록에서 학생을 고르면 왼쪽 분석표에 그 학생의 상세 분석이 보인다.
+ * 오른쪽 목록에서 학생을 누르면 그 학생 행 바로 아래에 상세 분석이 펼쳐진다 (한 번에 한 명).
  * 한 열로 쌓이는 좁은 화면에서는 학생 목록이 분석표보다 먼저 오도록 order로 순서를 바꾼다.
  */
 export function ClassInsights({
@@ -151,18 +152,6 @@ export function ClassInsights({
             <Metric accent label="요약 평균" value={formatScore(stats.summaryAverage)} />
           </dl>
 
-          <div className="my-5 border-t border-grey-100" />
-
-          {selected ? (
-            <StudentDetail key={selected.id} student={selected} report={reports.get(selected.id)} weeks={weeks} />
-          ) : (
-            <p className="rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] leading-relaxed text-grey-500">
-              학생 목록에서 학생을 누르면
-              <br />
-              성적 추이와 취약 영역이 보여요.
-            </p>
-          )}
-
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13px] text-grey-500">
               {report.pending
@@ -237,15 +226,15 @@ export function ClassInsights({
                   const quizRate = r?.quiz.rate ?? null;
                   const summary = r?.summary.average ?? null;
                   return (
-                    <li key={s.id}>
+                    <li key={s.id} className={cn("rounded-2xl", active && "bg-primary-weak")}>
                       <button
                         type="button"
-                        aria-pressed={active}
+                        aria-expanded={active}
                         onClick={() => setSelectedStudentId(active ? null : s.id)}
                         className={cn(
                           ROW_GRID,
-                          "w-full rounded-2xl border px-2.5 py-2 text-left transition",
-                          active ? "border-primary bg-primary-weak" : "border-transparent hover:bg-grey-50",
+                          "w-full rounded-2xl border border-transparent px-2.5 py-2 text-left transition",
+                          !active && "hover:bg-grey-50",
                         )}
                       >
                         <span className="text-right text-[13px] font-medium text-grey-400">{s.number}</span>
@@ -258,6 +247,7 @@ export function ClassInsights({
                           {summary === null ? "-" : Math.round(summary)}
                         </span>
                       </button>
+                      {active && <StudentDetail student={s} report={r} weeks={weeks} />}
                     </li>
                   );
                 })}
@@ -279,64 +269,80 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   );
 }
 
+/** 학생 목록에서 누른 학생 행 아래에 펼쳐지는 상세 분석 (행과 같은 파란 바탕 안) */
 function StudentDetail({ student, report, weeks }: { student: RosterStudent; report: StudentReport | undefined; weeks: string[] }) {
   const areas = report ? weakAreas(report) : [];
-  const words = report?.quiz.missedWords.slice(0, 5) ?? [];
+  const words = report?.quiz.missedWords ?? [];
   const hasRecord = Boolean(report && report.articleCount > 0);
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-[15px] font-bold text-grey-900">
-          선택된 학생: {student.number}번 {student.name} 상세 분석
-        </h3>
-        {!student.hasPin && <Badge tone="orange">PIN 초기화됨</Badge>}
-      </div>
-
-      {/* 넓은 왼쪽 열에서는 차트와 수치를 나란히 둬서 차트가 지나치게 커지지 않게 한다 */}
-      <div className="mt-3 grid items-start gap-2 sm:grid-cols-2">
-        <TrendChart points={trendOf(report, weeks)} />
-        <div className="space-y-2">
-          <dl className="grid grid-cols-2 gap-2">
-            <Metric label="퀴즈 평균" value={formatRate(report?.quiz.rate ?? null)} />
-            <Metric label="요약 평균" value={formatScore(report?.summary.average ?? null)} />
-          </dl>
-
-          <div className="rounded-2xl bg-grey-50 px-4 py-3">
-            <p className="text-[13px] font-semibold text-grey-700">
-              취약 영역 <span className="font-normal text-grey-500">({WEAK_RATE * 100}% 미만)</span>
-            </p>
-            {!hasRecord ? (
-              <p className="mt-1 text-[13px] text-grey-500">최근 {TREND_WEEKS}주 기록이 없어 아직 분석할 수 없어요.</p>
-            ) : areas.length === 0 ? (
-              <p className="mt-1 text-[13px] text-grey-500">{WEAK_RATE * 100}% 미만인 영역이 없어요.</p>
-            ) : (
-              <ul className="mt-1.5 space-y-1">
-                {areas.map((a) => (
-                  <li key={a.label} className="flex items-baseline justify-between gap-2 text-[13px]">
-                    <span className="text-grey-800">{a.label}</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-danger">{a.detail}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {words.length > 0 && (
-              <div className="mt-3">
-                <p className="text-[12px] font-semibold text-grey-600">많이 틀린 낱말</p>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {words.map((w) => (
-                    <Badge key={w.word} tone="orange">
-                      {w.word}
-                      {w.count > 1 && ` ×${w.count}`}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+    <div className="animate-fade-up space-y-2 px-2 pb-3">
+      {!student.hasPin && (
+        <div className="px-1">
+          <Badge tone="orange">PIN 초기화됨</Badge>
         </div>
+      )}
+
+      <TrendChart points={trendOf(report, weeks)} />
+
+      <dl className="grid grid-cols-2 gap-2">
+        <Metric label="퀴즈 평균" value={formatRate(report?.quiz.rate ?? null)} />
+        <Metric label="요약 평균" value={formatScore(report?.summary.average ?? null)} />
+      </dl>
+
+      <div className="px-2 pt-2">
+        <p className="text-[13px] font-semibold text-grey-700">
+          취약 영역 <span className="font-normal text-grey-500">({WEAK_RATE * 100}% 미만)</span>
+        </p>
+        {!hasRecord ? (
+          <p className="mt-1 text-[13px] text-grey-500">최근 {TREND_WEEKS}주 기록이 없어 아직 분석할 수 없어요.</p>
+        ) : areas.length === 0 ? (
+          <p className="mt-1 text-[13px] text-grey-500">{WEAK_RATE * 100}% 미만인 영역이 없어요.</p>
+        ) : (
+          <ul className="mt-1.5 space-y-1">
+            {areas.map((a) => (
+              <li key={a.label} className="flex items-baseline justify-between gap-2 text-[13px]">
+                <span className="text-grey-800">{a.label}</span>
+                <span className="shrink-0 font-semibold tabular-nums text-danger">{a.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {words.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[12px] font-semibold text-grey-600">많이 틀린 낱말</p>
+            <WordCloud words={words} />
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/** 많이 틀린 낱말일수록 크고 진하게. 가장 많이 틀린 낱말이 가운데 오도록 좌우로 번갈아 놓는다 */
+function WordCloud({ words }: { words: WordCount[] }) {
+  const max = Math.max(...words.map((w) => w.count));
+  const min = Math.min(...words.map((w) => w.count));
+  const arranged: WordCount[] = [];
+  words.forEach((w, i) => (i % 2 === 0 ? arranged.push(w) : arranged.unshift(w)));
+
+  return (
+    <ul className="mt-2 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 px-1 py-2 leading-tight">
+      {arranged.map((w) => {
+        const weight = max === min ? 0.5 : (w.count - min) / (max - min);
+        return (
+          <li
+            key={w.word}
+            title={`${w.count}번 틀렸어요`}
+            className={cn(weight >= 1 ? "font-bold text-primary" : weight >= 0.5 ? "font-semibold text-grey-800" : "font-medium text-grey-600")}
+            style={{ fontSize: `${Math.round(13 + weight * 9)}px` }}
+          >
+            {w.word}
+            <span className="sr-only"> {w.count}번</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

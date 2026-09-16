@@ -9,7 +9,7 @@ export function MyReport({ report, message }: { report: StudentReport; message: 
   const types = (Object.keys(report.quiz.byType) as QuizType[]).filter((t) => report.quiz.byType[t].answered > 0);
   const areas = [
     { label: "핵심 내용", value: report.summary.content, max: 50 },
-    { label: "내 말로 표현", value: report.summary.ownWords, max: 30 },
+    { label: "텍스트 재구성", value: report.summary.ownWords, max: 30 },
     { label: "문장 완성도", value: report.summary.sentence, max: 20 },
   ];
 

@@ -940,7 +940,7 @@ function StudentDetail({
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-grey-800">{s.text}</p>
               <div className="mt-3 space-y-1 border-t border-grey-200 pt-3 text-[13px] leading-relaxed text-grey-600">
                 <p>
-                  핵심 내용 {s.feedback.breakdown.content}/50 · 내 말로 표현 {s.feedback.breakdown.ownWords}/30 · 문장 완성도{" "}
+                  핵심 내용 {s.feedback.breakdown.content}/50 · 텍스트 재구성 {s.feedback.breakdown.ownWords}/30 · 문장 완성도{" "}
                   {s.feedback.breakdown.sentence}/20
                 </p>
                 <p>👍 {s.feedback.strengths}</p>

@@ -65,7 +65,7 @@ function describe(s: StudentReport) {
   }
   if (s.summary.count > 0) {
     parts.push(
-      `요약 ${s.summary.count}번 평균 ${formatScore(s.summary.average)}(핵심 내용 ${round(s.summary.content)}/50, 내 말로 표현 ${round(s.summary.ownWords)}/30, 문장 완성도 ${round(s.summary.sentence)}/20), 점수 변화 ${s.summary.history.map((h) => h.score).join("→")}`,
+      `요약 ${s.summary.count}번 평균 ${formatScore(s.summary.average)}(핵심 내용 ${round(s.summary.content)}/50, 텍스트 재구성 ${round(s.summary.ownWords)}/30, 문장 완성도 ${round(s.summary.sentence)}/20), 점수 변화 ${s.summary.history.map((h) => h.score).join("→")}`,
     );
   } else {
     parts.push("요약 기록 없음");

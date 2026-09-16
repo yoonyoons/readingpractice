@@ -866,7 +866,7 @@ function ResultStep({
 
             <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
               <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
-              <ScoreRow label="내 말로 표현하기" value={feedback.breakdown.ownWords} max={30} />
+              <ScoreRow label="텍스트 재구성" value={feedback.breakdown.ownWords} max={30} />
               <ScoreRow label="문장 완성도" value={feedback.breakdown.sentence} max={20} />
             </div>
 
