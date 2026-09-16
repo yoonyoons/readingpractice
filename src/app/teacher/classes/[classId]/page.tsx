@@ -83,11 +83,13 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
             <ul className="mt-3 divide-y divide-grey-100">
               {worksheets.map((w, i) => {
                 const ready = w.articles.filter((a) => a.status === "ready");
-                const doneCount = submissionLists[i].filter((s) => {
-                  const article = ready.find((a) => a.id === s.articleId);
-                  return article ? isArticleDone(article, s) : false;
-                }).length;
-                const total = ready.length * students.length;
+                // 이 학습지의 기사를 모두 끝낸 학생 수
+                const doneStudents = students.filter((student) =>
+                  ready.every((article) => {
+                    const sub = submissionLists[i].find((s) => s.studentId === student.id && s.articleId === article.id);
+                    return sub ? isArticleDone(article, sub) : false;
+                  }),
+                ).length;
                 return (
                   <li key={w.id}>
                     <Link
@@ -105,9 +107,9 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
                           {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
                         </p>
                       </div>
-                      {w.status === "published" && total > 0 && (
+                      {w.status === "published" && ready.length > 0 && students.length > 0 && (
                         <span className="shrink-0 text-[13px] font-semibold text-primary">
-                          학습 완료 {doneCount}/{total}
+                          학습 완료 {doneStudents}/{students.length}명
                         </span>
                       )}
                       <ChevronRight className="size-5 shrink-0 text-grey-300" />
