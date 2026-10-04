@@ -166,6 +166,7 @@ export const DEMO_TOPICS: DemoTopic[] = [
         { word: "몰입", meaning: "어떤 일에 깊이 빠져드는 것이에요." },
         { word: "예외", meaning: "규칙을 따르지 않아도 되는 특별한 경우예요." },
         { word: "조절", meaning: "알맞게 맞추어 정하는 것이에요." },
+        { word: "방해", meaning: "남의 일이 잘되지 못하게 막는 것이에요." },
       ],
       quiz: [
         {
