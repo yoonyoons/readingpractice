@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { ai } from "./claude";
+import { ai, toAiError } from "./claude";
 import { getDb } from "./db";
 import { hasAnthropic } from "./env";
 import { GRADES } from "./grades";
@@ -192,7 +192,11 @@ export async function requestReportComments(classRoom: ClassRoom, range: DateRan
     });
   }
 
-  const batch = await ai().messages.batches.create({ requests });
+  const batch = await ai()
+    .messages.batches.create({ requests })
+    .catch((error: unknown) => {
+      throw toAiError(error) ?? error;
+    });
   return db.saveClassReport({
     ...report,
     pending: { batchId: batch.id, from: range.from, to: range.to, requestedAt: now, checkedAt: now, groups, presets: {} },
