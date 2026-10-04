@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { claudeModel } from "./env";
 import { HttpError } from "./http";
 
-/** Claude Opus 5가 안전 분류기로 요청을 거절하면 서버에서 권장 모델로 다시 시도한다 */
+/** 안전 분류기가 요청을 거절하면 서버에서 권장 모델로 다시 시도한다 */
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 let client: Anthropic | undefined;

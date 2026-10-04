@@ -35,7 +35,7 @@ export function hasBrave() {
 }
 
 export function claudeModel() {
-  return process.env.CLAUDE_MODEL || "claude-opus-5";
+  return process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 }
 
 /** Brave(뉴스 수집)·Anthropic(기사 작성) 키가 하나라도 없으면 예시 기사로 학습지를 만든다 */
