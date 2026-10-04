@@ -64,7 +64,7 @@ export async function loadWeeklySet(
     const reasons = [...new Set(set?.articles.map((a) => a.error).filter(Boolean) ?? [])];
     throw new HttpError(
       503,
-      `이번 주 ${GRADES[grade].label} 기사를 만들지 못했어요.${reasons.length ? ` (${reasons.join(" / ")})` : ""} 잠시 후 다시 시도해 주세요.`,
+      `이번 주 ${GRADES[grade].label} 기사를 만들지 못했어요. ${reasons.length ? reasons.join(" / ") : "잠시 후 다시 시도해 주세요."}`,
     );
   }
   return copyWeeklySet(classRoom, set);
