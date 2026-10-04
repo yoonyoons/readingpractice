@@ -7,6 +7,7 @@ import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
 import { buildClassReport, TREND_WEEKS } from "@/lib/report";
@@ -70,6 +71,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
           classId={classRoom.id}
           gradeLabel={grade.label}
           weeklyReady={readyArticles(weekly).length > 0 || isDemoGeneration()}
+          weeklyCanBuild={!isDemoTeacher(teacher)}
           weeklyLoaded={Boolean(findLoadedWorksheet(worksheets, weekly))}
         />
 

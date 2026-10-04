@@ -33,22 +33,46 @@ export function findLoadedWorksheet(worksheets: Worksheet[], set: WeeklySet | nu
   );
 }
 
-/** 이번 주 기사를 AI 호출 없이 복사해 이 반의 새 학습지 초안을 만든다 */
-export async function loadWeeklySet(classRoom: ClassRoom, now = new Date()): Promise<Worksheet> {
-  let set = await getWeeklySet(classRoom.gradeLevel, now);
-  // 데모 모드(API 키 없음)는 예시 기사라 비용이 들지 않으므로, 아직 없으면 그 자리에서 만든다
-  if (readyArticles(set).length === 0 && isDemoGeneration()) {
-    await buildWeeklySets(now);
-    set = await getWeeklySet(classRoom.gradeLevel, now);
+/** 다른 실행(Cron이나 다른 선생님)이 기사를 만드는 중으로 보는 시간. 이보다 오래 멈춰 있으면 끊긴 것으로 보고 이어 만든다 */
+const BUILDING_MS = 6 * 60 * 1000;
+
+/**
+ * 이번 주 기사를 복사해 이 반의 새 학습지 초안을 만든다.
+ * 미리 만든 묶음이 없거나 덜 됐으면(Cron 실패·시간 초과 등) canBuild일 때 이 반 학년군 묶음을 그 자리에서 만든다.
+ */
+export async function loadWeeklySet(
+  classRoom: ClassRoom,
+  { canBuild = true, now = new Date() }: { canBuild?: boolean; now?: Date } = {},
+): Promise<Worksheet> {
+  const grade = classRoom.gradeLevel;
+  let set = await getWeeklySet(grade, now);
+  // 데모 모드(API 키 없음)는 예시 기사라 비용이 들지 않으므로 누구나 만들 수 있다
+  if (readyArticles(set).length === 0 && (canBuild || isDemoGeneration())) {
+    if (set && isBuilding(set, now)) {
+      throw new HttpError(
+        409,
+        `이번 주 ${GRADES[grade].label} 기사를 지금 만들고 있어요. 2~3분 뒤에 다시 불러와 주세요.`,
+      );
+    }
+    await buildWeeklySets(now, [grade]);
+    set = await getWeeklySet(grade, now);
   }
   if (!set || readyArticles(set).length === 0) {
+    if (!canBuild && !isDemoGeneration()) {
+      throw new HttpError(404, `이번 주 ${GRADES[grade].label} 기사를 아직 준비하고 있어요. 조금 뒤에 다시 불러와 주세요.`);
+    }
+    const reasons = [...new Set(set?.articles.map((a) => a.error).filter(Boolean) ?? [])];
     throw new HttpError(
-      404,
-      `이번 주 ${GRADES[classRoom.gradeLevel].label} 기사를 아직 준비하고 있어요. 매주 월요일 아침에 준비되니 조금 뒤에 다시 불러와 주세요.`,
+      503,
+      `이번 주 ${GRADES[grade].label} 기사를 만들지 못했어요.${reasons.length ? ` (${reasons.join(" / ")})` : ""} 잠시 후 다시 시도해 주세요.`,
     );
   }
   return copyWeeklySet(classRoom, set);
 }
+
+/** 아직 만드는 중인 기사가 있고 최근에 저장됐다 */
+const isBuilding = (set: WeeklySet, now: Date) =>
+  set.articles.some((a) => a.status === "pending") && now.getTime() - Date.parse(set.updatedAt) < BUILDING_MS;
 
 function copyWeeklySet(classRoom: ClassRoom, set: WeeklySet) {
   return getDb().createWorksheet({
@@ -76,19 +100,22 @@ const topicOf = (article: Article): TopicPick => ({
 });
 
 /**
- * 모든 학년군의 이번 주 기사 묶음을 채운다. 여러 번 실행해도 안전하다.
+ * 학년군(기본: 모두)의 이번 주 기사 묶음을 채운다. 여러 번 실행해도 안전하다.
  * - 완성된 학년군은 건너뛰고, 실패하거나 중간에 끊긴 기사만 다시 만든다.
  * - 새로 만드는 학년군은 이번 주 주제를 이미 고른 학년군이 있으면 같은 주제를 쓴다.
- * - 주제를 고르면 먼저 저장해 두어, 시간 초과로 끊겨도 다음 실행이 기사 작성부터 이어 간다.
+ * - 주제를 고르면 먼저 저장하고, 기사도 한 편씩 끝나는 대로 저장해 시간 초과로 끊겨도 다음 실행이 남은 기사부터 이어 간다.
  * 이번 실행에서 만든 묶음을 돌려준다.
  */
-export async function buildWeeklySets(now = new Date()): Promise<WeeklySet[]> {
+export async function buildWeeklySets(
+  now = new Date(),
+  grades: GradeLevel[] = GRADE_LIST.map((g) => g.level),
+): Promise<WeeklySet[]> {
   const db = getDb();
   const week = weekKey(now);
   const existing = new Map((await db.listWeeklySets(week)).map((s) => [s.gradeLevel, s]));
   const usable = (set?: WeeklySet): set is WeeklySet => Boolean(set && set.articles.length > 0 && !isStale(set));
 
-  const targets = GRADE_LIST.map((g) => g.level).filter((grade) => {
+  const targets = grades.filter((grade) => {
     const set = existing.get(grade);
     return !usable(set) || set.articles.some((a) => a.status !== "ready");
   });
@@ -112,13 +139,29 @@ export async function buildWeeklySets(now = new Date()): Promise<WeeklySet[]> {
     );
   }
 
-  return Promise.all(
-    sets.map(async (set) => {
-      const todo = set.articles.filter((a) => a.status !== "ready");
-      const built = new Map((await buildAllArticles(todo, set.gradeLevel)).map((a) => [a.id, a]));
-      return db.saveWeeklySet({ ...set, articles: set.articles.map((a) => built.get(a.id) ?? a), updatedAt: nowIso() });
-    }),
-  );
+  return Promise.all(sets.map(fillWeeklySet));
+}
+
+/** 묶음의 덜 된 기사를 만든다. 한 편이 끝날 때마다 저장해, 중간에 끊겨도 끝난 기사는 남는다 */
+async function fillWeeklySet(set: WeeklySet): Promise<WeeklySet> {
+  const db = getDb();
+  const todo = set.articles.filter((a) => a.status !== "ready");
+  if (todo.length === 0) return set;
+  // 만들기 시작한 시각을 남겨, 그동안 들어온 불러오기 요청이 같은 기사를 또 만들지 않게 한다
+  let current = await db.saveWeeklySet({
+    ...set,
+    articles: set.articles.map((a) => (a.status === "ready" ? a : { ...a, status: "pending" as const, error: undefined })),
+    updatedAt: nowIso(),
+  });
+  let saving: Promise<unknown> = Promise.resolve();
+  await buildAllArticles(todo, set.gradeLevel, (_index, article) => {
+    current = { ...current, articles: current.articles.map((a) => (a.id === article.id ? article : a)), updatedAt: nowIso() };
+    const snapshot = current;
+    // 동시에 끝난 기사끼리 서로 덮어쓰지 않도록 차례로 저장한다
+    saving = saving.catch(() => {}).then(() => db.saveWeeklySet(snapshot));
+  });
+  await saving;
+  return current;
 }
 
 /** Cron: 이번 주 기사 묶음을 채운다. 이미 모두 준비돼 있으면 AI를 부르지 않고 끝난다 */
