@@ -38,7 +38,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 `.env.example`을 `.env.local`로 복사하고 값을 채웁니다.
 
 1. **Brave Search API** — [Brave API 대시보드](https://api-dashboard.search.brave.com)에서 가입 → 크레딧 충전(선불, 1,000회당 약 $5) → API Keys에서 키 발급 → `BRAVE_API_KEY`. 학습지 1회 생성에 약 15회(약 $0.08)를 씁니다.
-2. **Anthropic API** — [Claude Console](https://platform.claude.com)에서 결제 수단 등록 후 API Keys에서 키 발급 → `ANTHROPIC_API_KEY` (모델은 `CLAUDE_MODEL`로 바꿀 수 있고 기본값은 `claude-opus-5`).
+2. **Anthropic API** — [Claude Console](https://platform.claude.com)에서 결제 수단 등록 후 API Keys에서 키 발급 → `ANTHROPIC_API_KEY` (모델은 `CLAUDE_MODEL`로 바꿀 수 있고 기본값은 `claude-sonnet-5-5`. 요약 채점·기사 분석·결과 분석표 의견은 `claude-haiku-4-5`).
 3. **Supabase** — 프로젝트 생성 → SQL Editor에서 [`supabase/schema.sql`](supabase/schema.sql) 실행(이미 만든 DB에 다시 실행해도 새 열만 추가됨) → Project Settings > API의 URL과 secret(service_role) key → `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
    - Vercel에서 Supabase 연동(Marketplace)을 쓰면 자동으로 들어가는 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`도 그대로 인식합니다.
 4. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
@@ -80,7 +80,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 ```
 
 - `npm run news` 로 서버 없이 뉴스 수집·주제 선정 결과를 확인할 수 있습니다 (`BRAVE_API_KEY`만 있어도 동작).
-- Claude Opus 5 요청에는 `fallbacks: "default"`를 켜 두어, 안전 분류기가 요청을 거절하면 서버에서 권장 모델로 다시 시도합니다.
+- Claude 요청에는 `fallbacks: "default"`를 켜 두어, 안전 분류기가 요청을 거절하면 서버에서 권장 모델로 다시 시도합니다.
 - 주제는 한 주에 한 번만 고르고 모든 학년군이 같은 주제를 각 수준에 맞춰 씁니다. 불러오기는 기사·퀴즈 id만 새로 매겨 복사합니다.
 - 준비 작업은 여러 번 실행해도 안전합니다: 완성된 학년군은 건너뛰고 실패한 기사만 다시 만듭니다. 예시 기사(데모)로 만든 묶음은 API 키를 넣고 운영하면 새로 만듭니다.
 - 결과 분석표 AI 의견은 학생 10명씩 묶어 Claude Haiku 4.5를 Batch API(요금 50%)로 부르고, 학생 이름·번호 대신 순번과 퀴즈·요약 수치·틀린 낱말만 보냅니다. 결과는 몇 분~최대 24시간 뒤 도착하며, 교사가 분석표를 열 때·학생이 홈을 열 때(1분에 한 번)·매일 06:00 Cron에서 가져옵니다. 도착하면 학생용 문장은 바로 학생 화면에 보이고 교사용 메모는 교사만 봅니다. 기간 안에 기록이 없는 학생은 AI에 보내지 않습니다.
