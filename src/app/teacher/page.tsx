@@ -3,11 +3,17 @@ import { redirect } from "next/navigation";
 import { ModeNotice } from "@/components/ModeNotice";
 import { CreateClassButton } from "@/components/teacher/CreateClassButton";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
-import { Badge, Card, ChevronRight, EmptyState } from "@/components/ui";
+import { Badge, buttonClass, Card, CardHeading, ChevronRight, EmptyState } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { GRADES } from "@/lib/grades";
 import { getTeacher } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
+
+/** 학교 제출용 서식 (public/forms). 학교명·담당 교사·날짜 칸은 비어 있어 학교에서 채워 쓴다. */
+const SCHOOL_FORMS = [
+  { href: "/forms/parent-consent.hwpx", fileName: "학부모 개인정보 수집·이용 및 국외 이전 동의서.hwpx", label: "학부모 동의서" },
+  { href: "/forms/school-committee-review.hwpx", fileName: "학교운영위원회 학습지원 소프트웨어 심의 안건.hwpx", label: "학교운영위원회 심의 양식" },
+];
 
 export default async function TeacherHome() {
   const teacher = await getTeacher();
@@ -77,6 +83,21 @@ export default async function TeacherHome() {
           ))}
         </div>
       )}
+
+      <Card className="mt-8">
+        <CardHeading icon="📄" eyebrow="학교 제출용 서식 (한글 hwpx)" title="동의서·심의 양식 내려받기" />
+        <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
+          만 14세 미만 학생은 가입 전에 보호자 동의가 필요해요. 학교운영위원회 심의를 거친 뒤 동의서를 받은 학생만 입장하게 해
+          주세요. 학교명·담당 교사·날짜 칸은 학교에 맞게 채워 쓰세요.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {SCHOOL_FORMS.map((form) => (
+            <a key={form.href} href={form.href} download={form.fileName} className={buttonClass("secondary", "md")}>
+              {form.label}
+            </a>
+          ))}
+        </div>
+      </Card>
     </TeacherShell>
   );
 }
