@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   BottomBar,
@@ -646,6 +646,11 @@ function QuizDone({ score, onNext }: { score: Score; onNext: () => void }) {
 
 /* ───────────── 3단계: 스스로 요약 ───────────── */
 
+/** 기사 글자를 길게 눌러 선택·복사하지 못하게 한다 (iOS 길게 누르기 메뉴 포함) */
+const NO_SELECT = "select-none [-webkit-touch-callout:none]";
+/** 한 번에 이만큼보다 많은 글자가 늘어나면 붙여넣기로 본다 */
+const PASTE_LIKE_CHARS = 30;
+
 interface SummaryResponse {
   attempt: SummaryAttempt;
   attemptsLeft: number;
@@ -674,7 +679,26 @@ function SummaryStep({
   const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pasteNotice, setPasteNotice] = useState(false);
   const length = text.trim().length;
+
+  // 요약은 스스로 써야 하므로 기사 복사와 요약 칸 붙여넣기·끌어 놓기를 막는다
+  function blockCopy(e: SyntheticEvent) {
+    if (e.target instanceof HTMLTextAreaElement) return;
+    e.preventDefault();
+  }
+  function blockPaste(e: SyntheticEvent) {
+    e.preventDefault();
+    setPasteNotice(true);
+  }
+  function changeText(next: string) {
+    // 키보드 앱의 클립보드 추천처럼 paste 이벤트 없이 긴 글이 한꺼번에 들어오는 경우도 막는다
+    if (next.length - text.length > PASTE_LIKE_CHARS) {
+      setPasteNotice(true);
+      return;
+    }
+    setText(next.slice(0, MAX_SUMMARY_CHARS));
+  }
 
   async function submit() {
     setLoading(true);
@@ -693,10 +717,18 @@ function SummaryStep({
 
   return (
     <>
-      <div className={cn("animate-fade-up pb-40 pt-4 md:pt-8", PAD)}>
+      <div
+        className={cn("animate-fade-up pb-40 pt-4 md:pt-8", PAD)}
+        onCopy={blockCopy}
+        onCut={blockCopy}
+        onDragStart={blockCopy}
+        onContextMenu={blockCopy}
+      >
         {/* 태블릿 가로: 왼쪽에 기사, 오른쪽에 요약 쓰기 */}
         <div className="lg:grid lg:grid-cols-2 lg:gap-10">
-          <ArticlePanel article={article} onWord={setActiveWord} />
+          <div className={NO_SELECT}>
+            <ArticlePanel article={article} onWord={setActiveWord} />
+          </div>
 
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-primary">스스로 요약하기</p>
@@ -713,17 +745,25 @@ function SummaryStep({
               ))}
             </div>
 
-            <div className="lg:hidden">
+            <div className={cn("lg:hidden", NO_SELECT)}>
               <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
             </div>
 
             <Textarea
               value={text}
-              onChange={(e) => setText(e.target.value.slice(0, MAX_SUMMARY_CHARS))}
+              onChange={(e) => changeText(e.target.value)}
+              onPaste={blockPaste}
+              onDrop={blockPaste}
+              autoComplete="off"
               rows={9}
               placeholder="기사를 읽고 중요하다고 생각한 내용을 써 보세요."
               className="mt-4 resize-none lg:min-h-[360px]"
             />
+            {pasteNotice && (
+              <p className="mt-2 text-[13px] font-medium text-grey-600">
+                ✋ 요약은 붙여넣기 없이 내 말로 직접 써야 해요.
+              </p>
+            )}
             <div className="mt-2 flex items-center justify-between text-[13px]">
               <span className={cn("font-medium", length >= minChars ? "text-primary" : "text-grey-500")}>
                 {length}자 {length < minChars && `· ${minChars}자 이상 써 주세요`}
@@ -1031,7 +1071,7 @@ function OpinionStep({
               <span className="text-grey-500">친구들에게는 이름 없이 보여요</span>
             </div>
 
-            <div className="lg:hidden">
+            <div className={cn("lg:hidden", NO_SELECT)}>
               <ArticleToggle article={article} open={showArticle} onToggle={() => setShowArticle((v) => !v)} onWord={setActiveWord} />
             </div>
             <div className="mt-3">
