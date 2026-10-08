@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Badge,
   Button,
@@ -364,227 +364,372 @@ function ArticleForm({
   const updateQuiz = (index: number, patch: Partial<QuizItem>) =>
     onChange({ quiz: article.quiz.map((q, i) => (i === index ? { ...q, ...patch } : q)) });
   const bodyChars = article.bodyText.replace(/\s/g, "").length;
+  // 새 문항을 추가하면 렌더링된 뒤에 그 문항으로 이동한다
+  const pendingJump = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingJump.current) return;
+    jumpTo(pendingJump.current);
+    pendingJump.current = null;
+  });
+
+  function addQuiz() {
+    const id = crypto.randomUUID();
+    onChange({
+      quiz: [
+        ...article.quiz,
+        {
+          id,
+          type: "comprehension",
+          prompt: "",
+          sentence: "",
+          target: "",
+          choices: ["", "", "", ""],
+          answer: 0,
+          explanation: "",
+        },
+      ],
+    });
+    pendingJump.current = quizAnchor(id);
+  }
+
+  const navItems: NavItem[] = [
+    { id: "edit-body", label: "본문" },
+    ...article.quiz.map((q, i) => ({ id: quizAnchor(q.id), label: `Q${i + 1}`, incomplete: isQuizIncomplete(q), quiz: true })),
+    { id: "edit-vocab", label: "핵심 어휘" },
+    { id: "edit-keypoints", label: "요약 기준" },
+    { id: "edit-opinion", label: "생각 나누기" },
+  ];
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-5">
-        <Card>
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            <Badge tone="blue">{article.topic}</Badge>
-            <Badge tone={article.sourceMode === "snippets" ? "orange" : "grey"}>{SOURCE_LABEL[article.sourceMode]}</Badge>
-            {article.sourceMode !== "demo" && (
-              <span className="text-[13px] text-grey-500">출처 {article.sources.length}곳</span>
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="ml-auto"
-              onClick={onRegenerate}
-              loading={regenerating}
-              disabled={disabled}
-            >
-              AI로 다시 만들기
-            </Button>
-          </div>
-          <div className="space-y-4">
-            <Field label="제목">
-              <Input compact value={article.title} onChange={(e) => onChange({ title: e.target.value })} />
-            </Field>
-            <Field label="왜 알아야 할까요?">
-              <Textarea compact rows={2} value={article.whyItMatters} onChange={(e) => onChange({ whyItMatters: e.target.value })} />
-            </Field>
-            <Field label="본문" hint={`빈 줄로 문단을 나눠요 · 공백 제외 ${bodyChars}자`}>
-              <Textarea compact rows={18} value={article.bodyText} onChange={(e) => onChange({ bodyText: e.target.value })} />
-            </Field>
-          </div>
-        </Card>
-
-        <Card>
-          <SectionTitle
-            title={`퀴즈 ${article.quiz.length}문항`}
-            action={
+    <div className="space-y-5">
+      <JumpBar items={navItems} onAddQuiz={addQuiz} />
+      <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-5">
+          <Card id="edit-body" className={ANCHOR}>
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <Badge tone="blue">{article.topic}</Badge>
+              <Badge tone={article.sourceMode === "snippets" ? "orange" : "grey"}>{SOURCE_LABEL[article.sourceMode]}</Badge>
+              {article.sourceMode !== "demo" && (
+                <span className="text-[13px] text-grey-500">출처 {article.sources.length}곳</span>
+              )}
               <Button
-                variant="grey"
+                variant="secondary"
                 size="sm"
-                onClick={() =>
-                  onChange({
-                    quiz: [
-                      ...article.quiz,
-                      {
-                        id: crypto.randomUUID(),
-                        type: "comprehension",
-                        prompt: "",
-                        sentence: "",
-                        target: "",
-                        choices: ["", "", "", ""],
-                        answer: 0,
-                        explanation: "",
-                      },
-                    ],
-                  })
-                }
+                className="ml-auto"
+                onClick={onRegenerate}
+                loading={regenerating}
+                disabled={disabled}
               >
-                + 문항 추가
+                AI로 다시 만들기
               </Button>
-            }
-          />
-          <div className="space-y-3">
-            {article.quiz.map((item, i) => (
-              <QuizItemEditor
-                key={item.id}
-                item={item}
-                index={i}
-                onChange={(patch) => updateQuiz(i, patch)}
-                onRemove={() => onChange({ quiz: article.quiz.filter((_, j) => j !== i) })}
-              />
-            ))}
-          </div>
-        </Card>
-      </div>
+            </div>
+            <div className="space-y-4">
+              <Field label="제목">
+                <Input compact value={article.title} onChange={(e) => onChange({ title: e.target.value })} />
+              </Field>
+              <Field label="왜 알아야 할까요?">
+                <Textarea compact rows={2} value={article.whyItMatters} onChange={(e) => onChange({ whyItMatters: e.target.value })} />
+              </Field>
+              <Field label="본문" hint={`빈 줄로 문단을 나눠요 · 공백 제외 ${bodyChars}자`}>
+                <Textarea compact rows={18} value={article.bodyText} onChange={(e) => onChange({ bodyText: e.target.value })} />
+              </Field>
+            </div>
+          </Card>
 
-      <div className="space-y-5">
-        <Card>
-          <SectionTitle
-            title="핵심 어휘"
-            action={
-              <Button variant="grey" size="sm" onClick={() => onChange({ vocab: [...article.vocab, { word: "", meaning: "" }] })}>
-                + 추가
-              </Button>
-            }
-          />
-          <p className="-mt-2 mb-3 text-[13px] text-grey-500">본문에서 파란색으로 표시되고, 누르면 뜻이 보여요.</p>
-          <div className="space-y-3">
-            {article.vocab.map((v, i) => (
-              <div key={i} className="rounded-2xl bg-grey-50 p-3">
-                <div className="flex gap-2">
+          <Card>
+            <SectionTitle
+              title={`퀴즈 ${article.quiz.length}문항`}
+              action={
+                <Button variant="grey" size="sm" onClick={addQuiz}>
+                  + 문항 추가
+                </Button>
+              }
+            />
+            <div className="space-y-3">
+              {article.quiz.map((item, i) => (
+                <QuizItemEditor
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  onChange={(patch) => updateQuiz(i, patch)}
+                  onRemove={() => onChange({ quiz: article.quiz.filter((_, j) => j !== i) })}
+                />
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-5">
+          <Card id="edit-vocab" className={ANCHOR}>
+            <SectionTitle
+              title="핵심 어휘"
+              action={
+                <Button variant="grey" size="sm" onClick={() => onChange({ vocab: [...article.vocab, { word: "", meaning: "" }] })}>
+                  + 추가
+                </Button>
+              }
+            />
+            <p className="-mt-2 mb-3 text-[13px] text-grey-500">본문에서 파란색으로 표시되고, 누르면 뜻이 보여요.</p>
+            <div className="space-y-3">
+              {article.vocab.map((v, i) => (
+                <div key={i} className="rounded-2xl bg-grey-50 p-3">
+                  <div className="flex gap-2">
+                    <Input
+                      compact
+                      value={v.word}
+                      placeholder="낱말"
+                      className="bg-white"
+                      onChange={(e) =>
+                        onChange({ vocab: article.vocab.map((x, j) => (j === i ? { ...x, word: e.target.value } : x)) })
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-11"
+                      onClick={() => onChange({ vocab: article.vocab.filter((_, j) => j !== i) })}
+                    >
+                      삭제
+                    </Button>
+                  </div>
+                  <Textarea
+                    compact
+                    rows={2}
+                    value={v.meaning}
+                    placeholder="뜻"
+                    className="mt-2 bg-white"
+                    onChange={(e) =>
+                      onChange({ vocab: article.vocab.map((x, j) => (j === i ? { ...x, meaning: e.target.value } : x)) })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card id="edit-keypoints" className={ANCHOR}>
+            <SectionTitle
+              title="요약 채점 기준"
+              action={
+                <Button variant="grey" size="sm" onClick={() => onChange({ keyPoints: [...article.keyPoints, ""] })}>
+                  + 추가
+                </Button>
+              }
+            />
+            <p className="-mt-2 mb-3 text-[13px] text-grey-500">AI가 학생 요약을 채점할 때 이 핵심 내용을 기준으로 삼아요.</p>
+            <div className="space-y-2">
+              {article.keyPoints.map((point, i) => (
+                <div key={i} className="flex gap-2">
+                  <Textarea
+                    compact
+                    rows={2}
+                    value={point}
+                    onChange={(e) => onChange({ keyPoints: article.keyPoints.map((x, j) => (j === i ? e.target.value : x)) })}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onChange({ keyPoints: article.keyPoints.filter((_, j) => j !== i) })}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <Field label="모범 요약" hint="학생이 요약을 제출한 뒤에 보여줘요.">
+                <Textarea compact rows={4} value={article.modelSummary} onChange={(e) => onChange({ modelSummary: e.target.value })} />
+              </Field>
+            </div>
+          </Card>
+
+          <Card id="edit-opinion" className={ANCHOR}>
+            <SectionTitle
+              title="생각 나누기"
+              action={
+                article.stances.length < 3 ? (
+                  <Button variant="grey" size="sm" onClick={() => onChange({ stances: [...article.stances, ""] })}>
+                    + 입장
+                  </Button>
+                ) : undefined
+              }
+            />
+            <p className="-mt-2 mb-3 text-[13px] leading-relaxed text-grey-500">
+              요약 뒤에 학생이 입장을 고르고 까닭을 써요. 제출한 학생은 친구들 생각을 이름 없이 볼 수 있어요. 질문을 비우면
+              이 단계를 건너뛰어요.
+            </p>
+            <Field label="질문">
+              <Textarea
+                compact
+                rows={2}
+                value={article.opinionQuestion}
+                onChange={(e) => onChange({ opinionQuestion: e.target.value })}
+              />
+            </Field>
+            <div className="mt-3 space-y-2">
+              {article.stances.map((stance, i) => (
+                <div key={i} className="flex gap-2">
                   <Input
                     compact
-                    value={v.word}
-                    placeholder="낱말"
-                    className="bg-white"
-                    onChange={(e) =>
-                      onChange({ vocab: article.vocab.map((x, j) => (j === i ? { ...x, word: e.target.value } : x)) })
-                    }
+                    value={stance}
+                    placeholder={`입장 ${i + 1}`}
+                    onChange={(e) => onChange({ stances: article.stances.map((x, j) => (j === i ? e.target.value : x)) })}
                   />
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-11"
-                    onClick={() => onChange({ vocab: article.vocab.filter((_, j) => j !== i) })}
+                    onClick={() => onChange({ stances: article.stances.filter((_, j) => j !== i) })}
                   >
                     삭제
                   </Button>
                 </div>
-                <Textarea
-                  compact
-                  rows={2}
-                  value={v.meaning}
-                  placeholder="뜻"
-                  className="mt-2 bg-white"
-                  onChange={(e) =>
-                    onChange({ vocab: article.vocab.map((x, j) => (j === i ? { ...x, meaning: e.target.value } : x)) })
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <SectionTitle
-            title="요약 채점 기준"
-            action={
-              <Button variant="grey" size="sm" onClick={() => onChange({ keyPoints: [...article.keyPoints, ""] })}>
-                + 추가
-              </Button>
-            }
-          />
-          <p className="-mt-2 mb-3 text-[13px] text-grey-500">AI가 학생 요약을 채점할 때 이 핵심 내용을 기준으로 삼아요.</p>
-          <div className="space-y-2">
-            {article.keyPoints.map((point, i) => (
-              <div key={i} className="flex gap-2">
-                <Textarea
-                  compact
-                  rows={2}
-                  value={point}
-                  onChange={(e) => onChange({ keyPoints: article.keyPoints.map((x, j) => (j === i ? e.target.value : x)) })}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onChange({ keyPoints: article.keyPoints.filter((_, j) => j !== i) })}
-                >
-                  삭제
-                </Button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <Field label="모범 요약" hint="학생이 요약을 제출한 뒤에 보여줘요.">
-              <Textarea compact rows={4} value={article.modelSummary} onChange={(e) => onChange({ modelSummary: e.target.value })} />
-            </Field>
-          </div>
-        </Card>
-
-        <Card>
-          <SectionTitle
-            title="생각 나누기"
-            action={
-              article.stances.length < 3 ? (
-                <Button variant="grey" size="sm" onClick={() => onChange({ stances: [...article.stances, ""] })}>
-                  + 입장
-                </Button>
-              ) : undefined
-            }
-          />
-          <p className="-mt-2 mb-3 text-[13px] leading-relaxed text-grey-500">
-            요약 뒤에 학생이 입장을 고르고 까닭을 써요. 제출한 학생은 친구들 생각을 이름 없이 볼 수 있어요. 질문을 비우면
-            이 단계를 건너뛰어요.
-          </p>
-          <Field label="질문">
-            <Textarea
-              compact
-              rows={2}
-              value={article.opinionQuestion}
-              onChange={(e) => onChange({ opinionQuestion: e.target.value })}
-            />
-          </Field>
-          <div className="mt-3 space-y-2">
-            {article.stances.map((stance, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  compact
-                  value={stance}
-                  placeholder={`입장 ${i + 1}`}
-                  onChange={(e) => onChange({ stances: article.stances.map((x, j) => (j === i ? e.target.value : x)) })}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-11"
-                  onClick={() => onChange({ stances: article.stances.filter((_, j) => j !== i) })}
-                >
-                  삭제
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {article.sources.length > 0 && (
-          <Card>
-            <SectionTitle title="참고한 기사" />
-            <ul className="space-y-2.5">
-              {article.sources.map((s, i) => (
-                <li key={i}>
-                  <a href={s.url} target="_blank" rel="noreferrer" className="group block">
-                    <span className="line-clamp-2 text-[14px] font-medium text-grey-700 group-hover:underline">{s.title}</span>
-                    <span className="text-[12px] text-grey-400">{formatDateTime(s.pubDate)}</span>
-                  </a>
-                </li>
               ))}
-            </ul>
+            </div>
           </Card>
+
+          {article.sources.length > 0 && (
+            <Card>
+              <SectionTitle title="참고한 기사" />
+              <ul className="space-y-2.5">
+                {article.sources.map((s, i) => (
+                  <li key={i}>
+                    <a href={s.url} target="_blank" rel="noreferrer" className="group block">
+                      <span className="line-clamp-2 text-[14px] font-medium text-grey-700 group-hover:underline">{s.title}</span>
+                      <span className="text-[12px] text-grey-400">{formatDateTime(s.pubDate)}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* 상단 이동 바: 화면 위에 붙어 있고, 누르면 그 부분으로 바로 스크롤한다 */
+
+// 상단 헤더(64px) + 이동 바 높이만큼 띄워서 제목이 가려지지 않게 한다
+const ANCHOR = "scroll-mt-36";
+
+const quizAnchor = (id: string) => `edit-quiz-${id}`;
+
+function isQuizIncomplete(q: QuizItem) {
+  if (!q.prompt.trim() || q.choices.some((c) => !c.trim())) return true;
+  if (q.type !== "comprehension" && !q.sentence.trim()) return true;
+  return q.type === "synonym" && !q.target.trim();
+}
+
+function jumpTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  incomplete?: boolean;
+  quiz?: boolean;
+}
+
+function JumpBar({ items, onAddQuiz }: { items: NavItem[]; onAddQuiz: () => void }) {
+  const [current, setCurrent] = useState(items[0]?.id);
+  const barRef = useRef<HTMLDivElement>(null);
+  const ids = items.map((item) => item.id).join(",");
+
+  // 버튼으로 이동하는 동안에는 스크롤 위치 대신 누른 버튼을 표시한다
+  const lockedUntil = useRef(0);
+
+  // 스크롤 위치에 맞춰 지금 보고 있는 부분을 표시한다
+  useEffect(() => {
+    const all = ids.split(",");
+    // 넓은 화면에서는 오른쪽 열(어휘 등)이 본문·퀴즈 옆에 나란히 있어 위치로 구분할 수 없으니 왼쪽 열만 따라간다
+    const leftColumn = all.filter((id) => id === "edit-body" || id.startsWith("edit-quiz-"));
+    const wide = window.matchMedia("(min-width: 1024px)");
+    function update() {
+      if (Date.now() < lockedUntil.current) return;
+      const list = wide.matches ? leftColumn : all;
+      // 맨 아래까지 내려서 마지막 부분이 위쪽 기준선에 닿지 못하면, 화면에 보이는 마지막 부분을 고른다
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      const line = atBottom ? window.innerHeight : 160;
+      let found = list[0];
+      let best = -Infinity;
+      for (const id of list) {
+        const top = document.getElementById(id)?.getBoundingClientRect().top;
+        if (top !== undefined && top <= line && top > best) {
+          best = top;
+          found = id;
+        }
+      }
+      setCurrent(found);
+    }
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [ids]);
+
+  // 이동 바가 가로로 넘칠 때 현재 버튼이 보이도록 바만 가로 스크롤한다
+  useEffect(() => {
+    const bar = barRef.current;
+    const chip = bar?.querySelector<HTMLElement>(`[data-nav="${current}"]`);
+    if (!bar || !chip) return;
+    const left = chip.offsetLeft - bar.offsetLeft;
+    if (left < bar.scrollLeft || left + chip.offsetWidth > bar.scrollLeft + bar.clientWidth) {
+      bar.scrollTo({ left: left - 16, behavior: "smooth" });
+    }
+  }, [current]);
+
+  const incomplete = items.filter((item) => item.incomplete).length;
+
+  return (
+    <div className="sticky top-16 z-30 -mx-1 rounded-2xl bg-grey-50/95 px-1 py-2 backdrop-blur">
+      <div ref={barRef} className="flex items-center gap-1.5 overflow-x-auto">
+        {items.map((item, i) => (
+          <Fragment key={item.id}>
+            {(item.quiz && !items[i - 1]?.quiz) || (!item.quiz && items[i - 1]?.quiz) ? (
+              <span className="mx-1 h-5 w-px shrink-0 bg-grey-200" />
+            ) : null}
+            <button
+              type="button"
+              data-nav={item.id}
+              onClick={() => {
+                lockedUntil.current = Date.now() + 1000;
+                setCurrent(item.id);
+                jumpTo(item.id);
+              }}
+              title={item.incomplete ? "비어 있는 칸이 있어요" : undefined}
+              className={cn(
+                "relative h-9 shrink-0 rounded-xl px-3 text-[14px] font-semibold transition",
+                current === item.id ? "bg-grey-900 text-white" : "bg-white text-grey-600 hover:bg-grey-100",
+              )}
+            >
+              {item.label}
+              {item.incomplete && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-danger" />}
+            </button>
+            {item.quiz && !items[i + 1]?.quiz && (
+              <button
+                type="button"
+                onClick={onAddQuiz}
+                className="h-9 shrink-0 rounded-xl px-2.5 text-[14px] font-semibold text-grey-500 hover:bg-grey-100"
+                aria-label="문항 추가"
+                title="문항 추가"
+              >
+                +
+              </button>
+            )}
+          </Fragment>
+        ))}
+        {incomplete > 0 && (
+          <span className="ml-auto shrink-0 pl-3 pr-2 text-[13px] text-grey-500">
+            <span className="mr-1 inline-block size-1.5 rounded-full bg-danger align-middle" />
+            빈칸 있는 문항 {incomplete}개
+          </span>
         )}
       </div>
     </div>
@@ -603,7 +748,7 @@ function QuizItemEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-grey-200 p-4">
+    <div id={quizAnchor(item.id)} className={cn("rounded-2xl border border-grey-200 p-4", ANCHOR)}>
       <div className="flex items-center gap-2">
         <span className="text-[15px] font-bold text-grey-800">Q{index + 1}</span>
         <select
