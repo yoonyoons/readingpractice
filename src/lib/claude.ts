@@ -54,9 +54,26 @@ function assertUsable(response: { stop_reason: string | null }) {
 }
 
 /**
- * 한 번 호출해 스키마에 맞는 JSON을 받는다.
- * zodOutputFormat + .parse()를 쓰면 SDK가 Claude 구조화 출력이 지원하지 않는 제약(minimum/maxLength 등)을
- * 스키마에서 자동으로 빼고, 응답은 그 제약까지 포함해 클라이언트에서 다시 검증해 준다.
+ * 응답에서 최종 답(텍스트)만 꺼낸다.
+ * 서버 쪽 대체 모델(fallbacks)이 쓰이면 content가 [처음 모델의 끊긴 답, fallback 블록, 대체 모델의 답] 순서로 온다.
+ * 끊긴 답은 JSON이 아니므로 마지막 fallback 블록 뒤의 텍스트만 쓴다.
+ */
+function finalText(content: { type: string; text?: string }[]) {
+  let from = 0;
+  content.forEach((block, i) => {
+    if (block.type === "fallback") from = i + 1;
+  });
+  return content
+    .slice(from)
+    .map((block) => (block.type === "text" ? (block.text ?? "") : ""))
+    .join("");
+}
+
+/**
+ * 스키마에 맞는 JSON을 받는다. 답이 깨져 있으면 한 번 더 요청한다.
+ * zodOutputFormat을 쓰면 SDK가 Claude 구조화 출력이 지원하지 않는 제약(minimum/maxLength 등)을
+ * 스키마에서 자동으로 빼고, format.parse()가 그 제약까지 포함해 다시 검증해 준다.
+ * SDK의 messages.parse()는 끊긴 답까지 모든 텍스트 블록을 읽다가 실패하므로 쓰지 않는다.
  */
 export async function generateJson<S extends z.ZodType>(
   schema: S,
@@ -65,23 +82,29 @@ export async function generateJson<S extends z.ZodType>(
   const model = options.model ?? claudeModel();
   // Haiku 계열은 effort 옵션을 지원하지 않는다
   const effort = model.startsWith("claude-haiku") ? {} : { effort: options.effort ?? "high" };
-  const response = await ai()
-    .beta.messages.parse({
-      model,
-      max_tokens: 16000,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
-      system: options.system,
-      messages: [{ role: "user", content: options.prompt }],
-      output_config: {
-        ...effort,
-        format: zodOutputFormat(schema),
-      },
-    })
-    .catch((error: unknown) => {
-      throw toAiError(error) ?? error;
-    });
-  assertUsable(response);
-  if (response.parsed_output == null) throw new Error("AI 응답 형식이 올바르지 않아요. 다시 시도해 주세요.");
-  return response.parsed_output;
+  const format = zodOutputFormat(schema);
+
+  for (let attempt = 1; ; attempt++) {
+    const response = await ai()
+      .beta.messages.create({
+        model,
+        max_tokens: 16000,
+        betas: [FALLBACK_BETA],
+        fallbacks: "default",
+        system: options.system,
+        messages: [{ role: "user", content: options.prompt }],
+        output_config: { ...effort, format },
+      })
+      .catch((error: unknown) => {
+        throw toAiError(error) ?? error;
+      });
+    assertUsable(response);
+    try {
+      return format.parse(finalText(response.content)) as z.output<S>;
+    } catch (error) {
+      // JSON이 아니거나 스키마에 맞지 않는 답
+      console.error("[anthropic] 구조화 출력 오류", `시도 ${attempt}`, error instanceof Error ? error.message : error);
+      if (attempt >= 2) throw new Error("AI 응답 형식이 올바르지 않아요. 잠시 후 다시 시도해 주세요.");
+    }
+  }
 }
