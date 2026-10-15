@@ -6,7 +6,7 @@ import { isDemoGeneration } from "./env";
 import { GRADES } from "./grades";
 import { pickTopicsFromNews, type TopicPick } from "./topics";
 import type { Article, GradeLevel, QuizItem, QuizType, SourceItem } from "./types";
-import { BLANK, clean, newId, shuffle } from "./utils";
+import { BLANK, clean, newId, shuffle, stripGlosses } from "./utils";
 
 export type { TopicPick } from "./topics";
 
@@ -81,7 +81,7 @@ const BLANK_MARK = /\(\s*\)|_{2,}|□+|\[\s*\]|○○+/;
  * rejects 배열을 넘기면 버려진 문항과 그 까닭을 담아 준다(재시도 프롬프트·로그용).
  */
 export function normalizeDraft(draft: ArticleDraft, rejects: string[] = []): Omit<BuiltArticle, "sourceMode"> {
-  const paragraphs = draft.paragraphs.map((p) => clean(p)).filter(Boolean);
+  const paragraphs = draft.paragraphs.map((p) => stripGlosses(clean(p))).filter(Boolean);
   const body = paragraphs.join(" ");
   const vocab = draft.vocab
     .map((v) => ({ word: clean(v.word), meaning: clean(v.meaning) }))
@@ -105,7 +105,7 @@ export function normalizeDraft(draft: ArticleDraft, rejects: string[] = []): Omi
     // 보기가 4개를 넘으면 정답을 남기고 앞에서부터 3개만 쓴다
     if (choices.length > 4) choices = [answer, ...choices.filter((c) => c !== answer).slice(0, 3)];
 
-    let sentence = clean(q.sentence);
+    let sentence = stripGlosses(clean(q.sentence));
     let prompt = clean(q.prompt);
     let target = "";
     if (q.type === "blank") {
@@ -198,6 +198,7 @@ ${sources}
 
 글쓰기 규칙
 - HTML 태그나 마크다운 기호(**, __, <b> 등)를 쓰지 않고 순수한 글로만 쓴다.
+- 낱말 뒤에 괄호를 붙여 뜻을 풀어 쓰지 않는다(나쁜 예: "경유(자동차 기름)", "침공(쳐들어감)"). 낱말 뜻은 핵심 어휘(vocab)로만 알려 준다.
 - 위 자료에 있는 내용만 쓴다. 자료에 없는 숫자·이름·날짜·인용을 지어내지 않는다. 자료끼리 내용이 다르면 공통된 내용만 쓴다.
 - 의견이 갈리는 문제는 한쪽 입장만 쓰지 말고 서로 다른 입장을 함께 소개한다. 특정 정당·인물을 칭찬하거나 비난하지 않는다.
 - 분량: 본문 ${g.bodyChars}, 문단 ${g.paragraphs}. paragraphs 배열의 원소 하나가 문단 하나다.

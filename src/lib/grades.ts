@@ -22,7 +22,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     paragraphs: "5~6개",
     sentence: "한 문장에 한 가지 내용만 담고, 대부분 25자 안팎의 짧은 문장으로 쓴다",
     vocab:
-      "초등 3~4학년 국어·사회 교과서 수준의 쉬운 낱말을 쓴다. 꼭 필요한 어려운 낱말은 바로 뒤 괄호에 쉬운 말로 풀어 준다(예: 물가(물건의 값))",
+      "초등 3~4학년 국어·사회 교과서 수준의 쉬운 낱말을 쓴다. 어려운 낱말은 쉬운 말로 바꿔 쓴다. 낱말 뒤에 괄호를 붙여 뜻을 풀어 쓰지 않는다",
     vocabCount: 5,
     tone: "'~해요', '~했어요' 체",
     summaryMinChars: 30,
@@ -36,7 +36,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     paragraphs: "6~7개",
     sentence: "대부분 35자 안팎으로 쓰고, 긴 문장은 둘로 나눈다",
     vocab:
-      "초등 5~6학년 교과서 수준의 낱말을 쓰되, 시사 이해에 꼭 필요한 한자어·용어는 그대로 쓰고 문맥으로 뜻을 짐작할 수 있게 한다",
+      "초등 5~6학년 교과서 수준의 낱말을 쓰되, 시사 이해에 꼭 필요한 한자어·용어는 그대로 쓰고 문맥으로 뜻을 짐작할 수 있게 한다. 낱말 뒤에 괄호를 붙여 뜻을 풀어 쓰지 않는다",
     vocabCount: 6,
     tone: "'~해요', '~했어요' 체",
     summaryMinChars: 50,
@@ -50,7 +50,7 @@ export const GRADES: Record<GradeLevel, GradeProfile> = {
     paragraphs: "6~8개",
     sentence: "대부분 50자 안팎으로 쓰고, 한 문장에 내용을 너무 많이 넣지 않는다",
     vocab:
-      "중학교 교과서 수준의 한자어와 시사 용어를 쓰되, 전문 용어는 처음 나올 때 짧게 설명한다",
+      "중학교 교과서 수준의 한자어와 시사 용어를 쓰되, 전문 용어는 앞뒤 문장으로 뜻을 짐작할 수 있게 쓴다. 낱말 뒤에 괄호를 붙여 뜻을 풀어 쓰지 않는다",
     vocabCount: 6,
     tone: "'~입니다', '~했습니다' 체",
     summaryMinChars: 80,
