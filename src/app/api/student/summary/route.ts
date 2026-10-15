@@ -6,7 +6,7 @@ import { HttpError, readJson, route } from "@/lib/http";
 import { requireStudentArticle } from "@/lib/student-access";
 import type { SummaryAttempt } from "@/lib/types";
 import { checkStudentText } from "@/lib/moderation";
-import { nowIso } from "@/lib/utils";
+import { nowIso, stripGlosses } from "@/lib/utils";
 
 export const maxDuration = 60;
 
@@ -42,7 +42,7 @@ export const POST = route(async (req) => {
   return Response.json({
     attempt,
     attemptsLeft: MAX_SUMMARY_ATTEMPTS - submission.summaries.length,
-    modelSummary: article.modelSummary,
-    keyPoints: article.keyPoints,
+    modelSummary: stripGlosses(article.modelSummary),
+    keyPoints: article.keyPoints.map(stripGlosses),
   });
 });

@@ -3,7 +3,7 @@ import { LessonFlow } from "@/components/student/LessonFlow";
 import { getDb } from "@/lib/db";
 import { getStudentSession } from "@/lib/session";
 import { requireStudentArticle } from "@/lib/student-access";
-import { buildOpinionBoard, isArticleDone, quizResult, toPublicArticle } from "@/lib/utils";
+import { buildOpinionBoard, isArticleDone, quizResult, stripGlosses, toPublicArticle } from "@/lib/utils";
 
 export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[articleId]">) {
   const { worksheetId, articleId } = await props.params;
@@ -34,7 +34,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
         summaries: submission.summaries,
         revealed:
           submission.summaries.length > 0
-            ? { modelSummary: article.modelSummary, keyPoints: article.keyPoints }
+            ? { modelSummary: stripGlosses(article.modelSummary), keyPoints: article.keyPoints.map(stripGlosses) }
             : null,
         opinion: submission.opinion,
         board: submission.opinion ? buildOpinionBoard(article, worksheetSubs, student.id) : null,

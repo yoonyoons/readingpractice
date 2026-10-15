@@ -107,6 +107,14 @@ export function formatDateTime(iso: string | null | undefined) {
 }
 
 /** AI가 실수로 HTML/마크다운 태그를 섞어 보내는 경우가 있어, 화면에 그대로 노출되지 않도록 지운다 */
+/** 낱말 바로 뒤에 붙은 한글 풀이 괄호. 예: "물가(물건의 값)". (EU)·(2022년)·빈칸 "(      )"은 해당하지 않는다. */
+const GLOSS = /(?<=[가-힣])\(\s*[가-힣][가-힣\s,·']*\)/g;
+
+/** 학생 화면이 지저분해 보이지 않게 낱말 뒤 괄호 풀이를 뺀다 */
+export function stripGlosses(text: string): string {
+  return text.replace(GLOSS, "");
+}
+
 export function clean(text: string): string {
   return text
     .replace(/<[^>]+>/g, "")
@@ -168,14 +176,14 @@ export function toPublicArticle(article: Article): PublicArticle {
     id: article.id,
     topic: article.topic,
     title: article.title,
-    whyItMatters: article.whyItMatters,
-    paragraphs: article.paragraphs,
+    whyItMatters: stripGlosses(article.whyItMatters),
+    paragraphs: article.paragraphs.map(stripGlosses),
     vocab: article.vocab,
     quiz: article.quiz.map((q) => ({
       id: q.id,
       type: q.type,
       prompt: q.prompt,
-      sentence: q.sentence,
+      sentence: stripGlosses(q.sentence),
       target: q.target,
       choices: q.choices,
     })),
