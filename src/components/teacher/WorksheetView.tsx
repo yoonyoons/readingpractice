@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   Badge,
   Button,
   Card,
   CheckIcon,
+  ErrorText,
   ChevronLeft,
   EmptyState,
   Field,
   Input,
   Modal,
+  Spinner,
   Textarea,
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
+import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import type { Article, QuizItem, QuizType, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
 import {
   BLANK,
@@ -95,6 +98,146 @@ export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, stud
 
 /* ───────────── 편집 ───────────── */
 
+/** 선택한 기사 탭 안의 작은 버튼 (옮기기·빼기) */
+function TabTool({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex size-8 items-center justify-center rounded-lg text-[12px] text-white/70 transition hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** 기사 추가: 기사 주소(또는 본문)를 붙여넣으면 이 반 학년군에 맞춘 기사를 만들어 학습지 끝에 넣는다 */
+function AddArticleButton({
+  gradeLabel,
+  busy,
+  onAdd,
+}: {
+  gradeLabel: string;
+  busy: Busy;
+  /** 실패하면 오류 문구를 돌려준다 */
+  onAdd: (input: { url: string; text: string }) => Promise<string | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [text, setText] = useState("");
+  const [paste, setPaste] = useState(false);
+  const [error, setError] = useState("");
+  const adding = busy === "add";
+
+  function close() {
+    if (adding) return;
+    setOpen(false);
+    setError("");
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const input = { url: url.trim(), text: paste ? text.trim() : "" };
+    if (!input.url && !input.text) {
+      setError(paste ? "기사 본문을 붙여넣어 주세요." : "기사 주소(URL)를 붙여넣어 주세요.");
+      return;
+    }
+    setError("");
+    const message = await onAdd(input);
+    if (message) {
+      setError(message);
+      // 주소로 본문을 못 가져오면 서버가 붙여넣기를 안내하므로 본문 칸을 연다
+      if (message.includes("본문 직접 붙여넣기")) setPaste(true);
+      return;
+    }
+    setOpen(false);
+    setUrl("");
+    setText("");
+    setPaste(false);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={Boolean(busy)}
+        className="flex shrink-0 items-center gap-1 rounded-2xl border border-dashed border-grey-300 px-4 py-3 text-[15px] font-semibold text-grey-600 transition hover:border-primary hover:text-primary disabled:opacity-50"
+      >
+        ＋ 기사 추가
+      </button>
+      <Modal open={open} onClose={adding ? undefined : close} title={adding ? "기사를 만들고 있어요" : "기사 추가"}>
+        {adding ? (
+          <div className="flex items-start gap-3">
+            <Spinner className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-[15px] font-semibold text-grey-800">기사를 읽고 {gradeLabel} 수준으로 다시 쓰는 중</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-grey-500">
+                기사 분석 → 기사·어휘·퀴즈 작성 순서로 진행돼요. 1~2분 정도 걸리니 창을 닫지 말고 기다려 주세요.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <p className="text-[14px] leading-relaxed text-grey-600">
+              수업에 쓰고 싶은 기사 주소를 붙여넣으면 AI가 {gradeLabel} 수준의 기사·어휘·퀴즈로 만들어 학습지 끝에 넣어요.
+              학습지 하나에는 기사를 {MAX_ARTICLES_PER_WORKSHEET}개까지 넣을 수 있어요.
+            </p>
+            <Input
+              compact
+              inputMode="url"
+              autoComplete="off"
+              aria-label="기사 주소(URL)"
+              placeholder="https://www.example.co.kr/news/..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              autoFocus
+            />
+            {paste ? (
+              <Textarea
+                compact
+                rows={7}
+                aria-label="기사 본문"
+                placeholder="기사 본문을 복사해 붙여넣어 주세요"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPaste(true)}
+                className="text-[13px] font-medium text-grey-500 underline underline-offset-2 hover:text-grey-700"
+              >
+                본문 직접 붙여넣기
+              </button>
+            )}
+            {error && <ErrorText>{error}</ErrorText>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={close}>
+                취소
+              </Button>
+              <Button type="submit">만들기</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </>
+  );
+}
+
 type EditableArticle = Article & { bodyText: string };
 
 const toEditable = (a: Article): EditableArticle => ({
@@ -122,7 +265,7 @@ const SOURCE_LABEL: Record<SourceMode, string> = {
   demo: "예시 기사 (데모)",
 };
 
-type Busy = null | "save" | "publish" | "unpublish" | "delete" | "regenerate";
+type Busy = null | "save" | "publish" | "unpublish" | "delete" | "regenerate" | "add";
 
 function WorksheetEditor({
   classId,
@@ -209,6 +352,54 @@ function WorksheetEditor({
     }
   }
 
+  /** 선택한 기사를 앞(-1)이나 뒤(+1)로 옮긴다. 저장을 눌러야 반영된다 */
+  function moveArticle(dir: -1 | 1) {
+    const to = active + dir;
+    if (to < 0 || to >= articles.length) return;
+    setArticles((prev) => {
+      const next = [...prev];
+      [next[active], next[to]] = [next[to], next[active]];
+      return next;
+    });
+    setActive(to);
+    setDirty(true);
+  }
+
+  /** 선택한 기사를 학습지에서 뺀다. 저장을 눌러야 반영된다 */
+  function deleteArticle() {
+    if (articles.length <= 1) return;
+    const warn =
+      status === "published" && hasSubmissions ? "\n이 기사를 학습한 학생들의 기록은 결과에서 보이지 않게 돼요." : "";
+    if (!window.confirm(`'${article.topic}' 기사를 학습지에서 뺄까요?\n저장을 눌러야 반영돼요.${warn}`)) return;
+    setArticles((prev) => prev.filter((_, i) => i !== active));
+    setActive(Math.max(0, Math.min(active, articles.length - 2)));
+    setDirty(true);
+  }
+
+  /** 붙여넣은 기사로 새 기사를 만들어 끝에 넣는다. 서버가 만들자마자 저장한다 */
+  async function addArticle(input: { url: string; text: string }) {
+    setBusy("add");
+    setNotice(null);
+    try {
+      const { article: added } = await apiFetch<{ article: Article }>(`/api/worksheets/${worksheet.id}/articles`, {
+        body: input,
+      });
+      setArticles((prev) => [...prev, toEditable(added)]);
+      setActive(articles.length);
+      setNotice(
+        added.status === "ready"
+          ? { tone: "ok", text: `${articles.length + 1}번째 기사를 추가했어요.` }
+          : { tone: "error", text: added.error ?? "기사를 만들지 못했어요." },
+      );
+      router.refresh();
+      return null;
+    } catch (e) {
+      return errorMessage(e);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function remove() {
     if (!window.confirm("이 학습지를 삭제할까요?\n학생들의 학습 기록도 함께 지워지고 되돌릴 수 없어요.")) return;
     setBusy("delete");
@@ -289,26 +480,50 @@ function WorksheetEditor({
         )}
       </Card>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap items-center gap-2">
         {articles.map((a, i) => (
-          <button
+          <div
             key={a.id}
-            type="button"
-            onClick={() => setActive(i)}
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold transition",
+              "flex shrink-0 items-center rounded-2xl transition",
               i === active ? "bg-grey-900 text-white" : "bg-white text-grey-600 hover:bg-grey-100",
             )}
           >
-            <span
-              className={cn(
-                "size-2 rounded-full",
-                a.status === "ready" ? "bg-success" : a.status === "failed" ? "bg-danger" : "bg-grey-400",
-              )}
-            />
-            {i + 1}. {a.topic}
-          </button>
+            <button
+              type="button"
+              onClick={() => setActive(i)}
+              className="flex items-center gap-2 px-4 py-3 text-[15px] font-semibold"
+            >
+              <span
+                className={cn(
+                  "size-2 rounded-full",
+                  a.status === "ready" ? "bg-success" : a.status === "failed" ? "bg-danger" : "bg-grey-400",
+                )}
+              />
+              {i + 1}. {a.topic}
+            </button>
+            {i === active && (
+              <div className="flex items-center pr-2">
+                <TabTool label="앞으로 옮기기" onClick={() => moveArticle(-1)} disabled={Boolean(busy) || i === 0}>
+                  ◀
+                </TabTool>
+                <TabTool
+                  label="뒤로 옮기기"
+                  onClick={() => moveArticle(1)}
+                  disabled={Boolean(busy) || i === articles.length - 1}
+                >
+                  ▶
+                </TabTool>
+                <TabTool label="기사 빼기" onClick={deleteArticle} disabled={Boolean(busy) || articles.length <= 1}>
+                  ✕
+                </TabTool>
+              </div>
+            )}
+          </div>
         ))}
+        {articles.length < MAX_ARTICLES_PER_WORKSHEET && (
+          <AddArticleButton gradeLabel={gradeLabel} busy={busy} onAdd={addArticle} />
+        )}
       </div>
 
       {article &&
