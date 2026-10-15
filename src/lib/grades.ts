@@ -71,3 +71,6 @@ export const MAX_OPINION_CHARS = 500;
 
 /** 반마다 한 주(서울 월요일 기준)에 나만의 학습지로 만들 수 있는 기사 수 */
 export const CUSTOM_ARTICLES_PER_WEEK = 2;
+
+/** 학습지 하나에 넣을 수 있는 기사 수 */
+export const MAX_ARTICLES_PER_WORKSHEET = 5;

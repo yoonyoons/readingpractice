@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { HttpError, readJson, route } from "@/lib/http";
+import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import { ArticleSchema } from "@/lib/schemas";
 import { requireTeacherWorksheet } from "@/lib/session";
 import { nowIso } from "@/lib/utils";
@@ -10,7 +11,11 @@ type Ctx = RouteContext<"/api/worksheets/[worksheetId]">;
 
 const Body = z.object({
   title: z.string().trim().min(1, "학습지 제목을 입력해 주세요.").max(60).optional(),
-  articles: z.array(ArticleSchema).optional(),
+  articles: z
+    .array(ArticleSchema)
+    .min(1, "기사가 하나 이상 있어야 해요.")
+    .max(MAX_ARTICLES_PER_WORKSHEET, `학습지 하나에는 기사를 ${MAX_ARTICLES_PER_WORKSHEET}개까지 넣을 수 있어요.`)
+    .optional(),
   status: z.enum(["draft", "published"]).optional(),
 });
 
