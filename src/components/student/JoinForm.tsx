@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Byline } from "@/components/Byline";
 import { BottomBar, Button, ChevronLeft, ErrorText, Field, Input } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 
-export function JoinForm() {
+export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<"code" | "info">("code");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialCode);
   const [classInfo, setClassInfo] = useState<{ name: string; gradeLabel: string } | null>(null);
   const [number, setNumber] = useState("");
   const [name, setName] = useState("");
@@ -18,8 +18,8 @@ export function JoinForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function checkCode(e: FormEvent) {
-    e.preventDefault();
+  async function checkCode(e?: FormEvent) {
+    e?.preventDefault();
     setLoading(true);
     setError("");
     try {
@@ -31,6 +31,15 @@ export function JoinForm() {
       setLoading(false);
     }
   }
+
+  // QR로 들어와 코드가 이미 채워져 있으면 반 확인까지 바로 넘어간다 (개발 모드의 두 번 실행 방지)
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (autoChecked.current || initialCode.length !== 6) return;
+    autoChecked.current = true;
+    void checkCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 한 번만
+  }, []);
 
   async function login(e: FormEvent) {
     e.preventDefault();

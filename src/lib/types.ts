@@ -38,6 +38,8 @@ export interface StudentRecord {
   failedAttempts: number;
   lockedUntil: string | null;
   createdAt: string;
+  /** 마지막으로 입장한 시각. 이 칸이 생기기 전에 만든 학생은 비어 있다 */
+  lastLoginAt?: string | null;
 }
 
 export type QuizType = "blank" | "synonym" | "comprehension";

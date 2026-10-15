@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import QRCode from "qrcode";
 import { ClassInsights } from "@/components/teacher/ClassInsights";
 import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
@@ -43,6 +44,9 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   const host = h.get("host") ?? "localhost:3000";
   const protocol = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const grade = GRADES[classRoom.gradeLevel];
+  const joinUrl = `${protocol}://${host}/join`;
+  // 학생이 찍으면 입장 화면에 반 코드가 채워진 채로 열린다
+  const qrSvg = await QRCode.toString(`${joinUrl}?code=${classRoom.code}`, { type: "svg", margin: 0 });
 
   return (
     <TeacherShell teacher={teacher}>
@@ -60,12 +64,18 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
 
       <ClassInsights
         classId={classRoom.id}
-        students={students.map((s) => ({ id: s.id, number: s.number, name: s.name, hasPin: Boolean(s.pinHash) }))}
+        students={students.map((s) => ({
+          id: s.id,
+          number: s.number,
+          name: s.name,
+          hasPin: Boolean(s.pinHash),
+          lastLoginAt: s.lastLoginAt ?? null,
+        }))}
         stats={recentStats}
         weeks={weeks}
         range={range}
         report={{ pending: Boolean(report?.pending), completedAt: report?.completedAt ?? null }}
-        aside={<ClassCode code={classRoom.code} joinUrl={`${protocol}://${host}/join`} />}
+        aside={<ClassCode code={classRoom.code} joinUrl={joinUrl} qrSvg={qrSvg} />}
       >
         <WorksheetCreatePanel
           classId={classRoom.id}
