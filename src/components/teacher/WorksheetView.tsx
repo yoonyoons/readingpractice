@@ -579,8 +579,23 @@ function ArticleForm({
   const updateQuiz = (index: number, patch: Partial<QuizItem>) =>
     onChange({ quiz: article.quiz.map((q, i) => (i === index ? { ...q, ...patch } : q)) });
   const bodyChars = article.bodyText.replace(/\s/g, "").length;
-  // 새 문항을 추가하면 렌더링된 뒤에 그 문항으로 이동한다
+  // 퀴즈는 한 번에 한 문항만 보여 준다
+  const [quizId, setQuizId] = useState(article.quiz[0]?.id);
+  const quizIndex = Math.max(0, article.quiz.findIndex((q) => q.id === quizId));
+  const selectedQuiz = article.quiz[quizIndex];
+  // 문항을 바꾸거나 새로 추가하면 렌더링된 뒤에 그 문항으로 이동한다
   const pendingJump = useRef<string | null>(null);
+
+  function selectQuiz(id: string) {
+    setQuizId(id);
+    pendingJump.current = quizAnchor(id);
+  }
+
+  function removeQuiz(index: number) {
+    const next = article.quiz[index + 1] ?? article.quiz[index - 1];
+    onChange({ quiz: article.quiz.filter((_, j) => j !== index) });
+    if (next) setQuizId(next.id);
+  }
 
   useEffect(() => {
     if (!pendingJump.current) return;
@@ -605,7 +620,7 @@ function ArticleForm({
         },
       ],
     });
-    pendingJump.current = quizAnchor(id);
+    selectQuiz(id);
   }
 
   const navItems: NavItem[] = [
@@ -618,7 +633,12 @@ function ArticleForm({
 
   return (
     <div className="space-y-5">
-      <JumpBar items={navItems} onAddQuiz={addQuiz} />
+      <JumpBar
+        items={navItems}
+        selectedQuiz={selectedQuiz ? quizAnchor(selectedQuiz.id) : undefined}
+        onSelectQuiz={(anchor) => selectQuiz(anchor.slice(QUIZ_ANCHOR_PREFIX.length))}
+        onAddQuiz={addQuiz}
+      />
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
           <Card id="edit-body" className={ANCHOR}>
@@ -661,17 +681,40 @@ function ArticleForm({
                 </Button>
               }
             />
-            <div className="space-y-3">
-              {article.quiz.map((item, i) => (
+            {selectedQuiz ? (
+              <>
                 <QuizItemEditor
-                  key={item.id}
-                  item={item}
-                  index={i}
-                  onChange={(patch) => updateQuiz(i, patch)}
-                  onRemove={() => onChange({ quiz: article.quiz.filter((_, j) => j !== i) })}
+                  key={selectedQuiz.id}
+                  item={selectedQuiz}
+                  index={quizIndex}
+                  onChange={(patch) => updateQuiz(quizIndex, patch)}
+                  onRemove={() => removeQuiz(quizIndex)}
                 />
-              ))}
-            </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Button
+                    variant="grey"
+                    size="sm"
+                    disabled={quizIndex === 0}
+                    onClick={() => selectQuiz(article.quiz[quizIndex - 1].id)}
+                  >
+                    ← 이전 문항
+                  </Button>
+                  <span className="text-[13px] font-medium text-grey-500">
+                    {quizIndex + 1} / {article.quiz.length}
+                  </span>
+                  <Button
+                    variant="grey"
+                    size="sm"
+                    disabled={quizIndex === article.quiz.length - 1}
+                    onClick={() => selectQuiz(article.quiz[quizIndex + 1].id)}
+                  >
+                    다음 문항 →
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-[14px] text-grey-500">문항이 없어요. ‘+ 문항 추가’를 눌러 만들어 주세요.</p>
+            )}
           </Card>
         </div>
 
@@ -825,12 +868,13 @@ function ArticleForm({
   );
 }
 
-/* 상단 이동 바: 화면 위에 붙어 있고, 누르면 그 부분으로 바로 스크롤한다 */
+/* 상단 이동 바: 화면 위에 붙어 있고, 누르면 그 부분으로 바로 스크롤한다 (퀴즈 버튼은 그 문항을 골라 보여 준다) */
 
 // 상단 헤더(64px) + 이동 바 높이만큼 띄워서 제목이 가려지지 않게 한다
 const ANCHOR = "scroll-mt-36";
 
-const quizAnchor = (id: string) => `edit-quiz-${id}`;
+const QUIZ_ANCHOR_PREFIX = "edit-quiz-";
+const quizAnchor = (id: string) => `${QUIZ_ANCHOR_PREFIX}${id}`;
 
 function isQuizIncomplete(q: QuizItem) {
   if (!q.prompt.trim() || q.choices.some((c) => !c.trim())) return true;
@@ -849,7 +893,17 @@ interface NavItem {
   quiz?: boolean;
 }
 
-function JumpBar({ items, onAddQuiz }: { items: NavItem[]; onAddQuiz: () => void }) {
+function JumpBar({
+  items,
+  selectedQuiz,
+  onSelectQuiz,
+  onAddQuiz,
+}: {
+  items: NavItem[];
+  selectedQuiz?: string;
+  onSelectQuiz: (id: string) => void;
+  onAddQuiz: () => void;
+}) {
   const [current, setCurrent] = useState(items[0]?.id);
   const barRef = useRef<HTMLDivElement>(null);
   const ids = items.map((item) => item.id).join(",");
@@ -857,11 +911,11 @@ function JumpBar({ items, onAddQuiz }: { items: NavItem[]; onAddQuiz: () => void
   // 버튼으로 이동하는 동안에는 스크롤 위치 대신 누른 버튼을 표시한다
   const lockedUntil = useRef(0);
 
-  // 스크롤 위치에 맞춰 지금 보고 있는 부분을 표시한다
+  // 스크롤 위치에 맞춰 지금 보고 있는 부분을 표시한다 (화면에는 고른 문항 하나만 있으니 문항이 바뀔 때도 다시 계산한다)
   useEffect(() => {
     const all = ids.split(",");
     // 넓은 화면에서는 오른쪽 열(어휘 등)이 본문·퀴즈 옆에 나란히 있어 위치로 구분할 수 없으니 왼쪽 열만 따라간다
-    const leftColumn = all.filter((id) => id === "edit-body" || id.startsWith("edit-quiz-"));
+    const leftColumn = all.filter((id) => id === "edit-body" || id.startsWith(QUIZ_ANCHOR_PREFIX));
     const wide = window.matchMedia("(min-width: 1024px)");
     function update() {
       if (Date.now() < lockedUntil.current) return;
@@ -887,7 +941,7 @@ function JumpBar({ items, onAddQuiz }: { items: NavItem[]; onAddQuiz: () => void
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [ids]);
+  }, [ids, selectedQuiz]);
 
   // 이동 바가 가로로 넘칠 때 현재 버튼이 보이도록 바만 가로 스크롤한다
   useEffect(() => {
@@ -916,7 +970,8 @@ function JumpBar({ items, onAddQuiz }: { items: NavItem[]; onAddQuiz: () => void
               onClick={() => {
                 lockedUntil.current = Date.now() + 1000;
                 setCurrent(item.id);
-                jumpTo(item.id);
+                if (item.quiz) onSelectQuiz(item.id);
+                else jumpTo(item.id);
               }}
               title={item.incomplete ? "비어 있는 칸이 있어요" : undefined}
               className={cn(
