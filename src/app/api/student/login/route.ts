@@ -15,6 +15,14 @@ const Body = z.object({
   pin: z.string().regex(/^\d{4}$/, "PIN은 숫자 4자리예요."),
 });
 
+/** 선생님 화면의 '최근 접속'용. 열이 아직 없는 DB에서도 입장은 되도록 실패해도 넘어간다 */
+async function enter(studentId: string) {
+  await getDb()
+    .updateStudent(studentId, { lastLoginAt: nowIso() })
+    .catch((e) => console.error("최근 접속 시각을 저장하지 못했어요", e));
+  await setStudentSession(studentId);
+}
+
 const sameName = (a: string, b: string) => a.replace(/\s/g, "") === b.replace(/\s/g, "");
 
 export const POST = route(async (req) => {
@@ -36,7 +44,7 @@ export const POST = route(async (req) => {
       lockedUntil: null,
       createdAt: nowIso(),
     });
-    await setStudentSession(student.id);
+    await enter(student.id);
     return Response.json({ ok: true, created: true });
   }
 
@@ -51,7 +59,7 @@ export const POST = route(async (req) => {
       failedAttempts: 0,
       lockedUntil: null,
     });
-    await setStudentSession(existing.id);
+    await enter(existing.id);
     return Response.json({ ok: true, created: false, pinReset: true });
   }
 
@@ -75,6 +83,6 @@ export const POST = route(async (req) => {
   }
 
   await db.updateStudent(existing.id, { failedAttempts: 0, lockedUntil: null });
-  await setStudentSession(existing.id);
+  await enter(existing.id);
   return Response.json({ ok: true, created: false });
 });

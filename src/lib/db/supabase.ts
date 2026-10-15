@@ -41,6 +41,7 @@ const toStudent = (r: any): StudentRecord => ({
   failedAttempts: r.failed_attempts,
   lockedUntil: r.locked_until,
   createdAt: r.created_at,
+  lastLoginAt: r.last_login_at ?? null,
 });
 
 const toWorksheet = (r: any): Worksheet => ({
@@ -219,6 +220,7 @@ export function createSupabaseRepo(): Repo {
       if (patch.pinHash !== undefined) row.pin_hash = patch.pinHash;
       if (patch.failedAttempts !== undefined) row.failed_attempts = patch.failedAttempts;
       if (patch.lockedUntil !== undefined) row.locked_until = patch.lockedUntil;
+      if (patch.lastLoginAt !== undefined) row.last_login_at = patch.lastLoginAt;
       check(await sb.from("students").update(row).eq("id", id));
     },
     async deleteStudent(id) {

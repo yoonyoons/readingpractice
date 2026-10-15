@@ -17,13 +17,14 @@ import {
   type StudentReport,
   type WordCount,
 } from "@/lib/report";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, formatDateTime, seoulDate } from "@/lib/utils";
 
 export interface RosterStudent {
   id: string;
   number: number;
   name: string;
   hasPin: boolean;
+  lastLoginAt: string | null;
 }
 
 const QUIZ_COLOR = "#3182f6";
@@ -37,6 +38,14 @@ const shortWeek = (week: string) => `${Number(week.slice(5, 7))}/${Number(week.s
 function toneOf(ratio: number | null) {
   if (ratio === null) return "text-grey-300";
   return ratio < HELP_RATE ? "text-danger" : "text-grey-800";
+}
+
+/** 오늘 접속했으면 "오늘 09:12", 아니면 "10월 3일 오후 2:05" */
+function lastLogin(iso: string | null) {
+  if (!iso) return "접속 기록 없음";
+  if (seoulDate(iso) !== seoulDate(new Date())) return `최근 접속 ${formatDateTime(iso)}`;
+  const time = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  return `최근 접속 오늘 ${time}`;
 }
 
 /** 주마다 0~100으로 맞춘 퀴즈 정답률과 요약 점수. 기록이 없는 주는 null */
@@ -70,9 +79,10 @@ function linePath(values: (number | null)[], x: (i: number) => number, y: (v: nu
 }
 
 /**
- * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표, 오른쪽은 aside(반 코드) 아래에 학생 목록.
- * 오른쪽 목록에서 학생을 누르면 그 학생 행 바로 아래에 상세 분석이 펼쳐진다 (한 번에 한 명).
- * 한 열로 쌓이는 좁은 화면에서는 학생 목록이 분석표보다 먼저 오도록 order로 순서를 바꾼다.
+ * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표,
+ * 오른쪽은 aside(반 코드) 아래에 학생 성취도와 학생 계정(PIN 초기화·삭제).
+ * 성취도 목록에서 학생을 누르면 그 학생 행 바로 아래에 상세 분석이 펼쳐진다 (한 번에 한 명).
+ * 한 열로 쌓이는 좁은 화면에서는 학생 성취도가 분석표보다 먼저 오도록 order로 순서를 바꾼다.
  */
 export function ClassInsights({
   classId,
@@ -96,14 +106,12 @@ export function ClassInsights({
 }) {
   const router = useRouter();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [manageMode, setManageMode] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const reports = new Map(stats.students.map((s) => [s.studentId, s]));
   // 삭제되어 목록에서 사라진 학생은 선택이 풀린 것으로 본다
   const selected = students.find((s) => s.id === selectedStudentId) ?? null;
-  const managing = manageMode && students.length > 0;
 
   async function act(student: RosterStudent, action: "reset" | "delete") {
     const label = `${student.number}번 ${student.name}`;
@@ -172,16 +180,9 @@ export function ClassInsights({
         <div className="order-2">{aside}</div>
 
         <Card className="order-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[18px] font-bold">
-              학생 및 성취도 <span className="text-grey-500">({students.length}명)</span>
-            </h2>
-            {students.length > 0 && (
-              <Button variant={managing ? "secondary" : "grey"} size="sm" onClick={() => setManageMode((m) => !m)} aria-pressed={managing}>
-                {managing ? "완료" : "PIN 초기화·삭제"}
-              </Button>
-            )}
-          </div>
+          <h2 className="text-[18px] font-bold">
+            학생 성취도 <span className="text-grey-500">({students.length}명)</span>
+          </h2>
 
           {students.length === 0 ? (
             <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] leading-relaxed text-grey-500">
@@ -189,27 +190,6 @@ export function ClassInsights({
               <br />
               여기에 나타나요.
             </p>
-          ) : managing ? (
-            <div className="mt-3">
-              <ErrorText>{error}</ErrorText>
-              <ul className="space-y-1">
-                {students.map((s) => (
-                  <li key={s.id} className="flex items-center gap-2 px-2.5 py-1.5">
-                    <span className="w-5 shrink-0 text-right text-[13px] font-medium text-grey-400">{s.number}</span>
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-grey-800">
-                      {s.name}
-                      {!s.hasPin && <span className="ml-1.5 text-[12px] font-medium text-warning">PIN 초기화됨</span>}
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id}>
-                      PIN 초기화
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => act(s, "delete")} disabled={busy === s.id} className="text-danger">
-                      삭제
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
           ) : (
             <>
               <div className={cn(ROW_GRID, "mt-4 border border-transparent px-2.5 text-[12px] text-grey-400")}>
@@ -255,6 +235,44 @@ export function ClassInsights({
             </>
           )}
         </Card>
+
+        {students.length > 0 && (
+          <Card className="order-5 shadow-sm">
+            <h2 className="text-[18px] font-bold">
+              학생 계정 <span className="text-grey-500">({students.length}명)</span>
+            </h2>
+            <p className="mt-1 text-[13px] text-grey-500">PIN을 잊은 학생은 초기화 후 새 PIN을 만들어요.</p>
+            <div className="mt-2">
+              <ErrorText>{error}</ErrorText>
+            </div>
+            <ul className="mt-2 space-y-3">
+              {students.map((s) => (
+                <li key={s.id} className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0 text-[13px] font-medium text-grey-400">{s.number}</span>
+                      <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
+                      {s.hasPin ? <Badge tone="green">PIN 설정됨</Badge> : <Badge tone="orange">PIN 초기화됨</Badge>}
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-grey-400">{lastLogin(s.lastLoginAt)}</p>
+                  </div>
+                  <Button variant="grey" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id || !s.hasPin}>
+                    PIN 초기화
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => act(s, "delete")}
+                    disabled={busy === s.id}
+                    className="bg-danger-weak text-danger hover:bg-danger-weak hover:brightness-95"
+                  >
+                    삭제
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </div>
     </div>
   );

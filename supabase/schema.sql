@@ -30,6 +30,7 @@ create table if not exists students (
   failed_attempts int not null default 0,
   locked_until timestamptz,
   created_at timestamptz not null default now(),
+  last_login_at timestamptz,
   unique (class_id, number)
 );
 
@@ -104,6 +105,7 @@ create table if not exists custom_usage (
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
+alter table students add column if not exists last_login_at timestamptz;
 
 alter table teachers enable row level security;
 alter table classes enable row level security;
