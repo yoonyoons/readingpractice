@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Byline } from "@/components/Byline";
 import { ModeNotice } from "@/components/ModeNotice";
 import { ChevronRight } from "@/components/ui";
+import { GUIDE } from "@/lib/guide";
 
 const STEPS = [
   { icon: "📰", title: "기사 읽기", desc: "이번 주 주요 뉴스를 내 학년 수준으로" },
@@ -80,6 +81,16 @@ export default async function Home() {
               운영 정책
             </Link>{" "}
             · <Byline />
+          </p>
+          <p className="text-center text-[13px] text-grey-400">
+            처음이라면 사용 안내서를 먼저 보세요 ·{" "}
+            <a href={GUIDE.pdf} download={GUIDE.pdfName} className="underline underline-offset-2">
+              PDF
+            </a>{" "}
+            ·{" "}
+            <a href={GUIDE.pptx} download={GUIDE.pptxName} className="underline underline-offset-2">
+              PPTX
+            </a>
           </p>
         </div>
       </div>
