@@ -85,35 +85,37 @@ export default async function TeacherHome() {
         </div>
       )}
 
-      <Card className="mt-8">
-        <CardHeading icon="📄" eyebrow="학교 제출용 서식 (한글 hwpx)" title="동의서·심의 양식 내려받기" />
-        <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
-          만 14세 미만 학생은 가입 전에 보호자 동의가 필요해요. 학교운영위원회 심의를 거친 뒤 동의서를 받은 학생만 입장하게 해
-          주세요. 학교명·담당 교사·날짜 칸은 학교에 맞게 채워 쓰세요.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {SCHOOL_FORMS.map((form) => (
-            <a key={form.href} href={form.href} download={form.fileName} className={buttonClass("secondary", "md")}>
-              {form.label}
-            </a>
-          ))}
-        </div>
-      </Card>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <Card className="flex flex-col">
+          <CardHeading icon="📄" eyebrow="학교 제출용 서식 (한글 hwpx)" title="동의서·심의 양식 내려받기" />
+          <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
+            만 14세 미만 학생은 가입 전에 보호자 동의가 필요해요. 학교운영위원회 심의를 거친 뒤 동의서를 받은 학생만 입장하게 해
+            주세요. 학교명·담당 교사·날짜 칸은 학교에 맞게 채워 쓰세요.
+          </p>
+          <div className="mt-auto flex flex-wrap gap-2 pt-4">
+            {SCHOOL_FORMS.map((form) => (
+              <a key={form.href} href={form.href} download={form.fileName} className={buttonClass("secondary", "md")}>
+                {form.label}
+              </a>
+            ))}
+          </div>
+        </Card>
 
-      <Card className="mt-4">
-        <CardHeading icon="📘" eyebrow="교사용·학생용 화면 안내" title="사용 안내서 내려받기" />
-        <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
-          선생님 화면과 학생 화면을 순서대로 캡처해 설명한 안내서예요. 연수나 학교 안내 자료로 그대로 쓰거나 고쳐 쓰세요.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <a href={GUIDE.pdf} download={GUIDE.pdfName} className={buttonClass("secondary", "md")}>
-            PDF
-          </a>
-          <a href={GUIDE.pptx} download={GUIDE.pptxName} className={buttonClass("secondary", "md")}>
-            PowerPoint (PPTX)
-          </a>
-        </div>
-      </Card>
+        <Card className="flex flex-col">
+          <CardHeading icon="📘" eyebrow="교사용·학생용 화면 안내" title="사용 안내서 내려받기" />
+          <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
+            선생님 화면과 학생 화면을 순서대로 캡처해 설명한 안내서예요. 연수나 학교 안내 자료로 그대로 쓰거나 고쳐 쓰세요.
+          </p>
+          <div className="mt-auto flex flex-wrap gap-2 pt-4">
+            <a href={GUIDE.pdf} download={GUIDE.pdfName} className={buttonClass("secondary", "md")}>
+              PDF
+            </a>
+            <a href={GUIDE.pptx} download={GUIDE.pptxName} className={buttonClass("secondary", "md")}>
+              PowerPoint (PPTX)
+            </a>
+          </div>
+        </Card>
+      </div>
     </TeacherShell>
   );
 }
