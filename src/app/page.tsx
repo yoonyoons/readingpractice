@@ -75,14 +75,7 @@ export default async function Home() {
             </span>
             <ChevronRight className="size-5 text-grey-400" />
           </Link>
-          <p className="pt-2 text-center text-[13px] leading-relaxed text-grey-400">
-            기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
-            <Link href="/policy" className="underline underline-offset-2">
-              운영 정책
-            </Link>{" "}
-            · <Byline />
-          </p>
-          <p className="text-center text-[13px] text-grey-400">
+          <p className="pt-2 text-center text-[13px] text-grey-400">
             처음이라면 사용 안내서를 먼저 보세요 ·{" "}
             <a href={GUIDE.pdf} download={GUIDE.pdfName} className="underline underline-offset-2">
               PDF
@@ -91,6 +84,13 @@ export default async function Home() {
             <a href={GUIDE.pptx} download={GUIDE.pptxName} className="underline underline-offset-2">
               PPTX
             </a>
+          </p>
+          <p className="text-center text-[13px] leading-relaxed text-grey-400">
+            뉴스 수집에 Brave 검색, 기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
+            <Link href="/policy" className="underline underline-offset-2">
+              운영 정책
+            </Link>{" "}
+            · <Byline />
           </p>
         </div>
       </div>

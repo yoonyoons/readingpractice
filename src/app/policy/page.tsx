@@ -49,7 +49,7 @@ export default function PolicyPage() {
       <Section title="3. AI는 어떻게 쓰이나요?">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            기사, 어휘 퀴즈, 생각 나누기 질문은 Anthropic의 AI(Claude)가 웹 검색으로 뉴스를 조사해 만들어요. 선생님이
+            뉴스는 Brave 검색으로 지난 7일 기사를 모으고, 기사·어휘 퀴즈·생각 나누기 질문은 Anthropic의 AI(Claude)가 그 뉴스를 바탕으로 만들어요. 선생님이
             내용을 확인하고 고친 뒤 학생에게 내보내요.
           </li>
           <li>
