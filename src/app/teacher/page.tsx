@@ -1,9 +1,10 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { ModeNotice } from "@/components/ModeNotice";
 import { CreateClassButton } from "@/components/teacher/CreateClassButton";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
-import { Badge, buttonClass, Card, CardHeading, ChevronRight, EmptyState } from "@/components/ui";
+import { Badge, buttonClass, Card, ChevronRight, EmptyState } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { GUIDE } from "@/lib/guide";
 import { GRADES } from "@/lib/grades";
@@ -50,72 +51,74 @@ export default async function TeacherHome() {
           />
         </Card>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-6 grid gap-5 sm:grid-cols-2">
           {rows.map(({ classRoom, studentCount, worksheetCount, latest }) => (
             <Link
               key={classRoom.id}
               href={`/teacher/classes/${classRoom.id}`}
-              className="group rounded-3xl bg-white p-6 transition hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] active:scale-[0.99]"
+              className="group flex min-w-0 flex-col rounded-3xl bg-white p-7 transition hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] active:scale-[0.99]"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <Badge tone="blue">{GRADES[classRoom.gradeLevel].label}</Badge>
-                  <p className="mt-2.5 text-[20px] font-bold text-grey-900">{classRoom.name}</p>
+                  <p className="mt-3 text-[26px] font-bold tracking-tight text-grey-900">{classRoom.name}</p>
                 </div>
-                <ChevronRight className="size-5 text-grey-300 transition group-hover:text-grey-500" />
+                <ChevronRight className="size-6 text-grey-300 transition group-hover:text-grey-500" />
               </div>
-              <div className="mt-5 flex gap-6 text-[14px]">
+              <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-[16px]">
                 <span className="text-grey-500">
-                  학생 <b className="text-grey-800">{studentCount}명</b>
+                  학생 <b className="text-[18px] text-grey-800">{studentCount}명</b>
                 </span>
                 <span className="text-grey-500">
-                  학습지 <b className="text-grey-800">{worksheetCount}개</b>
+                  학습지 <b className="text-[18px] text-grey-800">{worksheetCount}개</b>
                 </span>
                 <span className="text-grey-500">
-                  코드 <b className="font-mono text-grey-800">{classRoom.code}</b>
+                  코드 <b className="font-mono text-[18px] text-grey-800">{classRoom.code}</b>
                 </span>
               </div>
-              {latest && (
-                <p className="mt-3 truncate text-[13px] text-grey-400">
-                  최근: {latest.title} · {formatDate(latest.createdAt)}
+              <div className="mt-auto flex items-center justify-between gap-4 pt-6">
+                <p className="min-w-0 truncate text-[14px] text-grey-400">
+                  {latest ? `최근: ${latest.title} · ${formatDate(latest.createdAt)}` : "아직 만든 학습지가 없어요"}
                 </p>
-              )}
+                <span className={buttonClass("primary", "md", "shrink-0")}>입장하기 →</span>
+              </div>
             </Link>
           ))}
         </div>
       )}
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Card className="flex flex-col">
-          <CardHeading icon="📄" eyebrow="학교 제출용 서식 (한글 hwpx)" title="동의서·심의 양식 내려받기" />
-          <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
-            만 14세 미만 학생은 가입 전에 보호자 동의가 필요해요. 학교운영위원회 심의를 거친 뒤 동의서를 받은 학생만 입장하게 해
-            주세요. 학교명·담당 교사·날짜 칸은 학교에 맞게 채워 쓰세요.
-          </p>
-          <div className="mt-auto flex flex-wrap gap-2 pt-4">
-            {SCHOOL_FORMS.map((form) => (
-              <a key={form.href} href={form.href} download={form.fileName} className={buttonClass("secondary", "md")}>
-                {form.label}
-              </a>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="flex flex-col">
-          <CardHeading icon="📘" eyebrow="교사용·학생용 화면 안내" title="사용 안내서 내려받기" />
-          <p className="mt-3 text-[14px] leading-relaxed text-grey-600">
-            선생님 화면과 학생 화면을 순서대로 캡처해 설명한 안내서예요. 연수나 학교 안내 자료로 그대로 쓰거나 고쳐 쓰세요.
-          </p>
-          <div className="mt-auto flex flex-wrap gap-2 pt-4">
-            <a href={GUIDE.pdf} download={GUIDE.pdfName} className={buttonClass("secondary", "md")}>
-              PDF
+      <Card className="mt-5 divide-y divide-grey-100 py-2">
+        <DownloadRow icon="📄" title="동의서·심의 양식 내려받기">
+          {SCHOOL_FORMS.map((form) => (
+            <a key={form.href} href={form.href} download={form.fileName} className={buttonClass("secondary", "sm")}>
+              {form.label}
             </a>
-            <a href={GUIDE.pptx} download={GUIDE.pptxName} className={buttonClass("secondary", "md")}>
-              PowerPoint (PPTX)
-            </a>
-          </div>
-        </Card>
-      </div>
+          ))}
+        </DownloadRow>
+        <DownloadRow icon="📘" title="사용 안내서 내려받기">
+          <a href={GUIDE.pdf} download={GUIDE.pdfName} className={buttonClass("secondary", "sm")}>
+            PDF
+          </a>
+          <a href={GUIDE.pptx} download={GUIDE.pptxName} className={buttonClass("secondary", "sm")}>
+            PowerPoint (PPTX)
+          </a>
+        </DownloadRow>
+      </Card>
     </TeacherShell>
+  );
+}
+
+/** 반 목록 아래 내려받기 줄: 반 카드보다 눈에 덜 띄도록 한 상자 안에 작게 */
+function DownloadRow({ icon, title, children }: { icon: string; title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-[15px] font-bold text-grey-800">
+        <span aria-hidden className="mr-1.5">
+          {icon}
+        </span>
+        {title}
+      </p>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
   );
 }
