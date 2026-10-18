@@ -26,15 +26,15 @@ export default async function TeacherLoginPage() {
           </LinkButton>
         </div>
       </Card>
-      <p className="mt-6 text-center text-[16px] text-grey-500">
+      <p className="mt-6 text-center text-[20px] text-grey-500">
         계정이 없으신가요?{" "}
         <Link href="/teacher/signup" className="font-semibold text-primary">
           회원가입
         </Link>
       </p>
       <p className="mt-3 text-center">
-        <Link href="/teacher/beta" className="text-[14px] text-grey-500 underline-offset-2 hover:underline">
-          가입 없이 베타 테스트로 기능 체험해 보기
+        <Link href="/teacher/beta" className="text-[20px] text-grey-500 underline-offset-2 hover:underline">
+          가입 없이 체험하기
         </Link>
       </p>
       <p className="mt-6 text-center text-[13px] text-grey-400">
