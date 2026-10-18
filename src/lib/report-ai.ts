@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { ai, toAiError } from "./claude";
+import { ai, generateJson, toAiError } from "./claude";
 import { getDb } from "./db";
 import { hasAnthropic } from "./env";
 import { GRADES } from "./grades";
@@ -109,6 +109,27 @@ function ruleComment(s: StudentReport): StudentComment {
       .filter(Boolean)
       .join(" "),
   };
+}
+
+/**
+ * 공모전 체험판: Batch를 기다리지 않고 학생 의견을 바로 만든다 (학생 수가 적은 체험용 반에만 쓴다).
+ * 돌려주는 순서는 students 순서와 같고, 만들지 못한 학생은 규칙 기반 의견으로 채운다.
+ */
+export async function writeCommentsNow(grade: GradeLevel, range: DateRange, students: StudentReport[]): Promise<StudentComment[]> {
+  if (!hasAnthropic()) return students.map(ruleComment);
+  const r = await generateJson(CommentsSchema, {
+    model: COMMENT_MODEL,
+    system: SYSTEM,
+    prompt: prompt(
+      grade,
+      range,
+      students.map((s, j) => `${j + 1}: ${describe(s)}`),
+    ),
+  });
+  return students.map((s, j) => {
+    const c = r.comments.find((x) => Number(x.key.match(/\d+/)?.[0]) === j + 1);
+    return c ? { studentMessage: clean(c.studentMessage), teacherMemo: clean(c.teacherMemo) } : ruleComment(s);
+  });
 }
 
 /** 기간이 없는 예전 의견(반 전체를 한꺼번에 만들던 때)에 그때의 반 기간을 붙여, 새 의견과 섞여도 구분되게 한다 */

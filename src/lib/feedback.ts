@@ -14,7 +14,10 @@ const FeedbackSchema = z.object({
   advice: z.string(),
 });
 
-export async function gradeSummary(article: Article, grade: GradeLevel, text: string): Promise<SummaryFeedback> {
+/** 채점에 쓰는 기사 내용 */
+type GradedArticle = Pick<Article, "title" | "paragraphs" | "keyPoints">;
+
+export async function gradeSummary(article: GradedArticle, grade: GradeLevel, text: string): Promise<SummaryFeedback> {
   if (!hasAnthropic()) return demoFeedback(article, text);
 
   const g = GRADES[grade];
@@ -63,7 +66,7 @@ ${g.label} 수준을 생각해 너무 엄격하지 않게 채점한다. 기사�
 }
 
 /** Gemini 키가 없을 때 쓰는 간단한 규칙 기반 채점 (데모용) */
-function demoFeedback(article: Article, text: string): SummaryFeedback {
+function demoFeedback(article: GradedArticle, text: string): SummaryFeedback {
   const compact = (s: string) => s.replace(/[^가-힣a-zA-Z0-9]/g, "");
   const summary = compact(text);
 
