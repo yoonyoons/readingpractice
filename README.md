@@ -66,7 +66,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 npm run contest   # contest/dist/readingpractice-contest.html
 ```
 
-실제 앱(`src`)의 페이지·컴포넌트·API 코드와 디자인을 브라우저에서 돌아가는 HTML 파일 하나로 묶습니다. 화면은 실제 사이트와 같고, 로그인·학습 기록은 그 브라우저(localStorage)에만 저장됩니다. 처음 열면 체험용 반과 가상 학생 10명의 지난 3주 기록을 만들어 둡니다. AI가 필요한 일(이번 주 기사, 요약 채점, 기사 추가·다시 만들기, 결과 분석표 AI 의견)은 실제 서버의 공모전 API(`/api/contest/*`, 모든 체험자 합계 하루 30회·정해진 날까지)로 보냅니다. 브라우저에서 돌 수 없거나 AI를 실제 서버로 보내야 하는 파일만 `contest/overrides`가 대신하고, Next.js·Node 전용 모듈은 `contest/shims`가 대신합니다. AI를 부를 서버 주소는 `CONTEST_SITE=https://... npm run contest`로 바꿀 수 있습니다.
+실제 앱(`src`)의 페이지·컴포넌트·API 코드와 디자인을 브라우저에서 돌아가는 HTML 파일 하나로 묶습니다. 화면은 실제 사이트와 같고, 로그인·학습 기록은 그 브라우저(localStorage)에만 저장됩니다. 처음 열면 체험용 반과 가상 학생 24명의 지난 3주 기록을 만들어 둡니다. AI가 필요한 일(이번 주 기사, 요약 채점, 기사 추가·다시 만들기, 결과 분석표 AI 의견)은 실제 서버의 공모전 API(`/api/contest/*`, 모든 체험자 합계 하루 30회·정해진 날까지)로 보냅니다. 브라우저에서 돌 수 없거나 AI를 실제 서버로 보내야 하는 파일만 `contest/overrides`가 대신하고, Next.js·Node 전용 모듈은 `contest/shims`가 대신합니다. AI를 부를 서버 주소는 `CONTEST_SITE=https://... npm run contest`로 바꿀 수 있습니다.
 
 ## 동작 방식
 

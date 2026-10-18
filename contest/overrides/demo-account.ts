@@ -8,12 +8,12 @@ import { remoteWeekly } from "../app/contest-api";
 /*
  * 체험판의 체험 계정.
  * 실제 서비스의 베타 계정과 달리 AI 기능을 실제 서버로 부르므로 '체험 계정' 표시(예시 기사 안내)는 쓰지 않는다.
- * 결과 분석표를 바로 볼 수 있게 지난 3주 학습지와 가상 학생 10명의 학습 기록을 무작위로 만들어 둔다.
+ * 결과 분석표를 바로 볼 수 있게 지난 3주 학습지와 가상 학생 24명의 학습 기록을 무작위로 만들어 둔다.
  */
 
 export const DEMO_TEACHER_EMAIL = "beta-demo@readingpractice.local";
 export const DEMO_CLASS_NAME = "체험용 반";
-export const DEMO_STUDENTS = 10;
+export const DEMO_STUDENTS = 24;
 /** 가상 학생의 PIN (학생 화면 체험 안내에 보여 준다) */
 export const DEMO_PIN = "1234";
 
@@ -24,7 +24,7 @@ export function isDemoTeacher(teacher: Pick<Teacher, "email">) {
 
 const DAY = 24 * 60 * 60 * 1000;
 const FAMILY = "김이박최정강조윤장임한오서신권황안송".split("");
-const GIVEN = ["하늘", "도윤", "서연", "지호", "하은", "민준", "수아", "지우", "예린", "시우", "유나", "건우", "서준", "다은", "준서", "채원", "현우", "지아"];
+const GIVEN = ["하늘", "도윤", "서연", "지호", "하은", "민준", "수아", "지우", "예린", "시우", "유나", "건우", "서준", "다은", "준서", "채원", "현우", "지아", "태윤", "소율", "지후", "나연", "예준", "다인", "서아", "지민"];
 const REASONS = [
   "기사를 읽어 보니 우리 생활과 가까운 일이라고 느꼈어요. 그래서 이렇게 생각해요.",
   "모두가 함께 지키면 더 좋아질 것 같아요. 작은 실천부터 시작하면 돼요.",
@@ -129,8 +129,11 @@ async function seed(): Promise<Teacher> {
     );
   }
 
-  // 가상 학생 10명: 실력을 고르게 나누고, 두 명은 '도움 필요'가 보이도록 낮게
-  const levels = shuffled([0.12, 0.2, 0.45, 0.55, 0.6, 0.68, 0.74, 0.8, 0.86, 0.93]);
+  // 가상 학생 24명: 실력을 고르게 나누고, 세 명은 '도움 필요'가 보이도록 낮게
+  const levels = shuffled([
+    0.12, 0.18, 0.24, 0.42, 0.47, 0.52, 0.55, 0.58, 0.6, 0.63, 0.66, 0.68,
+    0.7, 0.72, 0.74, 0.77, 0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.93, 0.95,
+  ]);
   const names = shuffled(GIVEN).slice(0, DEMO_STUDENTS);
   const pinHash = await bcrypt.hash(DEMO_PIN, 10);
   for (let n = 0; n < DEMO_STUDENTS; n++) {
