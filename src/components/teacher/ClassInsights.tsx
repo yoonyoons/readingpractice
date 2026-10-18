@@ -17,7 +17,7 @@ import {
   type StudentReport,
   type WordCount,
 } from "@/lib/report";
-import { cn, formatDate, formatDateTime, seoulDate } from "@/lib/utils";
+import { cn, formatDate, seoulDate } from "@/lib/utils";
 
 export interface RosterStudent {
   id: string;
@@ -30,6 +30,15 @@ export interface RosterStudent {
 const QUIZ_COLOR = "#3182f6";
 const SUMMARY_COLOR = "#e8710a";
 const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_56px_40px_36px] items-center gap-2";
+/** 학생이 많아도 카드가 길어지지 않도록 약 9명분 높이에서 목록 안쪽만 스크롤 */
+const LIST_SCROLL = "mt-1 max-h-[400px] overflow-y-auto overscroll-contain";
+
+type SortKey = "number" | "quiz" | "summary";
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "number", label: "번호순" },
+  { key: "quiz", label: "퀴즈 낮은 순" },
+  { key: "summary", label: "요약 낮은 순" },
+];
 
 const day = (date: string) => formatDate(`${date}T00:00:00+09:00`);
 /** 주 시작 월요일(YYYY-MM-DD)을 "9/8"로 */
@@ -40,12 +49,13 @@ function toneOf(ratio: number | null) {
   return ratio < HELP_RATE ? "text-danger" : "text-grey-800";
 }
 
-/** 오늘 접속했으면 "오늘 09:12", 아니면 "10월 3일 오후 2:05" */
+/** 오늘 접속했으면 "접속 오늘 09:12", 아니면 "접속 10/3 14:05" (좁은 계정 목록에서 한 줄에 들어가게) */
 function lastLogin(iso: string | null) {
   if (!iso) return "접속 기록 없음";
-  if (seoulDate(iso) !== seoulDate(new Date())) return `최근 접속 ${formatDateTime(iso)}`;
   const time = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
-  return `최근 접속 오늘 ${time}`;
+  const date = seoulDate(iso);
+  if (date !== seoulDate(new Date())) return `접속 ${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))} ${time}`;
+  return `접속 오늘 ${time}`;
 }
 
 /** 주마다 0~100으로 맞춘 퀴즈 정답률과 요약 점수. 기록이 없는 주는 null */
@@ -80,7 +90,8 @@ function linePath(values: (number | null)[], x: (i: number) => number, y: (v: nu
 
 /**
  * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표,
- * 오른쪽은 aside(반 코드) 아래에 학생 성취도와 학생 계정(PIN 초기화·삭제).
+ * 오른쪽은 aside(반 코드) 아래에 [성취도 | 계정 관리(PIN 초기화·삭제)] 탭 카드.
+ * 두 탭은 이름 검색을 함께 쓰고, 목록은 고정 높이 안에서 스크롤한다.
  * 성취도 목록에서 학생을 누르면 그 학생 행 바로 아래에 상세 분석이 펼쳐진다 (한 번에 한 명).
  * 한 열로 쌓이는 좁은 화면에서는 학생 성취도가 분석표보다 먼저 오도록 order로 순서를 바꾼다.
  */
@@ -108,8 +119,20 @@ export function ClassInsights({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"achievement" | "accounts">("achievement");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("number");
 
   const reports = new Map(stats.students.map((s) => [s.studentId, s]));
+  const keyword = query.trim();
+  const filtered = keyword ? students.filter((s) => s.name.includes(keyword) || String(s.number) === keyword) : students;
+  // 낮은 순 정렬에서 기록이 없는 학생은 맨 아래로
+  const scoreOf = (s: RosterStudent) => {
+    const r = reports.get(s.id);
+    const v = sort === "quiz" ? r?.quiz.rate : r?.summary.average;
+    return v ?? Infinity;
+  };
+  const sorted = sort === "number" ? filtered : [...filtered].sort((a, b) => scoreOf(a) - scoreOf(b) || a.number - b.number);
   // 삭제되어 목록에서 사라진 학생은 선택이 풀린 것으로 본다
   const selected = students.find((s) => s.id === selectedStudentId) ?? null;
 
@@ -180,102 +203,166 @@ export function ClassInsights({
         <div className="order-2">{aside}</div>
 
         <Card className="order-3 shadow-sm">
-          <h2 className="text-[18px] font-bold">
-            학생 성취도 <span className="text-grey-500">({students.length}명)</span>
-          </h2>
-
           {students.length === 0 ? (
-            <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] leading-relaxed text-grey-500">
-              학생이 반 코드로 입장하면
-              <br />
-              여기에 나타나요.
-            </p>
+            <>
+              <h2 className="text-[18px] font-bold">학생 성취도</h2>
+              <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-8 text-center text-[14px] leading-relaxed text-grey-500">
+                학생이 반 코드로 입장하면
+                <br />
+                여기에 나타나요.
+              </p>
+            </>
           ) : (
             <>
-              <div className={cn(ROW_GRID, "mt-4 border border-transparent px-2.5 text-[12px] text-grey-400")}>
-                <span />
-                <span>이름</span>
-                <span className="text-center">퀴즈 추이</span>
-                <span className="text-right">퀴즈</span>
-                <span className="text-right">요약</span>
+              <div role="tablist" className="flex gap-1 rounded-[14px] bg-grey-100 p-1">
+                {(["achievement", "accounts"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === t}
+                    onClick={() => setTab(t)}
+                    className={cn(
+                      "flex-1 rounded-[10px] py-2 text-[15px] font-semibold transition",
+                      tab === t ? "bg-white text-grey-900 shadow-sm" : "text-grey-500 hover:text-grey-700",
+                    )}
+                  >
+                    {t === "achievement" ? "성취도" : "계정 관리"}{" "}
+                    <span className={tab === t ? "text-grey-500" : "text-grey-400"}>{students.length}</span>
+                  </button>
+                ))}
               </div>
-              <ul className="mt-1 space-y-1">
-                {students.map((s) => {
-                  const r = reports.get(s.id);
-                  const active = s.id === selected?.id;
-                  const quizRate = r?.quiz.rate ?? null;
-                  const summary = r?.summary.average ?? null;
-                  return (
-                    <li key={s.id} className={cn("rounded-2xl", active && "bg-primary-weak")}>
+
+              {tab === "accounts" && (
+                <>
+                  <p className="mt-3 text-[13px] text-grey-500">PIN을 잊은 학생은 초기화 후 새 PIN을 만들어요.</p>
+                  <div className="mt-1">
+                    <ErrorText>{error}</ErrorText>
+                  </div>
+                </>
+              )}
+
+              <label className="mt-3 flex h-9 items-center gap-1.5 rounded-xl bg-grey-100 px-2.5 text-[14px] focus-within:ring-2 focus-within:ring-primary/30">
+                <SearchIcon />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="이름 검색"
+                  aria-label="이름 검색"
+                  className="min-w-0 flex-1 bg-transparent text-grey-800 outline-none placeholder:text-grey-400"
+                />
+              </label>
+
+              {tab === "achievement" ? (
+                <>
+                  <div className="mt-2.5 flex gap-1.5">
+                    {SORTS.map((s) => (
                       <button
+                        key={s.key}
                         type="button"
-                        aria-expanded={active}
-                        onClick={() => setSelectedStudentId(active ? null : s.id)}
+                        aria-pressed={sort === s.key}
+                        onClick={() => setSort(s.key)}
                         className={cn(
-                          ROW_GRID,
-                          "w-full rounded-2xl border border-transparent px-2.5 py-2 text-left transition",
-                          !active && "hover:bg-grey-50",
+                          "rounded-full px-2.5 py-1.5 text-[13px] font-semibold transition",
+                          sort === s.key ? "bg-grey-800 text-white" : "bg-grey-100 text-grey-600 hover:bg-grey-200",
                         )}
                       >
-                        <span className="text-right text-[13px] font-medium text-grey-400">{s.number}</span>
-                        <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
-                        <Sparkline values={trendOf(r, weeks).map((p) => p.quiz)} />
-                        <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(quizRate))}>
-                          {formatRate(quizRate)}
-                        </span>
-                        <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(summary === null ? null : summary / 100))}>
-                          {summary === null ? "-" : Math.round(summary)}
-                        </span>
+                        {s.label}
                       </button>
-                      {active && <StudentDetail student={s} report={r} weeks={weeks} />}
+                    ))}
+                  </div>
+                  <div className={cn(ROW_GRID, "mt-3 border-b border-grey-100 px-2.5 pb-1.5 text-[12px] text-grey-400")}>
+                    <span />
+                    <span>이름</span>
+                    <span className="text-center">퀴즈 추이</span>
+                    <span className={cn("text-right", sort === "quiz" && "font-bold text-grey-800")}>퀴즈{sort === "quiz" && " ↑"}</span>
+                    <span className={cn("text-right", sort === "summary" && "font-bold text-grey-800")}>요약{sort === "summary" && " ↑"}</span>
+                  </div>
+                  <ul className={cn(LIST_SCROLL, "space-y-1")}>
+                    {sorted.map((s) => {
+                      const r = reports.get(s.id);
+                      const active = s.id === selected?.id;
+                      const quizRate = r?.quiz.rate ?? null;
+                      const summary = r?.summary.average ?? null;
+                      return (
+                        <li key={s.id} className={cn("rounded-2xl", active && "bg-primary-weak")}>
+                          <button
+                            type="button"
+                            aria-expanded={active}
+                            onClick={() => setSelectedStudentId(active ? null : s.id)}
+                            className={cn(
+                              ROW_GRID,
+                              "w-full rounded-2xl border border-transparent px-2.5 py-2 text-left transition",
+                              !active && "hover:bg-grey-50",
+                            )}
+                          >
+                            <span className="text-right text-[13px] font-medium text-grey-400">{s.number}</span>
+                            <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
+                            <Sparkline values={trendOf(r, weeks).map((p) => p.quiz)} />
+                            <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(quizRate))}>
+                              {formatRate(quizRate)}
+                            </span>
+                            <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(summary === null ? null : summary / 100))}>
+                              {summary === null ? "-" : Math.round(summary)}
+                            </span>
+                          </button>
+                          {active && <StudentDetail student={s} report={r} weeks={weeks} />}
+                        </li>
+                      );
+                    })}
+                    {sorted.length === 0 && <NoMatch />}
+                  </ul>
+                  <p className="mt-2 text-center text-[12px] text-grey-500">빨간 숫자 = {HELP_RATE * 100}% 미만</p>
+                </>
+              ) : (
+                <ul className={cn(LIST_SCROLL, "divide-y divide-grey-100")}>
+                  {filtered.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2 px-1 py-2">
+                      <span className="w-5 shrink-0 text-right text-[13px] font-medium text-grey-400">{s.number}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
+                          {!s.hasPin && <Badge tone="orange">PIN 초기화됨</Badge>}
+                        </div>
+                        <p className="truncate text-[12px] text-grey-400">{lastLogin(s.lastLoginAt)}</p>
+                      </div>
+                      <Button variant="grey" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id || !s.hasPin}>
+                        PIN 초기화
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => act(s, "delete")}
+                        disabled={busy === s.id}
+                        className="bg-danger-weak text-danger hover:bg-danger-weak hover:brightness-95"
+                      >
+                        삭제
+                      </Button>
                     </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                  {filtered.length === 0 && <NoMatch />}
+                </ul>
+              )}
             </>
           )}
         </Card>
-
-        {students.length > 0 && (
-          <Card className="order-5 shadow-sm">
-            <h2 className="text-[18px] font-bold">
-              학생 계정 <span className="text-grey-500">({students.length}명)</span>
-            </h2>
-            <p className="mt-1 text-[13px] text-grey-500">PIN을 잊은 학생은 초기화 후 새 PIN을 만들어요.</p>
-            <div className="mt-2">
-              <ErrorText>{error}</ErrorText>
-            </div>
-            <ul className="mt-2 space-y-3">
-              {students.map((s) => (
-                <li key={s.id} className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="shrink-0 text-[13px] font-medium text-grey-400">{s.number}</span>
-                      <span className="truncate text-[15px] font-semibold text-grey-800">{s.name}</span>
-                      {s.hasPin ? <Badge tone="green">PIN 설정됨</Badge> : <Badge tone="orange">PIN 초기화됨</Badge>}
-                    </div>
-                    <p className="mt-0.5 text-[12px] text-grey-400">{lastLogin(s.lastLoginAt)}</p>
-                  </div>
-                  <Button variant="grey" size="sm" onClick={() => act(s, "reset")} disabled={busy === s.id || !s.hasPin}>
-                    PIN 초기화
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => act(s, "delete")}
-                    disabled={busy === s.id}
-                    className="bg-danger-weak text-danger hover:bg-danger-weak hover:brightness-95"
-                  >
-                    삭제
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
       </div>
     </div>
   );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="size-4 shrink-0 text-grey-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NoMatch() {
+  return <li className="px-2 py-8 text-center text-[14px] text-grey-500">찾는 학생이 없어요.</li>;
 }
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
