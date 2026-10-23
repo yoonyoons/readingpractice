@@ -102,6 +102,31 @@ create table if not exists custom_usage (
   primary key (class_id, week)
 );
 
+-- 관심 분야 학습: 서버가 매주 공공 저작물 원문으로 자동으로 만든 기사 (처음 기사 12편은 코드에 들어 있다).
+-- grade_levels 는 교육과정상 이 내용을 배우는 학년군이다.
+create table if not exists library_articles (
+  id text primary key,
+  field text not null,
+  grade_levels text[] not null,
+  origin_url text not null unique,
+  article jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+-- 관심 분야 학습 기록: 학생마다 기사 하나에 한 줄. 별은 이 기록으로 계산한다.
+create table if not exists library_submissions (
+  id uuid primary key,
+  article_id text not null,
+  student_id uuid not null references students(id) on delete cascade,
+  read_at timestamptz,
+  quiz_answers jsonb not null default '{}'::jsonb,
+  quiz_done_at timestamptz,
+  summaries jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now(),
+  unique (article_id, student_id)
+);
+create index if not exists library_submissions_student_idx on library_submissions (student_id);
+
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
@@ -116,3 +141,5 @@ alter table email_verifications enable row level security;
 alter table weekly_sets enable row level security;
 alter table class_reports enable row level security;
 alter table custom_usage enable row level security;
+alter table library_articles enable row level security;
+alter table library_submissions enable row level security;

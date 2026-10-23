@@ -4,6 +4,7 @@ import type {
   ClassReport,
   ClassRoom,
   GradeLevel,
+  LibraryArticle,
   StudentRecord,
   Submission,
   TeacherRecord,
@@ -11,7 +12,7 @@ import type {
   Worksheet,
   WorksheetStatus,
 } from "../types";
-import type { Repo } from "./repo";
+import { LIBRARY_WORKSHEET_ID, type Repo } from "./repo";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- DB 행은 아래 매핑 함수에서 타입을 입힌다 */
 
@@ -84,6 +85,12 @@ const toSubmission = (r: any): Submission => ({
   summaries: r.summaries ?? [],
   opinion: r.opinion ?? null,
   updatedAt: r.updated_at,
+});
+
+const toLibrarySubmission = (r: any): Submission => ({
+  ...toSubmission(r),
+  worksheetId: LIBRARY_WORKSHEET_ID,
+  opinion: null,
 });
 
 function check<T>({ data, error }: { data: T; error: { message: string } | null }): T {
@@ -339,7 +346,38 @@ export function createSupabaseRepo(): Repo {
       );
     },
 
+    async listLibraryArticles() {
+      const rows = check(await sb.from("library_articles").select("article").order("created_at"));
+      return (rows ?? []).map((r: any) => r.article as LibraryArticle);
+    },
+    async saveLibraryArticle(a) {
+      check(
+        await sb.from("library_articles").upsert(
+          {
+            id: a.id,
+            field: a.field,
+            grade_levels: a.gradeLevels,
+            origin_url: a.origin.url,
+            article: a,
+            created_at: a.createdAt,
+          },
+          { onConflict: "id" },
+        ),
+      );
+    },
+    async listLibrarySubmissions(studentIds) {
+      if (studentIds.length === 0) return [];
+      const rows = check(await sb.from("library_submissions").select().in("student_id", studentIds));
+      return (rows ?? []).map(toLibrarySubmission);
+    },
+
     async getSubmission(worksheetId, articleId, studentId) {
+      if (worksheetId === LIBRARY_WORKSHEET_ID) {
+        const row = check(
+          await sb.from("library_submissions").select().eq("article_id", articleId).eq("student_id", studentId).maybeSingle(),
+        );
+        return row ? toLibrarySubmission(row) : null;
+      }
       const row = check(
         await sb
           .from("submissions")
@@ -360,6 +398,28 @@ export function createSupabaseRepo(): Repo {
       return (rows ?? []).map(toSubmission);
     },
     async upsertSubmission(s) {
+      if (s.worksheetId === LIBRARY_WORKSHEET_ID) {
+        const row = check(
+          await sb
+            .from("library_submissions")
+            .upsert(
+              {
+                id: s.id,
+                article_id: s.articleId,
+                student_id: s.studentId,
+                read_at: s.readAt,
+                quiz_answers: s.quizAnswers,
+                quiz_done_at: s.quizDoneAt,
+                summaries: s.summaries,
+                updated_at: s.updatedAt,
+              },
+              { onConflict: "article_id,student_id" },
+            )
+            .select()
+            .single(),
+        );
+        return toLibrarySubmission(row);
+      }
       const row = check(
         await sb
           .from("submissions")

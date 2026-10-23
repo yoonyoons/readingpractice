@@ -25,11 +25,13 @@ export interface RosterStudent {
   name: string;
   hasPin: boolean;
   lastLoginAt: string | null;
+  /** 관심 분야 학습에서 모은 별 */
+  stars: number;
 }
 
 const QUIZ_COLOR = "#3182f6";
 const SUMMARY_COLOR = "#e8710a";
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_56px_40px_36px] items-center gap-2";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_56px_40px_36px_34px] items-center gap-2";
 /** 학생이 많아도 카드가 길어지지 않도록 약 9명분 높이에서 목록 안쪽만 스크롤 */
 const LIST_SCROLL = "mt-1 max-h-[400px] overflow-y-auto overscroll-contain";
 
@@ -278,6 +280,7 @@ export function ClassInsights({
                     <span className="text-center">퀴즈 추이</span>
                     <span className={cn("text-right", sort === "quiz" && "font-bold text-grey-800")}>퀴즈{sort === "quiz" && " ↑"}</span>
                     <span className={cn("text-right", sort === "summary" && "font-bold text-grey-800")}>요약{sort === "summary" && " ↑"}</span>
+                    <span className="text-right" title="관심 분야 학습에서 모은 별">별</span>
                   </div>
                   <ul className={cn(LIST_SCROLL, "space-y-1")}>
                     {sorted.map((s) => {
@@ -306,6 +309,10 @@ export function ClassInsights({
                             <span className={cn("text-right text-[14px] font-semibold tabular-nums", toneOf(summary === null ? null : summary / 100))}>
                               {summary === null ? "-" : Math.round(summary)}
                             </span>
+                            <span className={cn("text-right text-[13px] font-semibold tabular-nums", s.stars ? "text-grey-800" : "text-grey-300")}>
+                              <span className="text-[#f5b301]">★</span>
+                              {s.stars}
+                            </span>
                           </button>
                           {active && <StudentDetail student={s} report={r} weeks={weeks} />}
                         </li>
@@ -313,7 +320,9 @@ export function ClassInsights({
                     })}
                     {sorted.length === 0 && <NoMatch />}
                   </ul>
-                  <p className="mt-2 text-center text-[12px] text-grey-500">빨간 숫자 = {HELP_RATE * 100}% 미만</p>
+                  <p className="mt-2 text-center text-[12px] text-grey-500">
+                    빨간 숫자 = {HELP_RATE * 100}% 미만 · ★ = 관심 분야 학습에서 모은 별
+                  </p>
                 </>
               ) : (
                 <ul className={cn(LIST_SCROLL, "divide-y divide-grey-100")}>
