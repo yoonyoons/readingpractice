@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Byline } from "@/components/Byline";
+import { ClickHere } from "@/components/ClickHere";
 import { AuthForm } from "@/components/teacher/AuthForm";
 import { Card, LinkButton } from "@/components/ui";
 import { getTeacher } from "@/lib/session";
@@ -32,11 +33,9 @@ export default async function TeacherLoginPage() {
           회원가입
         </Link>
       </p>
-      <p className="mt-3 text-center">
-        <Link href="/teacher/beta" className="text-[20px] text-grey-500 underline-offset-2 hover:underline">
-          가입 없이 체험하기
-        </Link>
-      </p>
+      <div className="mt-2 flex justify-center">
+        <ClickHere href="/teacher/beta">가입 없이 체험하기</ClickHere>
+      </div>
       <p className="mt-6 text-center text-[13px] text-grey-400">
         <Byline />
       </p>

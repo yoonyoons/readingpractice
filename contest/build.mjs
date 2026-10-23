@@ -29,7 +29,6 @@ const OVERRIDES = new Map([
   [src("lib/demo-account.ts"), own("overrides/demo-account.ts")],
   [src("components/ModeNotice.tsx"), own("overrides/ModeNotice.tsx")],
   [src("app/teacher/beta/page.tsx"), own("overrides/beta-page.tsx")],
-  [src("app/teacher/login/page.tsx"), own("overrides/login-page.tsx")],
   [src("app/api/worksheets/[worksheetId]/articles/route.ts"), own("overrides/articles-route.ts")],
   [src("app/api/worksheets/[worksheetId]/articles/[articleId]/regenerate/route.ts"), own("overrides/regenerate-route.ts")],
 ]);
