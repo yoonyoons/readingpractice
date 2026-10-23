@@ -66,3 +66,70 @@ body {
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* ClickHere 버튼(가입 없이 체험하기)의 움직임 */
+@keyframes click-press {
+  0%, 35%, 100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(.95);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+@keyframes click-cursor {
+  0%, 100% {
+    transform: translate(6px,6px);
+  }
+  40% {
+    transform: translate(0,0);
+  }
+  45% {
+    transform: translate(0,0) scale(.88);
+  }
+  60% {
+    transform: translate(0,0);
+  }
+}
+@keyframes click-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes click-shine {
+  0% {
+    transform: translateX(0);
+  }
+  60%, 100% {
+    transform: translateX(520%);
+  }
+}
+@keyframes click-star {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(.4) rotate(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(90deg);
+  }
+}
+@keyframes click-burst {
+  0%, 40% {
+    opacity: 0;
+    transform: scale(.6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  80%, 100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
