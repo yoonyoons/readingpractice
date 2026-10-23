@@ -4,13 +4,14 @@ import type {
   ClassReport,
   ClassRoom,
   EmailVerification,
+  LibraryArticle,
   StudentRecord,
   Submission,
   TeacherRecord,
   WeeklySet,
   Worksheet,
 } from "../types";
-import type { Repo } from "./repo";
+import { LIBRARY_WORKSHEET_ID, type Repo } from "./repo";
 
 /**
  * Supabase 환경변수가 없을 때 쓰는 개발용 저장소.
@@ -27,6 +28,7 @@ interface Data {
   weeklySets: WeeklySet[];
   classReports: ClassReport[];
   customUsage: { classId: string; week: string; articleCount: number }[];
+  libraryArticles: LibraryArticle[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -45,6 +47,7 @@ async function load(): Promise<Data> {
     state.data.weeklySets ??= [];
     state.data.classReports ??= [];
     state.data.customUsage ??= [];
+    state.data.libraryArticles ??= [];
   } catch {
     state.data = {
       teachers: [],
@@ -56,6 +59,7 @@ async function load(): Promise<Data> {
       weeklySets: [],
       classReports: [],
       customUsage: [],
+      libraryArticles: [],
     };
   }
   return state.data;
@@ -219,6 +223,18 @@ export function createLocalRepo(): Repo {
         return report;
       }),
 
+    listLibraryArticles: () => read((d) => d.libraryArticles),
+    saveLibraryArticle: (article) =>
+      write((d) => {
+        d.libraryArticles = d.libraryArticles.filter((a) => a.id !== article.id);
+        d.libraryArticles.push(article);
+      }),
+    listLibrarySubmissions: (studentIds) =>
+      read((d) => {
+        const ids = new Set(studentIds);
+        return d.submissions.filter((x) => x.worksheetId === LIBRARY_WORKSHEET_ID && ids.has(x.studentId));
+      }),
+
     getSubmission: (worksheetId, articleId, studentId) =>
       read(
         (d) =>
@@ -228,7 +244,8 @@ export function createLocalRepo(): Repo {
       ),
     listSubmissionsByWorksheet: (worksheetId) =>
       read((d) => d.submissions.filter((x) => x.worksheetId === worksheetId)),
-    listSubmissionsByStudent: (studentId) => read((d) => d.submissions.filter((x) => x.studentId === studentId)),
+    listSubmissionsByStudent: (studentId) =>
+      read((d) => d.submissions.filter((x) => x.studentId === studentId && x.worksheetId !== LIBRARY_WORKSHEET_ID)),
     upsertSubmission: (submission) =>
       write((d) => {
         const index = d.submissions.findIndex(

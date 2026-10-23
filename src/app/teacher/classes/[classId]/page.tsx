@@ -8,6 +8,7 @@ import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
 import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { listLibraryArticles, totalStars } from "@/lib/library";
 import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
@@ -31,10 +32,16 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
     db.listWorksheets(classId),
     getWeeklySet(classRoom.gradeLevel),
   ]);
-  const [submissionLists, report] = await Promise.all([
+  const [submissionLists, report, libraryArticles, librarySubs] = await Promise.all([
     Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id))),
     loadClassReport(classId),
+    listLibraryArticles(),
+    db.listLibrarySubmissions(students.map((s) => s.id)).catch((e) => {
+      console.error("관심 분야 학습 기록을 불러오지 못했어요", e);
+      return [];
+    }),
   ]);
+  const stars = totalStars(libraryArticles, librarySubs);
   // 결과 분석표와 성적 추이가 같은 기간을 보도록 이번 주를 포함한 최근 4주의 월요일부터 센다
   const weeks = recentWeekKeys(TREND_WEEKS);
   const range = { from: weeks[0], to: seoulDate(new Date()) };
@@ -70,6 +77,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
           name: s.name,
           hasPin: Boolean(s.pinHash),
           lastLoginAt: s.lastLoginAt ?? null,
+          stars: stars.get(s.id) ?? 0,
         }))}
         stats={recentStats}
         weeks={weeks}

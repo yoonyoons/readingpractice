@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { Byline } from "@/components/Byline";
 import { LogoutButton } from "@/components/LogoutButton";
 import { MyReport } from "@/components/student/MyReport";
+import { StarBanner } from "@/components/student/StarBanner";
 import { Badge, CheckIcon, ChevronRight, EmptyState, ProgressBar } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { studentLibrary } from "@/lib/library";
 import { buildStudentReport } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getStudentSession } from "@/lib/session";
@@ -31,11 +33,12 @@ export default async function StudentHome() {
   const { student, classRoom } = session;
 
   const db = getDb();
-  const [worksheets, submissions, classReport] = await Promise.all([
+  const [worksheets, submissions, classReport, library] = await Promise.all([
     db.listWorksheets(classRoom.id),
     db.listSubmissionsByStudent(student.id),
     // 만드는 중인 AI 의견이 도착했으면 가져온다 (1분에 한 번만 확인)
     loadClassReport(classRoom.id, true),
+    studentLibrary(classRoom.gradeLevel, student.id),
   ]);
   const published = worksheets
     .filter((w) => w.status === "published")
@@ -59,6 +62,10 @@ export default async function StudentHome() {
             {current ? "이번 주 뉴스를 읽어 볼까요?" : "반가워요!"}
           </h1>
         </section>
+      </div>
+
+      <div className="px-5 md:px-0">
+        <StarBanner total={library.total} byField={library.byField} ready={library.ready} />
       </div>
 
       {!current ? (

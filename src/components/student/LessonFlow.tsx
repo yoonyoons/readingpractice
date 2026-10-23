@@ -27,6 +27,7 @@ import type {
   SummaryAttempt,
   VocabItem,
 } from "@/lib/types";
+import { countStars, MAX_STARS, STAR_QUIZ_RATE, STAR_SUMMARY_SCORE } from "@/lib/stars";
 import { cn, QUIZ_TYPE_LABEL } from "@/lib/utils";
 
 type Step = "read" | "quiz" | "quizDone" | "summary" | "result" | "opinion" | "board";
@@ -54,9 +55,13 @@ interface Props {
   gradeLevel: GradeLevel;
   initial: LessonInitial;
   nextHref: string | null;
+  /** 목록으로 돌아갈 주소 (관심 분야 학습은 /s/explore) */
+  homeHref?: string;
+  /** 관심 분야 학습: 요약 결과에 모은 별을 보여 준다 */
+  showStars?: boolean;
 }
 
-export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref }: Props) {
+export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref, homeHref = "/s", showStars = false }: Props) {
   const hasOpinion = Boolean(article.opinionQuestion) && article.stances.length >= 2;
   const [step, setStep] = useState<Step>(() => {
     if (!initial.read) return "read";
@@ -80,7 +85,7 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
-      <LessonHeader step={step} hasOpinion={hasOpinion} />
+      <LessonHeader step={step} hasOpinion={hasOpinion} homeHref={homeHref} />
 
       {step === "read" && (
         <ReadStep
@@ -126,6 +131,17 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
           revealed={revealed}
           quizScore={quizScore}
           nextHref={nextHref}
+          homeHref={homeHref}
+          stars={
+            showStars
+              ? countStars({
+                  quizDone: true,
+                  quizCorrect: quizScore.correct,
+                  quizTotal: quizScore.total,
+                  bestSummary: Math.max(...summaries.map((s) => s.feedback.score)),
+                })
+              : null
+          }
           onRetry={() => go("summary")}
           next={
             hasOpinion
@@ -177,12 +193,12 @@ const BAR = "md:max-w-3xl md:px-8 lg:max-w-5xl lg:px-12";
 
 const STEP_INDEX: Record<Step, number> = { read: 0, quiz: 1, quizDone: 1, summary: 2, result: 3, opinion: 3, board: 4 };
 
-function LessonHeader({ step, hasOpinion }: { step: Step; hasOpinion: boolean }) {
+function LessonHeader({ step, hasOpinion, homeHref }: { step: Step; hasOpinion: boolean; homeHref: string }) {
   const labels = hasOpinion ? ["읽기", "퀴즈", "요약", "생각"] : ["읽기", "퀴즈", "요약"];
   const current = STEP_INDEX[step];
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur md:h-16 md:px-5 lg:px-9">
-      <Link href="/s" className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
+      <Link href={homeHref} className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
         <ChevronLeft />
       </Link>
       <ol className="flex flex-1 items-center justify-center gap-1.5">
@@ -845,6 +861,26 @@ function scoreMessage(score: number) {
   return "다시 한번 도전해 봐요!";
 }
 
+function StarCard({ stars }: { stars: number }) {
+  return (
+    <div className="mt-6 rounded-2xl bg-[#fff8e1] p-4 text-center">
+      <p className="text-[30px] leading-none tracking-[0.15em]" aria-label={`별 ${stars}개`}>
+        {Array.from({ length: MAX_STARS }, (_, i) => (
+          <span key={i} className={i < stars ? "text-[#f5b301]" : "text-grey-200"}>
+            ★
+          </span>
+        ))}
+      </p>
+      <p className="mt-2 text-[15px] font-bold text-grey-800">
+        {stars === MAX_STARS ? "별을 모두 모았어요!" : `별 ${stars}개를 모았어요`}
+      </p>
+      <p className="mt-1 text-[12px] leading-relaxed text-grey-500">
+        끝까지 읽고 퀴즈 풀기 ★ · 퀴즈 {STAR_QUIZ_RATE * 100}% 이상 ★ · 요약 {STAR_SUMMARY_SCORE}점 이상 ★
+      </p>
+    </div>
+  );
+}
+
 function ScoreRow({ label, value, max }: { label: string; value: number; max: number }) {
   return (
     <div>
@@ -878,6 +914,8 @@ function ResultStep({
   revealed,
   quizScore,
   nextHref,
+  homeHref,
+  stars,
   next,
   onRetry,
 }: {
@@ -886,6 +924,9 @@ function ResultStep({
   revealed: Revealed | null;
   quizScore: Score;
   nextHref: string | null;
+  homeHref: string;
+  /** 관심 분야 학습에서 이 기사로 모은 별 (반 학습지는 null) */
+  stars: number | null;
   next: { label: string; onClick: () => void } | null;
   onRetry: () => void;
 }) {
@@ -903,6 +944,8 @@ function ResultStep({
             <div className="mt-6 flex justify-center">
               <ScoreRing score={feedback.score} />
             </div>
+
+            {stars !== null && <StarCard stars={stars} />}
 
             <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
               <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
@@ -968,7 +1011,7 @@ function ResultStep({
               {next.label}
             </Button>
           ) : (
-            <LinkButton href={nextHref ?? "/s"} size="lg" className="flex-1">
+            <LinkButton href={nextHref ?? homeHref} size="lg" className="flex-1">
               {nextHref ? "다음 기사 읽기" : "목록으로"}
             </LinkButton>
           )}

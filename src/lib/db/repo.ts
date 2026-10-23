@@ -3,6 +3,7 @@ import type {
   ClassRoom,
   EmailVerification,
   GradeLevel,
+  LibraryArticle,
   StudentRecord,
   Submission,
   Teacher,
@@ -10,6 +11,12 @@ import type {
   WeeklySet,
   Worksheet,
 } from "../types";
+
+/**
+ * 관심 분야 학습 기사의 제출 기록은 학습지가 없으므로 worksheetId 자리에 이 값을 넣는다.
+ * getSubmission·upsertSubmission이 이 값을 보고 관심 분야 학습 기록으로 따로 저장한다.
+ */
+export const LIBRARY_WORKSHEET_ID = "library";
 
 export interface Repo {
   createTeacher(teacher: TeacherRecord): Promise<Teacher>;
@@ -62,8 +69,16 @@ export interface Repo {
   getCustomUsage(classId: string, week: string): Promise<number>;
   addCustomUsage(classId: string, week: string, articleCount: number): Promise<void>;
 
+  /** 서버가 자동으로 만든 관심 분야 학습 기사 (코드에 넣어 둔 기사는 lib/library-seed.ts) */
+  listLibraryArticles(): Promise<LibraryArticle[]>;
+  saveLibraryArticle(article: LibraryArticle): Promise<void>;
+  /** 학생들의 관심 분야 학습 기록 */
+  listLibrarySubmissions(studentIds: string[]): Promise<Submission[]>;
+
+  /** worksheetId가 LIBRARY_WORKSHEET_ID면 관심 분야 학습 기록이다 */
   getSubmission(worksheetId: string, articleId: string, studentId: string): Promise<Submission | null>;
   listSubmissionsByWorksheet(worksheetId: string): Promise<Submission[]>;
+  /** 반 학습지 기록만 (관심 분야 학습 기록은 listLibrarySubmissions) */
   listSubmissionsByStudent(studentId: string): Promise<Submission[]>;
   upsertSubmission(submission: Submission): Promise<Submission>;
 }

@@ -4,6 +4,7 @@ import JoinPage from "@/app/join/page";
 import NotFound from "@/app/not-found";
 import PolicyPage from "@/app/policy/page";
 import StudentHome from "@/app/s/page";
+import ExplorePage from "@/app/s/explore/page";
 import LessonPage from "@/app/s/[worksheetId]/[articleId]/page";
 import TeacherHome from "@/app/teacher/page";
 import BetaPage from "@/app/teacher/beta/page";
@@ -51,6 +52,7 @@ export const PAGES: [string, PageFn][] = [
   ["/join", JoinPage],
   ["/policy", PolicyPage],
   ["/s", StudentHome],
+  ["/s/explore", ExplorePage],
   ["/s/:worksheetId/:articleId", LessonPage],
   ["/teacher", TeacherHome],
   ["/teacher/beta", BetaPage],

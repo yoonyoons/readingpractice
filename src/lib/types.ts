@@ -222,3 +222,35 @@ export interface OpinionBoard {
   counts: number[];
   items: { stance: number; text: string; mine: boolean; hidden: boolean }[];
 }
+
+/** 관심 분야 학습: 주제 상자를 눌러 언제든 읽는 기사의 분야 */
+export type LibraryField = "space" | "earth" | "economy" | "culture";
+
+/**
+ * 원문 이용 조건. public-domain: 미국 정부 기관 공공 저작물(NASA·NOAA 등)로 자유롭게 재가공,
+ * kogl: 공공누리 출처표시 유형, reference: 저작권이 있는 공공기관 자료로 내용만 참고해 새로 씀(원문 복제 없음)
+ */
+export type LibraryLicense = "public-domain" | "kogl" | "reference";
+
+export interface LibraryOrigin {
+  /** 기관·사이트 이름. 로고는 쓰지 않고 이름과 링크만 보여 준다 */
+  site: string;
+  title: string;
+  url: string;
+  license: LibraryLicense;
+}
+
+/** 관심 분야 학습 기사. 반 학습지와 달리 배포 없이 학년군이 맞는 모든 학생이 언제든 읽는다 */
+export interface LibraryArticle extends Article {
+  field: LibraryField;
+  /** 상자에 보이는 키워드 (예: "달", "엘니뇨") */
+  keyword: string;
+  /** 우리나라 교육과정에서 이 내용을 배우는 학년군. 여기에 든 학년군 학생에게만 보인다 */
+  gradeLevels: GradeLevel[];
+  /** 관련 교육과정 단원 (예: "초3~4 과학 '지구와 달'") */
+  curriculum: string;
+  origin: LibraryOrigin;
+  /** seed: 코드에 넣어 둔 기사, auto: 서버가 매주 자동으로 만든 기사 */
+  addedBy: "seed" | "auto";
+  createdAt: string;
+}
