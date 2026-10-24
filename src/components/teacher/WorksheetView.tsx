@@ -21,6 +21,7 @@ import {
 import { apiFetch, errorMessage } from "@/lib/client-api";
 import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import type { Article, QuizItem, QuizType, SourceItem, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
+import { WORKSHEET_STATUS_BADGE } from "./WorksheetList";
 import {
   BLANK,
   cn,
@@ -48,7 +49,7 @@ interface Props {
 }
 
 export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, students, submissions }: Props) {
-  const [tab, setTab] = useState<"edit" | "results">(worksheet.status === "published" ? "results" : "edit");
+  const [tab, setTab] = useState<"edit" | "results">(worksheet.status !== "draft" ? "results" : "edit");
 
   return (
     <div>
@@ -266,7 +267,7 @@ const SOURCE_LABEL: Record<SourceMode, string> = {
   demo: "예시 기사 (데모)",
 };
 
-type Busy = null | "save" | "publish" | "unpublish" | "delete" | "regenerate" | "add";
+type Busy = null | "save" | "publish" | "unpublish" | "end" | "delete" | "regenerate" | "add";
 
 function WorksheetEditor({
   classId,
@@ -296,13 +297,14 @@ function WorksheetEditor({
     setDirty(true);
   }
 
-  async function persist(kind: "save" | "publish" | "unpublish") {
+  async function persist(kind: "save" | "publish" | "unpublish" | "end") {
     setBusy(kind);
     setNotice(null);
     try {
       const body: Record<string, unknown> = { title, articles: articles.map(fromEditable) };
       if (kind === "publish") body.status = "published";
       if (kind === "unpublish") body.status = "draft";
+      if (kind === "end") body.status = "ended";
       const { worksheet: saved } = await apiFetch<{ worksheet: Worksheet }>(`/api/worksheets/${worksheet.id}`, {
         method: "PATCH",
         body,
@@ -314,6 +316,8 @@ function WorksheetEditor({
         text:
           kind === "publish"
             ? "학생들에게 배포했어요."
+            : kind === "end"
+              ? "학습을 종료했어요. 학생들은 기록만 볼 수 있어요."
             : kind === "unpublish"
               ? "배포를 취소했어요. 학생 화면에서 사라져요."
               : "저장했어요.",
@@ -329,7 +333,7 @@ function WorksheetEditor({
   async function regenerate() {
     const target = article;
     const warn =
-      status === "published" && hasSubmissions
+      status !== "draft" && hasSubmissions
         ? "\n\n이미 학습한 학생이 있어요. 다시 만들면 학생들의 퀴즈 기록이 새 문항과 맞지 않게 돼요."
         : "";
     if (!window.confirm(`'${target.topic}' 기사를 AI로 다시 만들까요?\n이 기사에서 고친 내용은 사라져요.${warn}`)) return;
@@ -370,7 +374,7 @@ function WorksheetEditor({
   function deleteArticle() {
     if (articles.length <= 1) return;
     const warn =
-      status === "published" && hasSubmissions ? "\n이 기사를 학습한 학생들의 기록은 결과에서 보이지 않게 돼요." : "";
+      status !== "draft" && hasSubmissions ? "\n이 기사를 학습한 학생들의 기록은 결과에서 보이지 않게 돼요." : "";
     if (!window.confirm(`'${article.topic}' 기사를 학습지에서 뺄까요?\n저장을 눌러야 반영돼요.${warn}`)) return;
     setArticles((prev) => prev.filter((_, i) => i !== active));
     setActive(Math.max(0, Math.min(active, articles.length - 2)));
@@ -420,7 +424,7 @@ function WorksheetEditor({
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Badge tone={status === "published" ? "green" : "grey"}>{status === "published" ? "배포 중" : "초안"}</Badge>
+              <Badge tone={WORKSHEET_STATUS_BADGE[status].tone}>{WORKSHEET_STATUS_BADGE[status].label}</Badge>
               <span className="text-[13px] text-grey-500">
                 {gradeLabel} · 완성된 기사 {readyCount}개 · {formatDate(worksheet.createdAt)} 생성
               </span>
@@ -443,13 +447,29 @@ function WorksheetEditor({
               저장
             </Button>
             {status === "published" ? (
-              <Button
-                variant="secondary"
-                onClick={() => persist("unpublish")}
-                loading={busy === "unpublish"}
-                disabled={Boolean(busy)}
-              >
-                배포 취소
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => persist("unpublish")}
+                  loading={busy === "unpublish"}
+                  disabled={Boolean(busy)}
+                >
+                  배포 취소
+                </Button>
+                <Button
+                  variant="grey"
+                  onClick={() => {
+                    if (window.confirm("학습을 종료할까요?\n학생들은 기사와 자기 기록만 볼 수 있고 더 풀 수 없어요.")) persist("end");
+                  }}
+                  loading={busy === "end"}
+                  disabled={Boolean(busy)}
+                >
+                  학습 종료
+                </Button>
+              </>
+            ) : status === "ended" ? (
+              <Button onClick={() => persist("publish")} loading={busy === "publish"} disabled={Boolean(busy) || readyCount === 0}>
+                {dirty ? "저장하고 다시 배포하기" : "다시 배포하기"}
               </Button>
             ) : (
               <Button
@@ -471,6 +491,11 @@ function WorksheetEditor({
         {status === "draft" && (
           <p className="mt-4 rounded-xl bg-grey-50 px-4 py-3 text-[14px] leading-relaxed text-grey-600">
             AI가 만든 내용이에요. 사실과 다른 내용, 어색한 표현, 헷갈리는 보기가 없는지 확인한 뒤 배포해 주세요.
+          </p>
+        )}
+        {status === "ended" && (
+          <p className="mt-4 rounded-xl bg-warning-weak px-4 py-3 text-[14px] leading-relaxed text-[#8a5300]">
+            학습을 종료한 학습지예요. 학생들은 기사와 자기 기록만 볼 수 있고 더 풀 수 없어요.
           </p>
         )}
         {status === "published" && hasSubmissions && (
@@ -1170,7 +1195,7 @@ function ResultsPanel({
   const subMap = useMemo(() => new Map(submissions.map((s) => [`${s.studentId}:${s.articleId}`, s])), [submissions]);
   const [detail, setDetail] = useState<{ student: StudentLite; article: Article } | null>(null);
 
-  if (worksheet.status !== "published" && submissions.length === 0) {
+  if (worksheet.status === "draft" && submissions.length === 0) {
     return (
       <Card className="mt-5">
         <EmptyState icon="📮" title="아직 배포하지 않았어요" description="학습지를 배포하면 학생들의 완독·퀴즈·요약·생각 나누기 결과가 여기에 모여요." />

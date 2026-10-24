@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
-import { WorksheetRow } from "@/components/teacher/WorksheetRow";
+import { WorksheetList } from "@/components/teacher/WorksheetList";
+import { toWorksheetRow } from "@/components/teacher/WorksheetRow";
 import { Card, ChevronLeft } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { getTeacher } from "@/lib/session";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 const FILTERS = [
   { key: "all", label: "전체" },
   { key: "published", label: "배포 중" },
+  { key: "ended", label: "학습 종료" },
   { key: "draft", label: "초안" },
 ] as const;
 
@@ -63,11 +65,10 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
             {worksheets.length === 0 ? "아직 만든 학습지가 없어요." : "이 상태의 학습지가 없어요."}
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-grey-100">
-            {shown.map((w, i) => (
-              <WorksheetRow key={w.id} classId={classId} worksheet={w} students={students} submissions={submissionLists[i]} />
-            ))}
-          </ul>
+          <WorksheetList
+            classId={classId}
+            rows={shown.map((w, i) => toWorksheetRow(w, students, submissionLists[i]))}
+          />
         )}
       </Card>
     </TeacherShell>

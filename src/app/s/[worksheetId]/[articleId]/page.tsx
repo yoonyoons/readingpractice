@@ -11,7 +11,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
   const { worksheetId, articleId } = await props.params;
   if (!(await getStudentSession())) redirect("/join");
 
-  const data = await requireStudentArticle(worksheetId, articleId).catch(() => null);
+  const data = await requireStudentArticle(worksheetId, articleId, "view").catch(() => null);
   if (!data) notFound();
   const { student, worksheet, article, submission, classRoom } = data;
   const library = worksheet.id === LIBRARY_WORKSHEET_ID;
@@ -40,7 +40,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
     const after = chain[chain.findIndex((a) => a.id === article.id) + 1];
     if (after) unlockNext = { href: `/s/${LIBRARY_WORKSHEET_ID}/${after.id}`, keyword: after.keyword, title: after.title };
     stars = starsOf(article as LibraryArticle, submission);
-  } else {
+  } else if (worksheet.status === "published") {
     const next = worksheet.articles.find(
       (a) => a.status === "ready" && a.id !== article.id && !isArticleDone(a, mine.get(a.id)),
     );
@@ -56,6 +56,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
       homeHref={library ? "/s/explore" : "/s"}
       showStars={library}
       unlockNext={unlockNext}
+      ended={worksheet.status === "ended"}
       initial={{
         read: Boolean(submission.readAt),
         answeredIds: article.quiz.filter((q) => submission.quizAnswers[q.id]).map((q) => q.id),

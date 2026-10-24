@@ -6,7 +6,8 @@ import { ClassInsights } from "@/components/teacher/ClassInsights";
 import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
-import { WorksheetRow } from "@/components/teacher/WorksheetRow";
+import { WorksheetList } from "@/components/teacher/WorksheetList";
+import { toWorksheetRow } from "@/components/teacher/WorksheetRow";
 import { Badge, Card, ChevronLeft, ChevronRight, LinkButton } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { listLibraryArticles, totalStars } from "@/lib/library";
@@ -131,11 +132,12 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
             </p>
           ) : (
             <>
-              <ul className="mt-3 divide-y divide-grey-100">
-                {worksheets.slice(0, RECENT_WORKSHEETS).map((w, i) => (
-                  <WorksheetRow key={w.id} classId={classRoom.id} worksheet={w} students={students} submissions={submissionLists[i]} />
-                ))}
-              </ul>
+              <WorksheetList
+                classId={classRoom.id}
+                rows={worksheets
+                  .slice(0, RECENT_WORKSHEETS)
+                  .map((w, i) => toWorksheetRow(w, students, submissionLists[i]))}
+              />
               {worksheets.length > RECENT_WORKSHEETS && (
                 <Link
                   href={`/teacher/classes/${classRoom.id}/worksheets`}

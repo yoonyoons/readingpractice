@@ -16,7 +16,7 @@ const Body = z.object({
     .min(1, "기사가 하나 이상 있어야 해요.")
     .max(MAX_ARTICLES_PER_WORKSHEET, `학습지 하나에는 기사를 ${MAX_ARTICLES_PER_WORKSHEET}개까지 넣을 수 있어요.`)
     .optional(),
-  status: z.enum(["draft", "published"]).optional(),
+  status: z.enum(["draft", "published", "ended"]).optional(),
 });
 
 export const PATCH = route(async (req: NextRequest, ctx: Ctx) => {
@@ -44,12 +44,24 @@ export const PATCH = route(async (req: NextRequest, ctx: Ctx) => {
       throw new HttpError(400, "완성된 기사가 하나 이상 있어야 배포할 수 있어요.");
     }
     patch.status = "published";
-    patch.publishedAt = nowIso();
+    // 학습 종료했다가 다시 배포하면 처음 배포한 날짜를 그대로 둔다
+    if (worksheet.status !== "ended" || !worksheet.publishedAt) patch.publishedAt = nowIso();
   } else if (body.status === "draft") {
     patch.status = "draft";
+  } else if (body.status === "ended" && worksheet.status !== "ended") {
+    if (worksheet.status !== "published") throw new HttpError(400, "배포 중인 학습지만 학습을 종료할 수 있어요.");
+    patch.status = "ended";
   }
 
-  const updated = await getDb().updateWorksheet(worksheetId, patch);
+  const updated = await getDb()
+    .updateWorksheet(worksheetId, patch)
+    .catch((e: unknown) => {
+      // 운영 DB에 schema.sql을 다시 실행하기 전에는 'ended' 상태를 저장할 수 없다
+      if (patch.status === "ended" && String(e).includes("worksheets_status_check")) {
+        throw new HttpError(503, "학습 종료 기능을 준비하고 있어요. 관리자가 DB를 업데이트하면 쓸 수 있어요.");
+      }
+      throw e;
+    });
   return Response.json({ worksheet: updated });
 });
 
