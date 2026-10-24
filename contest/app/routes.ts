@@ -25,6 +25,7 @@ import * as studentLogin from "@/app/api/student/login/route";
 import * as studentLogout from "@/app/api/student/logout/route";
 import * as studentOpinion from "@/app/api/student/opinion/route";
 import * as studentQuiz from "@/app/api/student/quiz/route";
+import * as studentQuizRetry from "@/app/api/student/quiz/retry/route";
 import * as studentRead from "@/app/api/student/read/route";
 import * as studentSummary from "@/app/api/student/summary/route";
 import * as teacherDemo from "@/app/api/teacher/demo/route";
@@ -77,6 +78,7 @@ export const API: [string, RouteModule][] = [
   ["/api/student/logout", studentLogout],
   ["/api/student/opinion", studentOpinion],
   ["/api/student/quiz", studentQuiz],
+  ["/api/student/quiz/retry", studentQuizRetry],
   ["/api/student/read", studentRead],
   ["/api/student/summary", studentSummary],
   ["/api/teacher/demo", teacherDemo],

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { Byline } from "@/components/Byline";
+import { UnlockGlow } from "@/components/student/UnlockGlow";
 import { Badge, ChevronLeft, EmptyState } from "@/components/ui";
 import { FIELD_ORDER, LIBRARY_FIELDS, LIBRARY_WORKSHEET_ID, LICENSE_LABEL, starsOf, studentLibrary } from "@/lib/library";
 import { getStudentSession } from "@/lib/session";
@@ -28,9 +30,10 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
   const { field: rawField } = await props.searchParams;
   const field: LibraryField = FIELD_ORDER.includes(rawField as LibraryField) ? (rawField as LibraryField) : "space";
 
-  const { articles, subMap, byField, total, ready } = await studentLibrary(classRoom.gradeLevel, student.id);
+  const { subMap, byField, total, ready, chains, unlocked } = await studentLibrary(classRoom.gradeLevel, student.id);
   if (!ready) redirect("/s");
-  const list = articles.filter((a) => a.field === field).reverse();
+  const list = chains[field];
+  const openCount = list.filter((a) => unlocked.has(a.id)).length;
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-md bg-grey-50 pb-12 md:max-w-3xl md:px-6 lg:max-w-5xl lg:px-8">
@@ -82,40 +85,70 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
       </nav>
 
       <section className="mt-5 px-5 md:px-0">
-        <h2 className="mb-3 text-[17px] font-bold text-grey-800">
-          {LIBRARY_FIELDS[field].emoji} {LIBRARY_FIELDS[field].label} 키워드
-        </h2>
+        <div className="mb-3 flex items-end justify-between gap-2">
+          <h2 className="text-[17px] font-bold text-grey-800">
+            {LIBRARY_FIELDS[field].emoji} {LIBRARY_FIELDS[field].label} 키워드
+          </h2>
+          {list.length > 0 && (
+            <span className="text-[13px] font-semibold text-grey-500">
+              🔓 {openCount}/{list.length} 열림
+            </span>
+          )}
+        </div>
         {list.length === 0 ? (
           <div className="rounded-3xl bg-white">
             <EmptyState icon="🔭" title="아직 이 분야 기사가 없어요" description="새 기사가 매주 조금씩 늘어나요. 다른 분야를 먼저 탐험해 보세요!" />
           </div>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {list.map((a) => {
+            {list.map((a, i) => {
+              if (!unlocked.has(a.id)) {
+                // 잠긴 기사는 무엇인지 모두 가린다
+                return (
+                  <li key={a.id} className="flex">
+                    <div
+                      aria-label={`${i + 1}번째 기사, 잠김`}
+                      className="flex w-full flex-col rounded-3xl border border-dashed border-grey-200 bg-grey-100/60 p-5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="rounded-xl bg-grey-200 px-3 py-1.5 text-[16px] font-bold text-grey-500"># ???</span>
+                        <span className="text-[22px] leading-none" aria-hidden>
+                          🔒
+                        </span>
+                      </div>
+                      <p className="mt-3 text-[16px] font-bold leading-snug text-grey-400">어떤 이야기가 숨어 있을까요?</p>
+                      <p className="mt-auto pt-4 text-[13px] font-medium text-grey-500">앞 기사에서 별 3개를 모으면 열려요</p>
+                    </div>
+                  </li>
+                );
+              }
               const sub = subMap.get(a.id);
               const stars = starsOf(a, sub);
               const started = Boolean(sub?.readAt);
               const summary = latestSummary(sub);
               return (
                 <li key={a.id} className="flex">
-                  <Link
-                    href={`/s/${LIBRARY_WORKSHEET_ID}/${a.id}`}
-                    className="flex w-full flex-col rounded-3xl border border-grey-100 bg-white p-5 transition hover:border-grey-200 active:scale-[0.99]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="rounded-xl bg-primary-weak px-3 py-1.5 text-[16px] font-bold text-primary"># {a.keyword}</span>
-                      <Stars count={stars} />
-                    </div>
-                    <p className="mt-3 text-[16px] font-bold leading-snug text-grey-900">{a.title}</p>
-                    <p className="mt-1 text-[12px] text-grey-400">
-                      {a.origin.site} · {LICENSE_LABEL[a.origin.license]}
-                    </p>
-                    <div className="mt-auto flex items-center justify-between pt-4">
-                      <Badge tone={summary ? "green" : started ? "orange" : "grey"}>
-                        {summary ? `요약 ${Math.max(...sub!.summaries.map((s) => s.feedback.score))}점` : started ? "이어서 하기" : "아직 안 읽었어요"}
-                      </Badge>
-                    </div>
-                  </Link>
+                  {/* 둘째 기사부터는 처음 열린 것을 볼 때 한 번 반짝인다 */}
+                  <Wrap glow={i > 0} storageKey={`rp-unlocked:${student.id}`} id={a.id}>
+                    <Link
+                      href={`/s/${LIBRARY_WORKSHEET_ID}/${a.id}`}
+                      className="flex w-full flex-col rounded-3xl border border-grey-100 bg-white p-5 transition hover:border-grey-200 active:scale-[0.99]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="rounded-xl bg-primary-weak px-3 py-1.5 text-[16px] font-bold text-primary"># {a.keyword}</span>
+                        <Stars count={stars} />
+                      </div>
+                      <p className="mt-3 text-[16px] font-bold leading-snug text-grey-900">{a.title}</p>
+                      <p className="mt-1 text-[12px] text-grey-400">
+                        {a.origin.site} · {LICENSE_LABEL[a.origin.license]}
+                      </p>
+                      <div className="mt-auto flex items-center justify-between pt-4">
+                        <Badge tone={summary ? "green" : started ? "orange" : "grey"}>
+                          {summary ? `요약 ${Math.max(...sub!.summaries.map((s) => s.feedback.score))}점` : started ? "이어서 하기" : "아직 안 읽었어요"}
+                        </Badge>
+                      </div>
+                    </Link>
+                  </Wrap>
                 </li>
               );
             })}
@@ -123,7 +156,7 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
         )}
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-[13px] leading-relaxed text-grey-500">
           ⭐ 별 모으는 법 (기사마다 최대 {MAX_STARS}개): 끝까지 읽고 퀴즈 풀기 ★ · 퀴즈 {STAR_QUIZ_RATE * 100}% 이상 맞히기 ★ · 요약{" "}
-          {STAR_SUMMARY_SCORE}점 이상 ★. 요약을 다시 써서 점수가 오르면 별도 늘어나요.
+          {STAR_SUMMARY_SCORE}점 이상 ★. 퀴즈는 다시 풀 수 있고, 요약을 다시 써서 점수가 오르면 별도 늘어나요. 별 3개를 모으면 그 분야의 다음 기사가 열려요 🔓
         </p>
       </section>
 
@@ -131,5 +164,14 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
         NASA·NOAA·미국 연방준비제도 등 공공 저작물과 국내 공공기관 자료를 바탕으로 AI(Claude)가 학년에 맞게 다시 쓴 글이에요. 기관의 보증을 뜻하지 않아요 · <Byline />
       </p>
     </main>
+  );
+}
+
+function Wrap({ glow, storageKey, id, children }: { glow: boolean; storageKey: string; id: string; children: ReactNode }) {
+  if (!glow) return children;
+  return (
+    <UnlockGlow storageKey={storageKey} id={id}>
+      {children}
+    </UnlockGlow>
   );
 }

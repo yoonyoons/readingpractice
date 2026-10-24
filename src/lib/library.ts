@@ -40,20 +40,36 @@ export async function listLibraryFor(grade: GradeLevel) {
   return (await listLibraryArticles()).filter((a) => a.gradeLevels.includes(grade));
 }
 
-export async function getLibraryArticle(id: string) {
-  return (await listLibraryArticles()).find((a) => a.id === id) ?? null;
-}
-
 export function starsOf(article: LibraryArticle, submission: Submission | null | undefined) {
   if (!submission?.readAt) return 0;
   const { correct, answered, total } = quizResult(article, submission);
+  const done = answered >= total;
+  // 퀴즈를 다시 푸는 중이어도 앞서 끝낸 기록(quizBest)이 있으면 그 기록으로 센다
+  const best = Math.max(done ? correct : 0, submission.quizBest ?? 0);
   const scores = submission.summaries.map((s) => s.feedback.score);
   return countStars({
-    quizDone: answered >= total,
-    quizCorrect: correct,
+    quizDone: done || submission.quizBest != null,
+    quizCorrect: best,
     quizTotal: total,
     bestSummary: scores.length ? Math.max(...scores) : null,
   });
+}
+
+/**
+ * 분야마다 기사가 한 줄로 이어진다. 첫 기사만 열려 있고, 앞 기사에서 별 3개를 모으면 다음 기사가 열린다.
+ * 순서는 코드에 넣어 둔 기사(library-seed 순서) 다음에 자동으로 추가된 기사(만든 순서)다.
+ */
+export function libraryChains(articles: LibraryArticle[], subMap: Map<string, Submission>) {
+  const chains = Object.fromEntries(FIELD_ORDER.map((f) => [f, [] as LibraryArticle[]])) as Record<LibraryField, LibraryArticle[]>;
+  for (const article of articles) chains[article.field].push(article);
+  const unlocked = new Set<string>();
+  for (const field of FIELD_ORDER) {
+    for (const [i, article] of chains[field].entries()) {
+      if (i > 0 && starsOf(chains[field][i - 1], subMap.get(chains[field][i - 1].id)) < MAX_STARS) break;
+      unlocked.add(article.id);
+    }
+  }
+  return { chains, unlocked };
 }
 
 /** 학생 id → 모은 별 개수. 지금 목록에 있는 기사의 기록만 센다 */
@@ -95,5 +111,6 @@ export async function studentLibrary(grade: GradeLevel, studentId: string) {
     f.count++;
     total += stars;
   }
-  return { articles, subMap, byField, total, ready };
+  const { chains, unlocked } = libraryChains(articles, subMap);
+  return { articles, subMap, byField, total, ready, chains, unlocked };
 }

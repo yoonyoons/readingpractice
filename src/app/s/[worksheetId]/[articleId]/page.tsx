@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { LessonFlow } from "@/components/student/LessonFlow";
 import { getDb } from "@/lib/db";
-import { LIBRARY_WORKSHEET_ID, listLibraryFor } from "@/lib/library";
+import { LIBRARY_WORKSHEET_ID, libraryChains, listLibraryFor, starsOf } from "@/lib/library";
 import { getStudentSession } from "@/lib/session";
 import { requireStudentArticle } from "@/lib/student-access";
 import type { LibraryArticle, Submission } from "@/lib/types";
@@ -24,15 +24,22 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
     ),
   );
 
-  // 다음에 읽을 기사: 아직 학습을 마치지 않은 다른 기사 (관심 분야 학습은 같은 분야에서 먼저 찾는다)
+  // 다음에 읽을 기사: 아직 학습을 마치지 않은 다른 기사 (관심 분야 학습은 잠금이 풀린 기사 가운데 같은 분야에서 먼저 찾는다)
   let nextHref: string | null = null;
+  let unlockNext: { href: string; keyword: string; title: string } | null = null;
+  let stars = 0;
   if (library) {
     const field = (article as LibraryArticle).field;
-    const candidates = (await listLibraryFor(classRoom.gradeLevel)).filter(
-      (a) => a.id !== article.id && !isArticleDone(a, mine.get(a.id)),
-    );
+    const articles = await listLibraryFor(classRoom.gradeLevel);
+    const { chains, unlocked } = libraryChains(articles, mine);
+    const candidates = articles.filter((a) => a.id !== article.id && unlocked.has(a.id) && !isArticleDone(a, mine.get(a.id)));
     const next = candidates.find((a) => a.field === field) ?? candidates[0];
     nextHref = next ? `/s/${LIBRARY_WORKSHEET_ID}/${next.id}` : null;
+    // 별 3개를 모으면 열리는 같은 분야의 다음 기사 (제목은 열릴 때 처음 보여 준다)
+    const chain = chains[field];
+    const after = chain[chain.findIndex((a) => a.id === article.id) + 1];
+    if (after) unlockNext = { href: `/s/${LIBRARY_WORKSHEET_ID}/${after.id}`, keyword: after.keyword, title: after.title };
+    stars = starsOf(article as LibraryArticle, submission);
   } else {
     const next = worksheet.articles.find(
       (a) => a.status === "ready" && a.id !== article.id && !isArticleDone(a, mine.get(a.id)),
@@ -48,10 +55,13 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
       nextHref={nextHref}
       homeHref={library ? "/s/explore" : "/s"}
       showStars={library}
+      unlockNext={unlockNext}
       initial={{
         read: Boolean(submission.readAt),
         answeredIds: article.quiz.filter((q) => submission.quizAnswers[q.id]).map((q) => q.id),
         quizCorrect: quizResult(article, submission).correct,
+        quizBest: submission.quizBest ?? null,
+        stars,
         summaries: submission.summaries,
         revealed:
           submission.summaries.length > 0

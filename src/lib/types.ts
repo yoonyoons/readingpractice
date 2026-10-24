@@ -198,6 +198,8 @@ export interface Submission {
   readAt: string | null;
   quizAnswers: Record<string, QuizAnswer>;
   quizDoneAt: string | null;
+  /** 관심 분야 학습에서 퀴즈를 다시 풀기 전까지의 가장 많이 맞힌 개수 (다시 푼 적이 없으면 없음) */
+  quizBest?: number | null;
   summaries: SummaryAttempt[];
   opinion: OpinionAnswer | null;
   updatedAt: string;

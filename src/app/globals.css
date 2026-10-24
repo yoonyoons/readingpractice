@@ -133,3 +133,126 @@ body {
     transform: scale(1.3);
   }
 }
+
+/* 관심 분야 학습: 별 3개를 모으면 다음 기사 자물쇠가 열리는 움직임 (UnlockCelebration) */
+.unlock-backdrop {
+  animation: unlock-fade 0.3s ease-out both;
+}
+.unlock-lock {
+  animation: unlock-shake 0.7s ease-in-out 0.2s both, unlock-vanish 0.35s ease-in 1.5s forwards;
+}
+.unlock-shackle {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  animation: unlock-open 0.4s cubic-bezier(0.3, 1.6, 0.6, 1) 0.95s both;
+}
+.unlock-ray {
+  animation: unlock-ray 0.9s ease-out 1.05s both;
+}
+.unlock-star {
+  animation: unlock-star 1s ease-out calc(1.05s + var(--delay, 0s)) both;
+}
+.unlock-card {
+  animation: unlock-card 0.55s cubic-bezier(0.2, 1.4, 0.5, 1) 1.6s both;
+}
+.unlock-new {
+  animation: unlock-glow 1.4s ease-out 0.2s 2 both;
+}
+.unlock-new::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.85) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: unlock-shine 1.2s ease-in-out 0.4s 2;
+  pointer-events: none;
+}
+
+@keyframes unlock-shine {
+  to {
+    transform: translateX(120%);
+  }
+}
+@keyframes unlock-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes unlock-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: rotate(-12deg);
+  }
+  40%,
+  80% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes unlock-open {
+  to {
+    transform: translateY(-18%) rotate(28deg);
+  }
+}
+@keyframes unlock-vanish {
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+@keyframes unlock-ray {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+@keyframes unlock-star {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--x), var(--y)) scale(1.1) rotate(160deg);
+  }
+}
+@keyframes unlock-card {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.6);
+  }
+}
+@keyframes unlock-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgb(245 179 1 / 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(245 179 1 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-backdrop,
+  .unlock-lock,
+  .unlock-shackle,
+  .unlock-ray,
+  .unlock-star,
+  .unlock-card,
+  .unlock-new,
+  .unlock-new::after {
+    animation: none;
+  }
+  .unlock-lock,
+  .unlock-ray,
+  .unlock-star {
+    display: none;
+  }
+}

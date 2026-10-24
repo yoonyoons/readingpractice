@@ -90,8 +90,12 @@ const toSubmission = (r: any): Submission => ({
 const toLibrarySubmission = (r: any): Submission => ({
   ...toSubmission(r),
   worksheetId: LIBRARY_WORKSHEET_ID,
+  quizBest: r.quiz_best ?? null,
   opinion: null,
 });
+
+/** quiz_best 열까지 이름으로 고르므로, 이 열이 없는 DB면 오류가 나서 관심 분야 학습이 '준비 중'으로 보인다 */
+const LIBRARY_SUBMISSION_COLUMNS = "id,article_id,student_id,read_at,quiz_answers,quiz_done_at,quiz_best,summaries,updated_at";
 
 function check<T>({ data, error }: { data: T; error: { message: string } | null }): T {
   if (error) throw new Error(`DB 오류: ${error.message}`);
@@ -367,14 +371,14 @@ export function createSupabaseRepo(): Repo {
     },
     async listLibrarySubmissions(studentIds) {
       if (studentIds.length === 0) return [];
-      const rows = check(await sb.from("library_submissions").select().in("student_id", studentIds));
+      const rows = check(await sb.from("library_submissions").select(LIBRARY_SUBMISSION_COLUMNS).in("student_id", studentIds));
       return (rows ?? []).map(toLibrarySubmission);
     },
 
     async getSubmission(worksheetId, articleId, studentId) {
       if (worksheetId === LIBRARY_WORKSHEET_ID) {
         const row = check(
-          await sb.from("library_submissions").select().eq("article_id", articleId).eq("student_id", studentId).maybeSingle(),
+          await sb.from("library_submissions").select(LIBRARY_SUBMISSION_COLUMNS).eq("article_id", articleId).eq("student_id", studentId).maybeSingle(),
         );
         return row ? toLibrarySubmission(row) : null;
       }
@@ -410,6 +414,7 @@ export function createSupabaseRepo(): Repo {
                 read_at: s.readAt,
                 quiz_answers: s.quizAnswers,
                 quiz_done_at: s.quizDoneAt,
+                quiz_best: s.quizBest ?? null,
                 summaries: s.summaries,
                 updated_at: s.updatedAt,
               },
