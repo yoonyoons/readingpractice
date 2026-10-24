@@ -64,9 +64,6 @@ export function StarBanner({
                 <span className="text-[26px] leading-none">{info.emoji}</span>
                 <span className="mt-2 text-[15px] font-bold text-grey-900">{info.label}</span>
                 <span className="mt-0.5 text-[12px] text-grey-500">{info.description}</span>
-                <span className="mt-2 text-[13px] font-semibold text-grey-600">
-                  <span className="text-[#f5b301]">★</span> {f.stars}/{f.max}
-                </span>
               </Link>
             </li>
           );
