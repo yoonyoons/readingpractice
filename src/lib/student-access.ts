@@ -1,20 +1,28 @@
 import { getDb } from "./db";
 import { LIBRARY_WORKSHEET_ID } from "./db/repo";
 import { HttpError } from "./http";
-import { getLibraryArticle } from "./library";
+import { libraryChains, listLibraryFor } from "./library";
 import { requireStudent } from "./session";
 import type { Article, ClassRoom, Submission, Worksheet } from "./types";
 import { newId, nowIso } from "./utils";
 
 /**
  * 관심 분야 학습 기사는 학습지가 없으므로, 그 기사 하나만 든 배포된 학습지처럼 다룬다.
- * 학생 반의 학년군이 기사의 학년군에 들어 있어야 한다.
+ * 학생 반의 학년군이 기사의 학년군에 들어 있고, 잠금이 풀린 기사여야 한다.
  */
-async function libraryWorksheet(classRoom: ClassRoom, articleId: string): Promise<{ worksheet: Worksheet; article: Article }> {
-  const article = await getLibraryArticle(articleId);
-  if (!article || !article.gradeLevels.includes(classRoom.gradeLevel)) {
-    throw new HttpError(404, "기사를 찾을 수 없어요.");
-  }
+async function libraryWorksheet(
+  classRoom: ClassRoom,
+  studentId: string,
+  articleId: string,
+): Promise<{ worksheet: Worksheet; article: Article }> {
+  const [articles, submissions] = await Promise.all([
+    listLibraryFor(classRoom.gradeLevel),
+    getDb().listLibrarySubmissions([studentId]),
+  ]);
+  const article = articles.find((a) => a.id === articleId);
+  if (!article) throw new HttpError(404, "기사를 찾을 수 없어요.");
+  const { unlocked } = libraryChains(articles, new Map(submissions.map((s) => [s.articleId, s])));
+  if (!unlocked.has(article.id)) throw new HttpError(403, "앞 기사에서 별 3개를 모으면 열려요.");
   const worksheet: Worksheet = {
     id: LIBRARY_WORKSHEET_ID,
     classId: classRoom.id,
@@ -34,7 +42,7 @@ export async function requireStudentArticle(worksheetId: string, articleId: stri
   let worksheet: Worksheet | null;
   let article: Article | undefined;
   if (worksheetId === LIBRARY_WORKSHEET_ID) {
-    ({ worksheet, article } = await libraryWorksheet(classRoom, articleId));
+    ({ worksheet, article } = await libraryWorksheet(classRoom, student.id, articleId));
   } else {
     worksheet = await db.getWorksheet(worksheetId);
     if (!worksheet || worksheet.classId !== classRoom.id || worksheet.status !== "published") {

@@ -121,6 +121,7 @@ create table if not exists library_submissions (
   read_at timestamptz,
   quiz_answers jsonb not null default '{}'::jsonb,
   quiz_done_at timestamptz,
+  quiz_best int, -- 퀴즈를 다시 풀기 전까지 가장 많이 맞힌 개수
   summaries jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now(),
   unique (article_id, student_id)
@@ -131,6 +132,7 @@ create index if not exists library_submissions_student_idx on library_submission
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
 alter table students add column if not exists last_login_at timestamptz;
+alter table library_submissions add column if not exists quiz_best int;
 
 alter table teachers enable row level security;
 alter table classes enable row level security;

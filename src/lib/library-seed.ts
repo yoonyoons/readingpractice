@@ -1,4 +1,7 @@
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryOrigin, QuizItem, QuizType } from "./types";
+import type { LibraryArticle } from "./types";
+import { BLANK_PROMPT, build, syn, type Seed } from "./library-seed-kit";
+import { SEEDS_SCIENCE } from "./library-seed-science";
+import { SEEDS_SOCIETY } from "./library-seed-society";
 import { BLANK } from "./utils";
 
 /**
@@ -7,77 +10,6 @@ import { BLANK } from "./utils";
  * 학년군 수준에 맞게 한국어로 새로 쓴 글이다. 원문 문장·사진·로고는 옮기지 않았다.
  * 학생 기록이 퀴즈 id에 묶이므로 기사·문항 id는 바꾸지 않는다.
  */
-
-const CREATED_AT = "2026-10-23T00:00:00.000Z";
-
-type Quiz = [type: QuizType, prompt: string, sentence: string, target: string, choices: string[], answer: number, explanation: string];
-
-interface Seed {
-  id: string;
-  field: LibraryField;
-  keyword: string;
-  grade: GradeLevel;
-  curriculum: string;
-  origin: LibraryOrigin;
-  title: string;
-  whyItMatters: string;
-  paragraphs: string[];
-  vocab: [string, string][];
-  quiz: Quiz[];
-  keyPoints: string[];
-  modelSummary: string;
-}
-
-/** 문항 id로 정해지는 순서로 보기를 섞는다. 서버를 다시 켜도 보기 순서가 같아야 학생 기록과 맞는다 */
-function arrange(id: string, choices: string[], answer: number) {
-  let seed = [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-  const random = () => {
-    seed = (seed * 1103515245 + 12345) >>> 0;
-    return seed / 2 ** 32;
-  };
-  const order = choices.map((_, i) => i);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return { choices: order.map((i) => choices[i]), answer: order.indexOf(answer) };
-}
-
-function build(seed: Seed): LibraryArticle {
-  const quiz: QuizItem[] = seed.quiz.map(([type, prompt, sentence, target, choices, answer, explanation], i) => {
-    const id = `${seed.id}-q${i + 1}`;
-    return { id, type, prompt, sentence, target, ...arrange(id, choices, answer), explanation };
-  });
-  return {
-    id: seed.id,
-    topic: seed.keyword,
-    topicSummary: seed.whyItMatters,
-    mentionCount: 1,
-    status: "ready",
-    sourceMode: "url",
-    sources: [{ title: `${seed.origin.site} — ${seed.origin.title}`, url: seed.origin.url, description: "", pubDate: "" }],
-    title: seed.title,
-    whyItMatters: seed.whyItMatters,
-    paragraphs: seed.paragraphs,
-    vocab: seed.vocab.map(([word, meaning]) => ({ word, meaning })),
-    quiz,
-    keyPoints: seed.keyPoints,
-    modelSummary: seed.modelSummary,
-    // 관심 분야 학습은 혼자 읽는 학습이라 생각 나누기를 두지 않는다
-    opinionQuestion: "",
-    stances: [],
-    field: seed.field,
-    keyword: seed.keyword,
-    gradeLevels: [seed.grade],
-    curriculum: seed.curriculum,
-    origin: seed.origin,
-    addedBy: "seed",
-    createdAt: CREATED_AT,
-  };
-}
-
-const BLANK_PROMPT = "빈칸에 들어갈 알맞은 낱말은 무엇인가요?";
-const syn = (target: string) => `'${target}'와(과) 뜻이 가장 비슷한 말은 무엇인가요?`;
 
 const SEEDS: Seed[] = [
   /* ───────────── 우주·과학 ───────────── */
@@ -653,4 +585,8 @@ const SEEDS: Seed[] = [
   },
 ];
 
-export const LIBRARY_SEED: LibraryArticle[] = SEEDS.map(build);
+/**
+ * 분야마다 학년군별로 기사가 한 줄로 이어지고, 앞 기사에서 별 3개를 모으면 다음 기사가 열린다.
+ * 같은 분야·학년군 안에서는 이 목록 순서가 여는 순서다 (처음 12편 → 우주·과학·지구·환경 → 경제·역사·문화 추가분).
+ */
+export const LIBRARY_SEED: LibraryArticle[] = [...SEEDS, ...SEEDS_SCIENCE, ...SEEDS_SOCIETY].map(build);

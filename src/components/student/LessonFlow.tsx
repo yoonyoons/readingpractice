@@ -28,6 +28,7 @@ import type {
   VocabItem,
 } from "@/lib/types";
 import { countStars, MAX_STARS, STAR_QUIZ_RATE, STAR_SUMMARY_SCORE } from "@/lib/stars";
+import { UnlockCelebration } from "./UnlockCelebration";
 import { cn, QUIZ_TYPE_LABEL } from "@/lib/utils";
 
 type Step = "read" | "quiz" | "quizDone" | "summary" | "result" | "opinion" | "board";
@@ -43,6 +44,10 @@ export interface LessonInitial {
   read: boolean;
   answeredIds: string[];
   quizCorrect: number;
+  /** 관심 분야 학습에서 퀴즈를 다시 풀기 전까지 가장 많이 맞힌 개수 */
+  quizBest?: number | null;
+  /** 관심 분야 학습: 이 화면을 열 때 이미 모은 별 */
+  stars?: number;
   summaries: SummaryAttempt[];
   revealed: Revealed | null;
   opinion: OpinionAnswer | null;
@@ -57,11 +62,22 @@ interface Props {
   nextHref: string | null;
   /** 목록으로 돌아갈 주소 (관심 분야 학습은 /s/explore) */
   homeHref?: string;
-  /** 관심 분야 학습: 요약 결과에 모은 별을 보여 준다 */
+  /** 관심 분야 학습: 요약 결과에 모은 별을 보여 주고, 퀴즈를 다시 풀 수 있다 */
   showStars?: boolean;
+  /** 관심 분야 학습: 이 기사에서 별 3개를 모으면 열리는 같은 분야 다음 기사 */
+  unlockNext?: { href: string; keyword: string; title: string } | null;
 }
 
-export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref, homeHref = "/s", showStars = false }: Props) {
+export function LessonFlow({
+  worksheetId,
+  article,
+  gradeLevel,
+  initial,
+  nextHref,
+  homeHref = "/s",
+  showStars = false,
+  unlockNext = null,
+}: Props) {
   const hasOpinion = Boolean(article.opinionQuestion) && article.stances.length >= 2;
   const [step, setStep] = useState<Step>(() => {
     if (!initial.read) return "read";
@@ -75,6 +91,11 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
   const [revealed, setRevealed] = useState(initial.revealed);
   const [opinion, setOpinion] = useState(initial.opinion);
   const [board, setBoard] = useState(initial.board);
+  const [answeredIds, setAnsweredIds] = useState(initial.answeredIds);
+  const [quizBest, setQuizBest] = useState(initial.quizBest ?? null);
+  const [quizRound, setQuizRound] = useState(0);
+  const [celebrate, setCelebrate] = useState(false);
+  const [retryError, setRetryError] = useState("");
 
   const go = (next: Step) => {
     setStep(next);
@@ -82,10 +103,39 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
   };
   const latest = summaries.at(-1) ?? null;
   const attemptsLeft = MAX_SUMMARY_ATTEMPTS - summaries.length;
+  const bestQuiz = Math.max(quizScore.correct, quizBest ?? 0);
+  const stars = showStars
+    ? countStars({
+        quizDone: true,
+        quizCorrect: bestQuiz,
+        quizTotal: quizScore.total,
+        bestSummary: summaries.length ? Math.max(...summaries.map((s) => s.feedback.score)) : null,
+      })
+    : null;
+  // 별 3개를 이번에 처음 모았으면 다음 기사가 열리는 장면을 한 번 보여 준다
+  const onUnlockStar = (nextStars: number) => {
+    if (nextStars === MAX_STARS && (initial.stars ?? 0) < MAX_STARS && unlockNext) setCelebrate(true);
+  };
+
+  async function retryQuiz() {
+    setRetryError("");
+    try {
+      const data = await apiFetch<{ quizBest: number }>("/api/student/quiz/retry", {
+        body: { worksheetId, articleId: article.id },
+      });
+      setQuizBest(data.quizBest);
+      setAnsweredIds([]);
+      setQuizRound((n) => n + 1);
+      go("quiz");
+    } catch (e) {
+      setRetryError(errorMessage(e));
+    }
+  }
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
       <LessonHeader step={step} hasOpinion={hasOpinion} homeHref={homeHref} />
+      {celebrate && unlockNext && <UnlockCelebration next={unlockNext} onClose={() => setCelebrate(false)} />}
 
       {step === "read" && (
         <ReadStep
@@ -97,9 +147,10 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
 
       {step === "quiz" && (
         <QuizStep
+          key={quizRound}
           worksheetId={worksheetId}
           article={article}
-          answeredIds={initial.answeredIds}
+          answeredIds={answeredIds}
           onFinished={(score) => {
             setQuizScore(score);
             go("quizDone");
@@ -107,7 +158,25 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
         />
       )}
 
-      {step === "quizDone" && <QuizDone score={quizScore} onNext={() => go("summary")} />}
+      {step === "quizDone" && (
+        <QuizDone
+          score={quizScore}
+          // 다시 푼 퀴즈면 요약은 이미 냈으므로 결과로 돌아간다
+          nextLabel={summaries.length > 0 ? "결과 보러 가기" : "요약하러 가기"}
+          onNext={() => {
+            if (summaries.length === 0) return go("summary");
+            onUnlockStar(
+              countStars({
+                quizDone: true,
+                quizCorrect: Math.max(quizScore.correct, quizBest ?? 0),
+                quizTotal: quizScore.total,
+                bestSummary: Math.max(...summaries.map((s) => s.feedback.score)),
+              }),
+            );
+            go("result");
+          }}
+        />
+      )}
 
       {step === "summary" && (
         <SummaryStep
@@ -117,8 +186,19 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
           attemptsLeft={attemptsLeft}
           initialText={latest?.text ?? ""}
           onSubmitted={(data) => {
-            setSummaries((prev) => [...prev, data.attempt]);
+            const all = [...summaries, data.attempt];
+            setSummaries(all);
             setRevealed({ modelSummary: data.modelSummary, keyPoints: data.keyPoints });
+            if (showStars) {
+              onUnlockStar(
+                countStars({
+                  quizDone: true,
+                  quizCorrect: bestQuiz,
+                  quizTotal: quizScore.total,
+                  bestSummary: Math.max(...all.map((s) => s.feedback.score)),
+                }),
+              );
+            }
             go("result");
           }}
         />
@@ -130,16 +210,13 @@ export function LessonFlow({ worksheetId, article, gradeLevel, initial, nextHref
           attemptsLeft={attemptsLeft}
           revealed={revealed}
           quizScore={quizScore}
-          nextHref={nextHref}
+          // 별 3개로 다음 기사가 열렸으면 그 기사로 이어서 간다
+          nextHref={stars === MAX_STARS && unlockNext ? unlockNext.href : nextHref}
           homeHref={homeHref}
-          stars={
-            showStars
-              ? countStars({
-                  quizDone: true,
-                  quizCorrect: quizScore.correct,
-                  quizTotal: quizScore.total,
-                  bestSummary: Math.max(...summaries.map((s) => s.feedback.score)),
-                })
+          stars={stars}
+          quizRetry={
+            showStars && bestQuiz < Math.ceil(STAR_QUIZ_RATE * quizScore.total)
+              ? { onClick: retryQuiz, error: retryError }
               : null
           }
           onRetry={() => go("summary")}
@@ -629,7 +706,7 @@ function QuizStep({
   );
 }
 
-function QuizDone({ score, onNext }: { score: Score; onNext: () => void }) {
+function QuizDone({ score, nextLabel, onNext }: { score: Score; nextLabel: string; onNext: () => void }) {
   const ratio = score.total ? score.correct / score.total : 0;
   const emoji = ratio >= 0.85 ? "🏆" : ratio >= 0.6 ? "👏" : "💪";
   const message =
@@ -653,7 +730,7 @@ function QuizDone({ score, onNext }: { score: Score; onNext: () => void }) {
       </div>
       <BottomBar className={BAR}>
         <Button size="lg" className="w-full md:mx-auto md:block md:max-w-md" onClick={onNext}>
-          요약하러 가기
+          {nextLabel}
         </Button>
       </BottomBar>
     </>
@@ -861,7 +938,7 @@ function scoreMessage(score: number) {
   return "다시 한번 도전해 봐요!";
 }
 
-function StarCard({ stars }: { stars: number }) {
+function StarCard({ stars, quizRetry }: { stars: number; quizRetry: { onClick: () => void; error: string } | null }) {
   return (
     <div className="mt-6 rounded-2xl bg-[#fff8e1] p-4 text-center">
       <p className="text-[30px] leading-none tracking-[0.15em]" aria-label={`별 ${stars}개`}>
@@ -877,6 +954,15 @@ function StarCard({ stars }: { stars: number }) {
       <p className="mt-1 text-[12px] leading-relaxed text-grey-500">
         끝까지 읽고 퀴즈 풀기 ★ · 퀴즈 {STAR_QUIZ_RATE * 100}% 이상 ★ · 요약 {STAR_SUMMARY_SCORE}점 이상 ★
       </p>
+      {stars < MAX_STARS && <p className="mt-2 text-[13px] font-semibold text-grey-700">별 3개를 모으면 이 분야의 다음 기사가 열려요 🔓</p>}
+      {quizRetry && (
+        <>
+          <Button variant="grey" size="sm" className="mt-3 bg-white" onClick={quizRetry.onClick}>
+            퀴즈 다시 풀기
+          </Button>
+          <ErrorText>{quizRetry.error}</ErrorText>
+        </>
+      )}
     </div>
   );
 }
@@ -916,6 +1002,7 @@ function ResultStep({
   nextHref,
   homeHref,
   stars,
+  quizRetry,
   next,
   onRetry,
 }: {
@@ -927,6 +1014,8 @@ function ResultStep({
   homeHref: string;
   /** 관심 분야 학습에서 이 기사로 모은 별 (반 학습지는 null) */
   stars: number | null;
+  /** 관심 분야 학습에서 퀴즈 별을 아직 못 받았으면 다시 풀기 */
+  quizRetry: { onClick: () => void; error: string } | null;
   next: { label: string; onClick: () => void } | null;
   onRetry: () => void;
 }) {
@@ -945,7 +1034,7 @@ function ResultStep({
               <ScoreRing score={feedback.score} />
             </div>
 
-            {stars !== null && <StarCard stars={stars} />}
+            {stars !== null && <StarCard stars={stars} quizRetry={quizRetry} />}
 
             <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
               <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
