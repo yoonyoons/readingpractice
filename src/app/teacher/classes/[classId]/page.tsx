@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { ClassInsights } from "@/components/teacher/ClassInsights";
 import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
+import { WorksheetRow } from "@/components/teacher/WorksheetRow";
 import { Badge, Card, ChevronLeft, ChevronRight, LinkButton } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { listLibraryArticles, totalStars } from "@/lib/library";
@@ -16,10 +17,11 @@ import { buildClassReport, TREND_WEEKS } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
 import { loadShop, walletOf } from "@/lib/shop";
-import { formatDate, isArticleDone, recentWeekKeys, seoulDate } from "@/lib/utils";
+import { shopSeenCookie, unseenPurchases } from "@/lib/shop-rules";
+import { recentWeekKeys, seoulDate } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
-/** 첫 화면에 바로 보이는 최근 학습지 수. 나머지는 '보관된 학습지'로 접어 둔다 */
+/** 첫 화면에 바로 보이는 최근 학습지 수. 전체 목록은 '학습지 관리' 화면에서 본다 */
 const RECENT_WORKSHEETS = 5;
 
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
@@ -60,41 +62,8 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   // 학생이 찍으면 입장 화면에 반 코드가 채워진 채로 열린다
   const qrSvg = await QRCode.toString(`${joinUrl}?code=${classRoom.code}`, { type: "svg", margin: 0 });
 
-  // 학습지 한 줄 (i는 submissionLists와 맞춘 전체 목록에서의 위치)
-  const worksheetRow = (w: (typeof worksheets)[number], i: number) => {
-    const ready = w.articles.filter((a) => a.status === "ready");
-    // 이 학습지의 기사를 모두 끝낸 학생 수
-    const doneStudents = students.filter((student) =>
-      ready.every((article) => {
-        const sub = submissionLists[i].find((s) => s.studentId === student.id && s.articleId === article.id);
-        return sub ? isArticleDone(article, sub) : false;
-      }),
-    ).length;
-    return (
-      <li key={w.id}>
-        <Link
-          href={`/teacher/classes/${classRoom.id}/worksheets/${w.id}`}
-          className="-mx-3 flex items-center gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-grey-50"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Badge tone={w.status === "published" ? "green" : "grey"}>{w.status === "published" ? "배포 중" : "초안"}</Badge>
-              <span className="truncate text-[16px] font-semibold text-grey-800">{w.title}</span>
-            </div>
-            <p className="mt-1 truncate text-[13px] text-grey-500">
-              {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
-            </p>
-          </div>
-          {w.status === "published" && ready.length > 0 && students.length > 0 && (
-            <span className="shrink-0 text-[13px] font-semibold text-primary">
-              학습 완료 {doneStudents}/{students.length}명
-            </span>
-          )}
-          <ChevronRight className="size-5 shrink-0 text-grey-300" />
-        </Link>
-      </li>
-    );
-  };
+  // 선생님이 상점 페이지에서 아직 보지 못한 교환 수 (🔔)
+  const newPurchases = unseenPurchases(shop.purchases, (await cookies()).get(shopSeenCookie(classId))?.value);
 
   return (
     <TeacherShell teacher={teacher}>
@@ -107,8 +76,26 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
           <h1 className="text-[26px] font-bold tracking-tight">{classRoom.name}</h1>
           <Badge tone="blue">{grade.label}</Badge>
         </div>
-        {/* 체험 계정의 반은 누구나 같이 쓰므로 지울 수 없게 한다 */}
-        {!isDemoTeacher(teacher) && <DeleteClassButton classId={classRoom.id} name={classRoom.name} />}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <LinkButton href={`/teacher/classes/${classRoom.id}/worksheets`} variant="grey" size="sm">
+            📚 학습지 관리
+          </LinkButton>
+          {hasShop() && (
+            <LinkButton href={`/teacher/classes/${classRoom.id}/shop`} variant="grey" size="sm">
+              🛍️ 별 상점
+              {newPurchases > 0 && (
+                <span
+                  className="rounded-full bg-danger-weak px-1.5 text-[12px] font-bold text-danger"
+                  title={`새 교환 ${newPurchases}건`}
+                >
+                  🔔 {newPurchases}
+                </span>
+              )}
+            </LinkButton>
+          )}
+          {/* 체험 계정의 반은 누구나 같이 쓰므로 지울 수 없게 한다 */}
+          {!isDemoTeacher(teacher) && <DeleteClassButton classId={classRoom.id} name={classRoom.name} />}
+        </div>
       </div>
 
       <ClassInsights
@@ -144,41 +131,24 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
             </p>
           ) : (
             <>
-              <ul className="mt-3 divide-y divide-grey-100">{worksheets.slice(0, RECENT_WORKSHEETS).map(worksheetRow)}</ul>
+              <ul className="mt-3 divide-y divide-grey-100">
+                {worksheets.slice(0, RECENT_WORKSHEETS).map((w, i) => (
+                  <WorksheetRow key={w.id} classId={classRoom.id} worksheet={w} students={students} submissions={submissionLists[i]} />
+                ))}
+              </ul>
               {worksheets.length > RECENT_WORKSHEETS && (
-                <details className="group mt-1 border-t border-grey-100 pt-2">
-                  <summary className="-mx-3 flex cursor-pointer list-none items-center justify-center gap-1 rounded-2xl px-3 py-2.5 text-[14px] font-semibold text-grey-500 transition hover:bg-grey-50 hover:text-grey-700 [&::-webkit-details-marker]:hidden">
-                    <span className="group-open:hidden">보관된 학습지 {worksheets.length - RECENT_WORKSHEETS}개 보기</span>
-                    <span className="hidden group-open:inline">보관된 학습지 접기</span>
-                    <ChevronRight className="size-4 rotate-90 transition group-open:-rotate-90" />
-                  </summary>
-                  <ul className="divide-y divide-grey-100">
-                    {worksheets.slice(RECENT_WORKSHEETS).map((w, i) => worksheetRow(w, i + RECENT_WORKSHEETS))}
-                  </ul>
-                </details>
+                <Link
+                  href={`/teacher/classes/${classRoom.id}/worksheets`}
+                  className="-mx-3 mt-1 flex items-center justify-center gap-1 rounded-2xl border-t border-grey-100 px-3 pt-3 pb-2.5 text-[14px] font-semibold text-grey-500 transition hover:bg-grey-50 hover:text-grey-700"
+                >
+                  학습지 전체 {worksheets.length}개 보기
+                  <ChevronRight className="size-4" />
+                </Link>
               )}
             </>
           )}
         </Card>
 
-        {hasShop() && (
-          <Card className="flex flex-wrap items-center gap-4">
-            <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff8e1] text-[24px]">
-              🛍️
-            </span>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[18px] font-bold">별 상점</h2>
-              <p className="mt-0.5 text-[13px] text-grey-500">
-                {shop.ready
-                  ? `상품 ${shop.items.length}개 · 교환 ${shop.purchases.length}건 · 학생들이 모은 별로 상품을 바꿔요`
-                  : "운영 DB 준비가 필요해요"}
-              </p>
-            </div>
-            <LinkButton href={`/teacher/classes/${classRoom.id}/shop`} variant="secondary" size="md">
-              상점 관리
-            </LinkButton>
-          </Card>
-        )}
       </ClassInsights>
     </TeacherShell>
   );
