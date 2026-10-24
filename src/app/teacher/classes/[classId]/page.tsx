@@ -105,7 +105,8 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
           <h1 className="text-[26px] font-bold tracking-tight">{classRoom.name}</h1>
           <Badge tone="blue">{grade.label}</Badge>
         </div>
-        <DeleteClassButton classId={classRoom.id} name={classRoom.name} />
+        {/* 체험 계정의 반은 누구나 같이 쓰므로 지울 수 없게 한다 */}
+        {!isDemoTeacher(teacher) && <DeleteClassButton classId={classRoom.id} name={classRoom.name} />}
       </div>
 
       <ClassInsights
