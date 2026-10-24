@@ -91,7 +91,7 @@ function linePath(values: (number | null)[], x: (i: number) => number, y: (v: nu
 }
 
 /**
- * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표,
+ * 반 화면 본문 2열. 왼쪽은 children(학습지) 아래에 반 결과 분석표(오른쪽 열 끝까지 늘어남),
  * 오른쪽은 aside(반 코드) 아래에 [성취도 | 계정 관리(PIN 초기화·삭제)] 탭 카드.
  * 두 탭은 이름 검색을 함께 쓰고, 목록은 고정 높이 안에서 스크롤한다.
  * 성취도 목록에서 학생을 누르면 그 학생 행 바로 아래에 상세 분석이 펼쳐진다 (한 번에 한 명).
@@ -165,11 +165,12 @@ export function ClassInsights({
   const reportHref = `/teacher/classes/${classId}/report?from=${range.from}&to=${range.to}${selected ? `&student=${selected.id}` : ""}`;
 
   return (
-    <div className="mt-6 flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-      <div className="contents lg:block lg:space-y-5">
+    <div className="mt-6 flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
+      {/* 넓은 화면에서 왼쪽 열을 오른쪽 열 높이만큼 늘리고, 분석표 카드가 남는 높이를 채워 두 열의 끝을 맞춘다 */}
+      <div className="contents lg:flex lg:flex-col lg:gap-5">
         <div className="order-1 space-y-5">{children}</div>
 
-        <Card className="order-4 shadow-sm">
+        <Card className="order-4 flex flex-col shadow-sm lg:flex-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
             <h2 className="text-[18px] font-bold">
               반 결과 분석표 <span className="text-grey-500">(최근 {TREND_WEEKS}주)</span>
@@ -185,7 +186,7 @@ export function ClassInsights({
             <Metric accent label="요약 평균" value={formatScore(stats.summaryAverage)} />
           </dl>
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:mt-auto lg:pt-5">
             <p className="text-[13px] text-grey-500">
               {report.pending
                 ? "AI 의견을 만들고 있어요"
@@ -201,7 +202,7 @@ export function ClassInsights({
         </Card>
       </div>
 
-      <div className="contents lg:block lg:space-y-5">
+      <div className="contents lg:block lg:space-y-5 lg:self-start">
         <div className="order-2">{aside}</div>
 
         <Card className="order-3 shadow-sm">

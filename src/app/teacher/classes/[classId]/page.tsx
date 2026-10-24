@@ -18,6 +18,9 @@ import { getTeacher } from "@/lib/session";
 import { formatDate, isArticleDone, recentWeekKeys, seoulDate } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
+/** 첫 화면에 바로 보이는 최근 학습지 수. 나머지는 '보관된 학습지'로 접어 둔다 */
+const RECENT_WORKSHEETS = 5;
+
 export default async function ClassPage(props: PageProps<"/teacher/classes/[classId]">) {
   const { classId } = await props.params;
   const teacher = await getTeacher();
@@ -54,6 +57,42 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   const joinUrl = `${protocol}://${host}/join`;
   // 학생이 찍으면 입장 화면에 반 코드가 채워진 채로 열린다
   const qrSvg = await QRCode.toString(`${joinUrl}?code=${classRoom.code}`, { type: "svg", margin: 0 });
+
+  // 학습지 한 줄 (i는 submissionLists와 맞춘 전체 목록에서의 위치)
+  const worksheetRow = (w: (typeof worksheets)[number], i: number) => {
+    const ready = w.articles.filter((a) => a.status === "ready");
+    // 이 학습지의 기사를 모두 끝낸 학생 수
+    const doneStudents = students.filter((student) =>
+      ready.every((article) => {
+        const sub = submissionLists[i].find((s) => s.studentId === student.id && s.articleId === article.id);
+        return sub ? isArticleDone(article, sub) : false;
+      }),
+    ).length;
+    return (
+      <li key={w.id}>
+        <Link
+          href={`/teacher/classes/${classRoom.id}/worksheets/${w.id}`}
+          className="-mx-3 flex items-center gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-grey-50"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Badge tone={w.status === "published" ? "green" : "grey"}>{w.status === "published" ? "배포 중" : "초안"}</Badge>
+              <span className="truncate text-[16px] font-semibold text-grey-800">{w.title}</span>
+            </div>
+            <p className="mt-1 truncate text-[13px] text-grey-500">
+              {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
+            </p>
+          </div>
+          {w.status === "published" && ready.length > 0 && students.length > 0 && (
+            <span className="shrink-0 text-[13px] font-semibold text-primary">
+              학습 완료 {doneStudents}/{students.length}명
+            </span>
+          )}
+          <ChevronRight className="size-5 shrink-0 text-grey-300" />
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <TeacherShell teacher={teacher}>
@@ -100,44 +139,21 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
               아직 만든 학습지가 없어요.
             </p>
           ) : (
-            <ul className="mt-3 divide-y divide-grey-100">
-              {worksheets.map((w, i) => {
-                const ready = w.articles.filter((a) => a.status === "ready");
-                // 이 학습지의 기사를 모두 끝낸 학생 수
-                const doneStudents = students.filter((student) =>
-                  ready.every((article) => {
-                    const sub = submissionLists[i].find((s) => s.studentId === student.id && s.articleId === article.id);
-                    return sub ? isArticleDone(article, sub) : false;
-                  }),
-                ).length;
-                return (
-                  <li key={w.id}>
-                    <Link
-                      href={`/teacher/classes/${classRoom.id}/worksheets/${w.id}`}
-                      className="-mx-3 flex items-center gap-3 rounded-2xl px-3 py-3.5 transition hover:bg-grey-50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge tone={w.status === "published" ? "green" : "grey"}>
-                            {w.status === "published" ? "배포 중" : "초안"}
-                          </Badge>
-                          <span className="truncate text-[16px] font-semibold text-grey-800">{w.title}</span>
-                        </div>
-                        <p className="mt-1 truncate text-[13px] text-grey-500">
-                          {formatDate(w.createdAt)} · {w.articles.map((a) => a.topic).join(" · ")}
-                        </p>
-                      </div>
-                      {w.status === "published" && ready.length > 0 && students.length > 0 && (
-                        <span className="shrink-0 text-[13px] font-semibold text-primary">
-                          학습 완료 {doneStudents}/{students.length}명
-                        </span>
-                      )}
-                      <ChevronRight className="size-5 shrink-0 text-grey-300" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <ul className="mt-3 divide-y divide-grey-100">{worksheets.slice(0, RECENT_WORKSHEETS).map(worksheetRow)}</ul>
+              {worksheets.length > RECENT_WORKSHEETS && (
+                <details className="group mt-1 border-t border-grey-100 pt-2">
+                  <summary className="-mx-3 flex cursor-pointer list-none items-center justify-center gap-1 rounded-2xl px-3 py-2.5 text-[14px] font-semibold text-grey-500 transition hover:bg-grey-50 hover:text-grey-700 [&::-webkit-details-marker]:hidden">
+                    <span className="group-open:hidden">보관된 학습지 {worksheets.length - RECENT_WORKSHEETS}개 보기</span>
+                    <span className="hidden group-open:inline">보관된 학습지 접기</span>
+                    <ChevronRight className="size-4 rotate-90 transition group-open:-rotate-90" />
+                  </summary>
+                  <ul className="divide-y divide-grey-100">
+                    {worksheets.slice(RECENT_WORKSHEETS).map((w, i) => worksheetRow(w, i + RECENT_WORKSHEETS))}
+                  </ul>
+                </details>
+              )}
+            </>
           )}
         </Card>
       </ClassInsights>
