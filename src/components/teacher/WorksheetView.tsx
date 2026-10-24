@@ -10,6 +10,7 @@ import {
   CheckIcon,
   ErrorText,
   ChevronLeft,
+  ChevronRight,
   EmptyState,
   Field,
   Input,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
-import type { Article, QuizItem, QuizType, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
+import type { Article, QuizItem, QuizType, SourceItem, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
 import {
   BLANK,
   cn,
@@ -847,24 +848,86 @@ function ArticleForm({
             </div>
           </Card>
 
-          {article.sources.length > 0 && (
-            <Card>
-              <SectionTitle title="참고한 기사" />
-              <ul className="space-y-2.5">
-                {article.sources.map((s, i) => (
-                  <li key={i}>
-                    <a href={s.url} target="_blank" rel="noreferrer" className="group block">
-                      <span className="line-clamp-2 text-[14px] font-medium text-grey-700 group-hover:underline">{s.title}</span>
-                      <span className="text-[12px] text-grey-400">{formatDateTime(s.pubDate)}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
+          <SourcesCard sources={article.sources} />
         </div>
       </div>
     </div>
+  );
+}
+
+/* 참고한 기사: 출처가 스무 곳이 넘을 수 있어 처음엔 접어 두고, 펼치면 최신순으로 '제목 / 언론사 · 날짜' 두 줄씩 보여 준다 */
+
+// 검색 결과 제목 끝에 붙는 "| 연합뉴스", "- 매일경제", "< 국제 < 기사본문 - 포토뉴스" 같은 꼬리를 떼고 언론사 이름을 꺼낸다
+function splitSourceTitle(raw: string, url: string): { title: string; outlet: string } {
+  let title = raw.trim();
+  let outlet = "";
+  const dash = title.match(/\s+-\s+([^-|<]{1,20})$/);
+  const crumb = title.indexOf(" < ");
+  if (crumb > 0) {
+    if (dash) outlet = dash[1].trim();
+    title = title.slice(0, crumb);
+  } else {
+    const bar = title.match(/\s+\|\s+([^|]+)$/);
+    const tail = bar ?? dash;
+    if (tail && tail.index && tail.index > 0) {
+      outlet = tail[1].trim();
+      title = title.slice(0, tail.index);
+    }
+  }
+  if (!outlet) {
+    try {
+      outlet = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      outlet = "";
+    }
+  }
+  return { title: title.trim() || raw, outlet };
+}
+
+function SourcesCard({ sources }: { sources: SourceItem[] }) {
+  const [open, setOpen] = useState(false);
+  const sorted = useMemo(() => {
+    const time = (s: SourceItem) => Date.parse(s.pubDate) || 0;
+    return [...sources].sort((a, b) => time(b) - time(a));
+  }, [sources]);
+  if (sources.length === 0) return null;
+
+  return (
+    <Card>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <h3 className="text-[17px] font-bold text-grey-900">
+          참고한 기사 <span className="text-grey-500">{sources.length}곳</span>
+        </h3>
+        <span className="flex items-center gap-1 text-[13px] text-grey-500">
+          {open ? "접기" : "펼치기"}
+          <ChevronRight className={cn("size-4 transition-transform", open ? "-rotate-90" : "rotate-90")} />
+        </span>
+      </button>
+      {open && (
+        <ul className="mt-4 divide-y divide-grey-100">
+          {sorted.map((s, i) => {
+            const { title, outlet } = splitSourceTitle(s.title, s.url);
+            return (
+              <li key={i}>
+                <a href={s.url} target="_blank" rel="noreferrer" title={s.title} className="group block py-2.5">
+                  <span className="line-clamp-1 text-[14px] font-medium text-grey-700 group-hover:underline">{title}</span>
+                  <span className="mt-0.5 flex gap-1.5 text-[12px] text-grey-400">
+                    {outlet && <span className="truncate">{outlet}</span>}
+                    {outlet && <span aria-hidden>·</span>}
+                    <span className="shrink-0">{formatDateTime(s.pubDate)}</span>
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
   );
 }
 
