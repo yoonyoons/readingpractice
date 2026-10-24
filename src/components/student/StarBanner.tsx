@@ -8,8 +8,11 @@ export function StarBanner({
   total,
   byField,
   ready,
+  shop,
 }: {
   total: number;
+  /** 별 상점 버튼을 보여 줄지 */
+  shop: boolean;
   /** 학습 기록을 저장할 준비가 안 됐으면 상자를 막는다 */
   ready: boolean;
   /** 분야마다 모은 별·모을 수 있는 별·기사 수 */
@@ -22,12 +25,25 @@ export function StarBanner({
           <p className="text-[13px] font-semibold text-primary">언제든 읽는 관심 분야 학습</p>
           <h2 className="mt-0.5 text-[18px] font-bold text-grey-900 md:text-[20px]">관심 있는 주제를 골라 별을 모아요</h2>
         </div>
-        <Link href="/s/explore" className="shrink-0 rounded-2xl bg-[#fff8e1] px-3.5 py-2 text-center" aria-label={`내가 모은 별 ${total}개`}>
-          <span className="block text-[12px] font-semibold text-grey-500">내가 모은 별</span>
-          <span className="block text-[22px] font-bold leading-tight text-grey-900">
-            <span className="text-[#f5b301]">★</span> {total}
-          </span>
-        </Link>
+        <div className="flex shrink-0 items-stretch gap-2">
+          <Link href="/s/explore" className="rounded-2xl bg-[#fff8e1] px-3.5 py-2 text-center" aria-label={`내가 모은 별 ${total}개`}>
+            <span className="block text-[12px] font-semibold text-grey-500">내가 모은 별</span>
+            <span className="block text-[22px] font-bold leading-tight text-grey-900">
+              <span className="text-[#f5b301]">★</span> {total}
+            </span>
+          </Link>
+          {shop && (
+            <Link
+              href="/s/shop"
+              className="flex flex-col items-center justify-center rounded-2xl bg-primary-weak px-3 py-2 text-center transition hover:brightness-95 active:scale-[0.97]"
+            >
+              <span className="text-[20px] leading-none" aria-hidden>
+                🛍️
+              </span>
+              <span className="mt-1 text-[12px] font-bold text-primary">별 상점</span>
+            </Link>
+          )}
+        </div>
       </div>
       {!ready && (
         <p className="mt-3 rounded-2xl bg-grey-50 px-4 py-3 text-[14px] text-grey-500">관심 분야 학습을 준비하고 있어요. 곧 열려요!</p>

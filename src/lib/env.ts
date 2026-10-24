@@ -42,3 +42,8 @@ export function claudeModel() {
 export function isDemoGeneration() {
   return !hasBrave() || !hasAnthropic();
 }
+
+/** 별 상점 화면을 보여 줄지. 공모전 체험판(HTML)에는 상점을 넣지 않아 false로 바꾼다 */
+export function hasShop() {
+  return true;
+}

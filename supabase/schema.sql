@@ -128,6 +128,35 @@ create table if not exists library_submissions (
 );
 create index if not exists library_submissions_student_idx on library_submissions (student_id);
 
+-- 별 상점: 선생님이 반마다 등록한 상품. 학생은 관심 분야 학습에서 모은 별로 교환한다.
+-- stock(남은 수량)과 per_student_limit(1인당 최대 개수)이 비어 있으면 제한이 없다.
+create table if not exists shop_items (
+  id uuid primary key,
+  class_id uuid not null references classes(id) on delete cascade,
+  emoji text not null,
+  name text not null,
+  description text not null default '',
+  price int not null check (price > 0),
+  stock int check (stock >= 0),
+  per_student_limit int check (per_student_limit > 0),
+  created_at timestamptz not null default now()
+);
+create index if not exists shop_items_class_idx on shop_items (class_id);
+
+-- 별 상점 교환 기록: 교환하는 순간 별이 빠진다(쓸 수 있는 별 = 모은 별 - 교환에 쓴 별).
+-- 상품을 지워도 기록이 남도록 item_id에는 외래 키를 걸지 않고 이름·이모지·가격을 함께 적는다.
+create table if not exists shop_purchases (
+  id uuid primary key,
+  class_id uuid not null references classes(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  item_id uuid not null,
+  item_name text not null,
+  item_emoji text not null,
+  price int not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists shop_purchases_class_idx on shop_purchases (class_id);
+
 -- 이전 버전 스키마로 이미 만든 DB를 위한 추가 열
 alter table classes add column if not exists auto_draft boolean not null default false;
 alter table submissions add column if not exists opinion jsonb;
@@ -145,3 +174,5 @@ alter table class_reports enable row level security;
 alter table custom_usage enable row level security;
 alter table library_articles enable row level security;
 alter table library_submissions enable row level security;
+alter table shop_items enable row level security;
+alter table shop_purchases enable row level security;

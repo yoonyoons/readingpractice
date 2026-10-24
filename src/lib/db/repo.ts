@@ -4,6 +4,8 @@ import type {
   EmailVerification,
   GradeLevel,
   LibraryArticle,
+  ShopItem,
+  ShopPurchase,
   StudentRecord,
   Submission,
   Teacher,
@@ -74,6 +76,20 @@ export interface Repo {
   saveLibraryArticle(article: LibraryArticle): Promise<void>;
   /** 학생들의 관심 분야 학습 기록 */
   listLibrarySubmissions(studentIds: string[]): Promise<Submission[]>;
+
+  /** 별 상점 상품 (만든 순서) */
+  listShopItems(classId: string): Promise<ShopItem[]>;
+  getShopItem(id: string): Promise<ShopItem | null>;
+  /** 같은 id가 있으면 덮어쓴다 */
+  saveShopItem(item: ShopItem): Promise<void>;
+  deleteShopItem(id: string): Promise<void>;
+  /** 남은 수량이 아직 expected일 때만 하나 줄인다. 그 사이 다른 학생이 가져갔으면 false */
+  takeShopStock(id: string, expected: number): Promise<boolean>;
+  /** 반의 교환 기록 (최신순) */
+  listShopPurchases(classId: string): Promise<ShopPurchase[]>;
+  createShopPurchase(purchase: ShopPurchase): Promise<void>;
+  /** 별이 모자라는 등 교환을 되돌릴 때만 쓴다 */
+  deleteShopPurchase(id: string): Promise<void>;
 
   /** worksheetId가 LIBRARY_WORKSHEET_ID면 관심 분야 학습 기록이다 */
   getSubmission(worksheetId: string, articleId: string, studentId: string): Promise<Submission | null>;

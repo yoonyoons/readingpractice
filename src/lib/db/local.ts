@@ -5,6 +5,8 @@ import type {
   ClassRoom,
   EmailVerification,
   LibraryArticle,
+  ShopItem,
+  ShopPurchase,
   StudentRecord,
   Submission,
   TeacherRecord,
@@ -29,6 +31,8 @@ interface Data {
   classReports: ClassReport[];
   customUsage: { classId: string; week: string; articleCount: number }[];
   libraryArticles: LibraryArticle[];
+  shopItems: ShopItem[];
+  shopPurchases: ShopPurchase[];
 }
 
 const FILE = path.join(process.cwd(), ".data", "db.json");
@@ -48,6 +52,8 @@ async function load(): Promise<Data> {
     state.data.classReports ??= [];
     state.data.customUsage ??= [];
     state.data.libraryArticles ??= [];
+    state.data.shopItems ??= [];
+    state.data.shopPurchases ??= [];
   } catch {
     state.data = {
       teachers: [],
@@ -60,6 +66,8 @@ async function load(): Promise<Data> {
       classReports: [],
       customUsage: [],
       libraryArticles: [],
+      shopItems: [],
+      shopPurchases: [],
     };
   }
   return state.data;
@@ -142,6 +150,8 @@ export function createLocalRepo(): Repo {
         d.classes = d.classes.filter((x) => x.id !== id);
         d.classReports = d.classReports.filter((r) => r.classId !== id);
         d.customUsage = d.customUsage.filter((u) => u.classId !== id);
+        d.shopItems = d.shopItems.filter((x) => x.classId !== id);
+        d.shopPurchases = d.shopPurchases.filter((x) => x.classId !== id);
         d.students = d.students.filter((s) => s.classId !== id);
         d.worksheets = d.worksheets.filter((w) => w.classId !== id);
         d.submissions = d.submissions.filter(
@@ -168,6 +178,7 @@ export function createLocalRepo(): Repo {
       write((d) => {
         d.students = d.students.filter((x) => x.id !== id);
         d.submissions = d.submissions.filter((x) => x.studentId !== id);
+        d.shopPurchases = d.shopPurchases.filter((x) => x.studentId !== id);
       }),
 
     createWorksheet: (worksheet) =>
@@ -233,6 +244,36 @@ export function createLocalRepo(): Repo {
       read((d) => {
         const ids = new Set(studentIds);
         return d.submissions.filter((x) => x.worksheetId === LIBRARY_WORKSHEET_ID && ids.has(x.studentId));
+      }),
+
+    listShopItems: (classId) =>
+      read((d) => d.shopItems.filter((x) => x.classId === classId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))),
+    getShopItem: (id) => read((d) => d.shopItems.find((x) => x.id === id) ?? null),
+    saveShopItem: (item) =>
+      write((d) => {
+        d.shopItems = d.shopItems.filter((x) => x.id !== item.id);
+        d.shopItems.push(item);
+      }),
+    deleteShopItem: (id) =>
+      write((d) => {
+        d.shopItems = d.shopItems.filter((x) => x.id !== id);
+      }),
+    takeShopStock: (id, expected) =>
+      write((d) => {
+        const item = d.shopItems.find((x) => x.id === id);
+        if (!item || item.stock !== expected || expected <= 0) return false;
+        item.stock = expected - 1;
+        return true;
+      }),
+    listShopPurchases: (classId) =>
+      read((d) => d.shopPurchases.filter((x) => x.classId === classId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
+    createShopPurchase: (purchase) =>
+      write((d) => {
+        d.shopPurchases.push(purchase);
+      }),
+    deleteShopPurchase: (id) =>
+      write((d) => {
+        d.shopPurchases = d.shopPurchases.filter((x) => x.id !== id);
       }),
 
     getSubmission: (worksheetId, articleId, studentId) =>

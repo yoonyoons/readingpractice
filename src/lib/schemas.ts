@@ -36,3 +36,13 @@ export const ArticleSchema = z.object({
     .default([])
     .transform((stances) => stances.filter(Boolean)),
 });
+
+/** 별 상점 상품 등록·수정 (수량·1인당 개수는 null이면 제한 없음) */
+export const ShopItemInputSchema = z.object({
+  emoji: z.string().trim().min(1, "이모지를 골라 주세요.").max(16, "이모지는 하나만 넣어 주세요."),
+  name: z.string().trim().min(1, "상품 이름을 입력해 주세요.").max(30, "상품 이름은 30자까지 쓸 수 있어요."),
+  description: z.string().trim().max(80, "설명은 80자까지 쓸 수 있어요."),
+  price: z.number().int("가격은 정수로 넣어 주세요.").min(1, "가격은 별 1개 이상이어야 해요.").max(999, "가격은 별 999개까지 정할 수 있어요."),
+  stock: z.number().int().min(0, "수량은 0개 이상이어야 해요.").max(999, "수량은 999개까지 정할 수 있어요.").nullable(),
+  perStudentLimit: z.number().int().min(1, "1인당 개수는 1개 이상이어야 해요.").max(99, "1인당 개수는 99개까지 정할 수 있어요.").nullable(),
+});

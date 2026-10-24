@@ -256,3 +256,32 @@ export interface LibraryArticle extends Article {
   addedBy: "seed" | "auto";
   createdAt: string;
 }
+
+/** 별 상점 상품: 반마다 선생님이 등록하고, 학생이 관심 분야 학습에서 모은 별로 교환한다 */
+export interface ShopItem {
+  id: string;
+  classId: string;
+  /** 그림 대신 보여 주는 이모지 */
+  emoji: string;
+  name: string;
+  description: string;
+  /** 별 몇 개로 교환하는지 */
+  price: number;
+  /** 남은 수량. null이면 제한 없음 */
+  stock: number | null;
+  /** 학생 한 명이 교환할 수 있는 최대 개수. null이면 제한 없음 */
+  perStudentLimit: number | null;
+  createdAt: string;
+}
+
+/** 교환 기록. 상품을 지워도 기록이 남도록 상품 이름·이모지·가격을 함께 적어 둔다 */
+export interface ShopPurchase {
+  id: string;
+  classId: string;
+  studentId: string;
+  itemId: string;
+  itemName: string;
+  itemEmoji: string;
+  price: number;
+  createdAt: string;
+}
