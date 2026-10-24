@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ShopManager } from "@/components/teacher/ShopManager";
+import { ShopSeenMarker } from "@/components/teacher/ShopSeenMarker";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { Card, ChevronLeft } from "@/components/ui";
 import { getDb } from "@/lib/db";
@@ -31,6 +32,8 @@ export default async function ClassShopPage(props: PageProps<"/teacher/classes/[
 
   return (
     <TeacherShell teacher={teacher}>
+      {/* 교환 기록은 최신순이라 맨 앞이 가장 최근 교환 */}
+      <ShopSeenMarker classId={classId} latest={purchases[0]?.createdAt ?? null} />
       <Link
         href={`/teacher/classes/${classId}`}
         className="inline-flex items-center gap-1 text-[14px] font-medium text-grey-500 hover:text-grey-800"

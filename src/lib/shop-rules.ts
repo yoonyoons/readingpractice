@@ -26,3 +26,12 @@ export function blockReason(item: ShopItem, wallet: Wallet, mine: ShopPurchase[]
   if (wallet.balance < item.price) return `별 ${item.price - wallet.balance}개가 더 필요해요`;
   return null;
 }
+
+/** 반 화면 '별 상점' 🔔 표시용 쿠키 이름. 선생님이 상점 페이지에서 마지막으로 본 교환 시각을 담는다 */
+export const shopSeenCookie = (classId: string) => `shop_seen_${classId}`;
+
+/** 선생님이 아직 상점 페이지에서 보지 못한 교환 수 (seen이 없으면 모든 교환) */
+export function unseenPurchases(purchases: ShopPurchase[], seen: string | undefined) {
+  const since = seen ? Date.parse(seen) : NaN;
+  return Number.isNaN(since) ? purchases.length : purchases.filter((p) => Date.parse(p.createdAt) > since).length;
+}
