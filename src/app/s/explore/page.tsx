@@ -30,7 +30,7 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
   const { field: rawField } = await props.searchParams;
   const field: LibraryField = FIELD_ORDER.includes(rawField as LibraryField) ? (rawField as LibraryField) : "space";
 
-  const { subMap, byField, total, ready, chains, unlocked } = await studentLibrary(classRoom.gradeLevel, student.id);
+  const { subMap, total, ready, chains, unlocked } = await studentLibrary(classRoom.gradeLevel, student.id);
   if (!ready) redirect("/s");
   const list = chains[field];
   const openCount = list.filter((a) => unlocked.has(a.id)).length;
@@ -75,9 +75,6 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
               <span className="text-[26px] leading-none">{info.emoji}</span>
               <span className="min-w-0">
                 <span className={cn("block text-[15px] font-bold", active ? "text-primary" : "text-grey-800")}>{info.label}</span>
-                <span className="block text-[12px] font-semibold text-grey-500">
-                  <span className="text-[#f5b301]">★</span> {byField[f].stars}/{byField[f].max}
-                </span>
               </span>
             </Link>
           );
