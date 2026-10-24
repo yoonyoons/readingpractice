@@ -35,8 +35,11 @@ async function libraryWorksheet(
   return { worksheet, article };
 }
 
-/** 학생이 자기 반에 배포된 기사(또는 학년군이 맞는 관심 분야 학습 기사)에 접근하는지 확인하고, 제출 기록(없으면 새 기록)을 함께 돌려준다 */
-export async function requireStudentArticle(worksheetId: string, articleId: string) {
+/**
+ * 학생이 자기 반에 배포된 기사(또는 학년군이 맞는 관심 분야 학습 기사)에 접근하는지 확인하고, 제출 기록(없으면 새 기록)을 함께 돌려준다.
+ * 학습 종료된 학습지는 보기(view)만 되고, 제출(write)하려 하면 거절한다.
+ */
+export async function requireStudentArticle(worksheetId: string, articleId: string, mode: "write" | "view" = "write") {
   const { student, classRoom } = await requireStudent();
   const db = getDb();
   let worksheet: Worksheet | null;
@@ -45,8 +48,11 @@ export async function requireStudentArticle(worksheetId: string, articleId: stri
     ({ worksheet, article } = await libraryWorksheet(classRoom, student.id, articleId));
   } else {
     worksheet = await db.getWorksheet(worksheetId);
-    if (!worksheet || worksheet.classId !== classRoom.id || worksheet.status !== "published") {
+    if (!worksheet || worksheet.classId !== classRoom.id || worksheet.status === "draft") {
       throw new HttpError(404, "학습지를 찾을 수 없어요.");
+    }
+    if (worksheet.status === "ended" && mode === "write") {
+      throw new HttpError(403, "학습이 끝난 학습지예요. 기록만 볼 수 있어요.");
     }
     article = worksheet.articles.find((a) => a.id === articleId && a.status === "ready");
   }

@@ -38,7 +38,7 @@ create table if not exists worksheets (
   id uuid primary key,
   class_id uuid not null references classes(id) on delete cascade,
   title text not null,
-  status text not null default 'draft' check (status in ('draft', 'published')),
+  status text not null default 'draft' check (status in ('draft', 'published', 'ended')),
   articles jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   published_at timestamptz
@@ -162,6 +162,9 @@ alter table classes add column if not exists auto_draft boolean not null default
 alter table submissions add column if not exists opinion jsonb;
 alter table students add column if not exists last_login_at timestamptz;
 alter table library_submissions add column if not exists quiz_best int;
+-- 학습지 '학습 종료' 상태
+alter table worksheets drop constraint if exists worksheets_status_check;
+alter table worksheets add constraint worksheets_status_check check (status in ('draft', 'published', 'ended'));
 
 alter table teachers enable row level security;
 alter table classes enable row level security;

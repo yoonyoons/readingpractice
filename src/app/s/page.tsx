@@ -41,11 +41,13 @@ export default async function StudentHome() {
     loadClassReport(classRoom.id, true),
     studentLibrary(classRoom.gradeLevel, student.id),
   ]);
-  const published = worksheets
-    .filter((w) => w.status === "published")
+  // 학습 종료된 학습지는 '지난 학습지'에서 기록만 볼 수 있다
+  const visible = worksheets
+    .filter((w) => w.status !== "draft")
     .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
   const subMap = new Map(submissions.map((s) => [`${s.worksheetId}:${s.articleId}`, s]));
-  const [current, ...past] = published;
+  const current = visible.find((w) => w.status === "published");
+  const past = visible.filter((w) => w !== current);
 
   return (
     // 휴대폰: 세로 한 단, 태블릿 이상: 넓은 컨테이너에 카드형 배치
@@ -94,7 +96,10 @@ export default async function StudentHome() {
               <details key={w.id} className="group rounded-3xl bg-white">
                 <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 md:px-6">
                   <span>
-                    <span className="block text-[16px] font-semibold text-grey-800">{w.title}</span>
+                    <span className="flex items-center gap-2">
+                      {w.status === "ended" && <Badge tone="orange">학습 종료</Badge>}
+                      <span className="text-[16px] font-semibold text-grey-800">{w.title}</span>
+                    </span>
                     <span className="text-[13px] text-grey-500">{formatDate(w.publishedAt)}</span>
                   </span>
                   <ChevronRight className="size-5 text-grey-400 transition group-open:rotate-90" />

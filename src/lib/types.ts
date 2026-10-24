@@ -95,7 +95,8 @@ export interface Article {
   stances: string[];
 }
 
-export type WorksheetStatus = "draft" | "published";
+/** 초안 → 배포 중 → 학습 종료(학생은 기록만 볼 수 있고 더 제출할 수 없다) */
+export type WorksheetStatus = "draft" | "published" | "ended";
 
 export interface Worksheet {
   id: string;

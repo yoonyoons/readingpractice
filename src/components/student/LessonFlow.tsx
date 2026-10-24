@@ -66,6 +66,8 @@ interface Props {
   showStars?: boolean;
   /** 관심 분야 학습: 이 기사에서 별 3개를 모으면 열리는 같은 분야 다음 기사 */
   unlockNext?: { href: string; keyword: string; title: string } | null;
+  /** 선생님이 학습을 종료한 학습지: 기사와 내 기록만 보고 더 제출할 수 없다 */
+  ended?: boolean;
 }
 
 export function LessonFlow({
@@ -77,6 +79,7 @@ export function LessonFlow({
   homeHref = "/s",
   showStars = false,
   unlockNext = null,
+  ended = false,
 }: Props) {
   const hasOpinion = Boolean(article.opinionQuestion) && article.stances.length >= 2;
   const [step, setStep] = useState<Step>(() => {
@@ -130,6 +133,19 @@ export function LessonFlow({
     } catch (e) {
       setRetryError(errorMessage(e));
     }
+  }
+
+  if (ended) {
+    return (
+      <EndedView
+        article={article}
+        homeHref={homeHref}
+        read={initial.read}
+        quizScore={article.quiz.every((q) => initial.answeredIds.includes(q.id)) ? quizScore : null}
+        latest={latest}
+        opinion={opinion}
+      />
+    );
   }
 
   return (
@@ -1348,5 +1364,111 @@ function BoardStep({
         </LinkButton>
       </BottomBar>
     </>
+  );
+}
+
+/* ───────────── 학습 종료된 학습지: 기사와 내 기록만 보기 ───────────── */
+
+function EndedView({
+  article,
+  homeHref,
+  read,
+  quizScore,
+  latest,
+  opinion,
+}: {
+  article: PublicArticle;
+  homeHref: string;
+  read: boolean;
+  /** 퀴즈를 끝까지 풀었을 때만 점수를 보여 준다 */
+  quizScore: Score | null;
+  latest: SummaryAttempt | null;
+  opinion: OpinionAnswer | null;
+}) {
+  const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
+  const studied = read || quizScore || latest || opinion;
+  return (
+    <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
+      <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur md:h-16 md:px-5 lg:px-9">
+        <Link href={homeHref} className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
+          <ChevronLeft />
+        </Link>
+        <span className="flex-1 text-center text-[15px] font-semibold text-grey-700">학습 종료</span>
+        <span className="w-10" />
+      </header>
+
+      <div className={cn("animate-fade-up pb-36 pt-4", PAD)}>
+        <p className="rounded-2xl bg-grey-50 px-4 py-3 text-[14px] leading-relaxed text-grey-600">
+          🔒 선생님이 학습을 마친 학습지예요. 기사와 내 기록은 볼 수 있지만, 더 풀거나 고칠 수는 없어요.
+        </p>
+
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-12">
+          <article className="min-w-0">
+            <div className="mt-6">
+              <Badge tone="blue">{article.topic}</Badge>
+            </div>
+            <h1 className="mt-2.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[28px]">{article.title}</h1>
+            <div className="mt-5">
+              <ArticleBody article={article} onWord={setActiveWord} />
+            </div>
+            <Sources sources={article.sources} />
+          </article>
+
+          <aside className="mt-10 min-w-0 lg:mt-6">
+            <div className="space-y-4 lg:sticky lg:top-[88px]">
+              <p className="text-[15px] font-bold text-grey-800">내 기록</p>
+              {!studied ? (
+                <p className="rounded-2xl bg-grey-50 px-4 py-6 text-center text-[14px] text-grey-500">
+                  이 기사는 학습하지 않았어요.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge tone={read ? "blue" : "grey"}>읽기 {read ? "완료" : "안 함"}</Badge>
+                    <Badge tone={quizScore ? "blue" : "grey"}>
+                      {quizScore ? `퀴즈 ${quizScore.correct}/${quizScore.total}` : "퀴즈 안 함"}
+                    </Badge>
+                    <Badge tone={latest ? "blue" : "grey"}>{latest ? `요약 ${latest.feedback.score}점` : "요약 안 함"}</Badge>
+                  </div>
+                  {latest && (
+                    <>
+                      <div>
+                        <p className="text-[13px] font-semibold text-grey-500">내가 쓴 요약</p>
+                        <p className="mt-1.5 whitespace-pre-wrap rounded-2xl bg-grey-50 p-4 text-[15px] leading-relaxed text-grey-700">
+                          {latest.text}
+                        </p>
+                      </div>
+                      <FeedbackCard icon="👍" title="잘한 점" text={latest.feedback.strengths} />
+                      <FeedbackCard icon="💡" title="한 줄 조언" text={latest.feedback.advice} />
+                    </>
+                  )}
+                  {opinion && article.stances[opinion.stance] !== undefined && (
+                    <div>
+                      <p className="text-[13px] font-semibold text-grey-500">내 생각</p>
+                      <div className="mt-1.5">
+                        <OpinionCard stance={article.stances[opinion.stance]} text={opinion.text} mine hidden={opinion.hidden} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <Modal open={Boolean(activeWord)} onClose={() => setActiveWord(null)} title={activeWord?.word}>
+        <p className="text-[17px] leading-relaxed text-grey-700">{activeWord?.meaning}</p>
+        <Button size="lg" variant="grey" className="mt-6 w-full" onClick={() => setActiveWord(null)}>
+          확인
+        </Button>
+      </Modal>
+
+      <BottomBar className={BAR}>
+        <LinkButton href={homeHref} size="lg" variant="grey" className="w-full md:ml-auto md:flex md:max-w-md">
+          목록으로
+        </LinkButton>
+      </BottomBar>
+    </div>
   );
 }
