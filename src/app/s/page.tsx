@@ -6,6 +6,7 @@ import { MyReport } from "@/components/student/MyReport";
 import { StarBanner } from "@/components/student/StarBanner";
 import { Badge, CheckIcon, ChevronRight, EmptyState, ProgressBar } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { hasShop } from "@/lib/env";
 import { studentLibrary } from "@/lib/library";
 import { buildStudentReport } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
@@ -65,7 +66,7 @@ export default async function StudentHome() {
       </div>
 
       <div className="px-5 md:px-0">
-        <StarBanner total={library.total} byField={library.byField} ready={library.ready} />
+        <StarBanner total={library.total} byField={library.byField} ready={library.ready} shop={hasShop()} />
       </div>
 
       {!current ? (

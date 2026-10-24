@@ -5,6 +5,8 @@ import type {
   ClassRoom,
   GradeLevel,
   LibraryArticle,
+  ShopItem,
+  ShopPurchase,
   StudentRecord,
   Submission,
   TeacherRecord,
@@ -92,6 +94,29 @@ const toLibrarySubmission = (r: any): Submission => ({
   worksheetId: LIBRARY_WORKSHEET_ID,
   quizBest: r.quiz_best ?? null,
   opinion: null,
+});
+
+const toShopItem = (r: any): ShopItem => ({
+  id: r.id,
+  classId: r.class_id,
+  emoji: r.emoji,
+  name: r.name,
+  description: r.description ?? "",
+  price: r.price,
+  stock: r.stock,
+  perStudentLimit: r.per_student_limit,
+  createdAt: r.created_at,
+});
+
+const toShopPurchase = (r: any): ShopPurchase => ({
+  id: r.id,
+  classId: r.class_id,
+  studentId: r.student_id,
+  itemId: r.item_id,
+  itemName: r.item_name,
+  itemEmoji: r.item_emoji,
+  price: r.price,
+  createdAt: r.created_at,
 });
 
 /** quiz_best 열까지 이름으로 고르므로, 이 열이 없는 DB면 오류가 나서 관심 분야 학습이 '준비 중'으로 보인다 */
@@ -373,6 +398,67 @@ export function createSupabaseRepo(): Repo {
       if (studentIds.length === 0) return [];
       const rows = check(await sb.from("library_submissions").select(LIBRARY_SUBMISSION_COLUMNS).in("student_id", studentIds));
       return (rows ?? []).map(toLibrarySubmission);
+    },
+
+    async listShopItems(classId) {
+      const rows = check(await sb.from("shop_items").select().eq("class_id", classId).order("created_at"));
+      return (rows ?? []).map(toShopItem);
+    },
+    async getShopItem(id) {
+      const row = check(await sb.from("shop_items").select().eq("id", id).maybeSingle());
+      return row ? toShopItem(row) : null;
+    },
+    async saveShopItem(item) {
+      check(
+        await sb.from("shop_items").upsert(
+          {
+            id: item.id,
+            class_id: item.classId,
+            emoji: item.emoji,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            stock: item.stock,
+            per_student_limit: item.perStudentLimit,
+            created_at: item.createdAt,
+          },
+          { onConflict: "id" },
+        ),
+      );
+    },
+    async deleteShopItem(id) {
+      check(await sb.from("shop_items").delete().eq("id", id));
+    },
+    async takeShopStock(id, expected) {
+      if (expected <= 0) return false;
+      // 남은 수량이 그대로일 때만 줄여서, 두 학생이 마지막 하나를 동시에 가져가지 못하게 한다
+      const rows = check(
+        await sb.from("shop_items").update({ stock: expected - 1 }).eq("id", id).eq("stock", expected).select("id"),
+      );
+      return (rows ?? []).length > 0;
+    },
+    async listShopPurchases(classId) {
+      const rows = check(
+        await sb.from("shop_purchases").select().eq("class_id", classId).order("created_at", { ascending: false }),
+      );
+      return (rows ?? []).map(toShopPurchase);
+    },
+    async createShopPurchase(p) {
+      check(
+        await sb.from("shop_purchases").insert({
+          id: p.id,
+          class_id: p.classId,
+          student_id: p.studentId,
+          item_id: p.itemId,
+          item_name: p.itemName,
+          item_emoji: p.itemEmoji,
+          price: p.price,
+          created_at: p.createdAt,
+        }),
+      );
+    },
+    async deleteShopPurchase(id) {
+      check(await sb.from("shop_purchases").delete().eq("id", id));
     },
 
     async getSubmission(worksheetId, articleId, studentId) {

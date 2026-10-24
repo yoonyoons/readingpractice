@@ -6,15 +6,16 @@ import { ClassInsights } from "@/components/teacher/ClassInsights";
 import { ClassCode, DeleteClassButton } from "@/components/teacher/ClassTools";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetCreatePanel } from "@/components/teacher/WorksheetCreatePanel";
-import { Badge, Card, ChevronLeft, ChevronRight } from "@/components/ui";
+import { Badge, Card, ChevronLeft, ChevronRight, LinkButton } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { listLibraryArticles, totalStars } from "@/lib/library";
 import { isDemoTeacher } from "@/lib/demo-account";
-import { isDemoGeneration } from "@/lib/env";
+import { hasShop, isDemoGeneration } from "@/lib/env";
 import { GRADES } from "@/lib/grades";
 import { buildClassReport, TREND_WEEKS } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
+import { loadShop, walletOf } from "@/lib/shop";
 import { formatDate, isArticleDone, recentWeekKeys, seoulDate } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
 
@@ -35,7 +36,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
     db.listWorksheets(classId),
     getWeeklySet(classRoom.gradeLevel),
   ]);
-  const [submissionLists, report, libraryArticles, librarySubs] = await Promise.all([
+  const [submissionLists, report, libraryArticles, librarySubs, shop] = await Promise.all([
     Promise.all(worksheets.map((w) => db.listSubmissionsByWorksheet(w.id))),
     loadClassReport(classId),
     listLibraryArticles(),
@@ -43,6 +44,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
       console.error("관심 분야 학습 기록을 불러오지 못했어요", e);
       return [];
     }),
+    loadShop(classId),
   ]);
   const stars = totalStars(libraryArticles, librarySubs);
   // 결과 분석표와 성적 추이가 같은 기간을 보도록 이번 주를 포함한 최근 4주의 월요일부터 센다
@@ -118,6 +120,7 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
           hasPin: Boolean(s.pinHash),
           lastLoginAt: s.lastLoginAt ?? null,
           stars: stars.get(s.id) ?? 0,
+          balance: walletOf(stars.get(s.id) ?? 0, shop.purchases.filter((p) => p.studentId === s.id)).balance,
         }))}
         stats={recentStats}
         weeks={weeks}
@@ -157,6 +160,25 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
             </>
           )}
         </Card>
+
+        {hasShop() && (
+          <Card className="flex flex-wrap items-center gap-4">
+            <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff8e1] text-[24px]">
+              🛍️
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[18px] font-bold">별 상점</h2>
+              <p className="mt-0.5 text-[13px] text-grey-500">
+                {shop.ready
+                  ? `상품 ${shop.items.length}개 · 교환 ${shop.purchases.length}건 · 학생들이 모은 별로 상품을 바꿔요`
+                  : "운영 DB 준비가 필요해요"}
+              </p>
+            </div>
+            <LinkButton href={`/teacher/classes/${classRoom.id}/shop`} variant="secondary" size="md">
+              상점 관리
+            </LinkButton>
+          </Card>
+        )}
       </ClassInsights>
     </TeacherShell>
   );

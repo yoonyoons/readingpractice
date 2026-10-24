@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { getDb } from "./db";
 import { ensureDemoClassData } from "./demo-class";
-import type { Teacher } from "./types";
+import type { ClassRoom, ShopItem, Teacher } from "./types";
 import { makeClassCode, newId, nowIso } from "./utils";
 
 /**
@@ -12,6 +12,28 @@ import { makeClassCode, newId, nowIso } from "./utils";
  */
 export const DEMO_TEACHER_EMAIL = "beta-demo@readingpractice.local";
 export const DEMO_CLASS_NAME = "체험용 반";
+
+/** 체험용 반 별 상점의 예시 상품 (사탕·과자·학용품) */
+const DEMO_SHOP_ITEMS: Pick<ShopItem, "emoji" | "name" | "description" | "price" | "stock" | "perStudentLimit">[] = [
+  { emoji: "🍬", name: "사탕 1개", description: "쉬는 시간에 선생님께 받아 가요", price: 3, stock: 30, perStudentLimit: null },
+  { emoji: "🍭", name: "막대 사탕", description: "", price: 5, stock: 20, perStudentLimit: 2 },
+  { emoji: "🍫", name: "초콜릿 1개", description: "", price: 6, stock: 15, perStudentLimit: 2 },
+  { emoji: "🍪", name: "과자 한 봉지", description: "금요일에 나눠 줘요", price: 8, stock: 10, perStudentLimit: 1 },
+  { emoji: "✏️", name: "연필 1자루", description: "", price: 4, stock: null, perStudentLimit: null },
+  { emoji: "🧽", name: "지우개", description: "", price: 4, stock: 20, perStudentLimit: null },
+  { emoji: "🖍️", name: "형광펜", description: "", price: 6, stock: 10, perStudentLimit: 1 },
+  { emoji: "📒", name: "공책 1권", description: "", price: 7, stock: 10, perStudentLimit: 1 },
+];
+
+/** 체험용 반에 상품이 하나도 없으면 예시 상품을 넣는다 (체험자가 모두 지워도 다음 입장 때 다시 채운다) */
+async function ensureDemoShop(classRoom: ClassRoom) {
+  const db = getDb();
+  if ((await db.listShopItems(classRoom.id)).length > 0) return;
+  const base = Date.now();
+  for (const [i, item] of DEMO_SHOP_ITEMS.entries()) {
+    await db.saveShopItem({ id: newId(), classId: classRoom.id, ...item, createdAt: new Date(base + i).toISOString() });
+  }
+}
 
 export function isDemoTeacher(teacher: Pick<Teacher, "email">) {
   return teacher.email === DEMO_TEACHER_EMAIL;
@@ -48,5 +70,6 @@ export async function ensureDemoTeacher(): Promise<Teacher> {
   }
   // 체험자 여럿이 동시에 들어와 겹치면 실패할 수 있지만, 입장은 막지 않는다 (다음 입장 때 다시 채운다)
   await ensureDemoClassData(classRoom).catch((e) => console.error("체험용 반의 가상 학생·결과를 만들지 못했어요", e));
+  await ensureDemoShop(classRoom).catch((e) => console.error("체험용 반의 예시 상품을 만들지 못했어요", e));
   return teacher;
 }

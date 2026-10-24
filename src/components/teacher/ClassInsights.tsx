@@ -27,11 +27,13 @@ export interface RosterStudent {
   lastLoginAt: string | null;
   /** 관심 분야 학습에서 모은 별 */
   stars: number;
+  /** 별 상점에서 쓰고 남은 별 */
+  balance: number;
 }
 
 const QUIZ_COLOR = "#3182f6";
 const SUMMARY_COLOR = "#e8710a";
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_56px_40px_36px_34px] items-center gap-2";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1fr)_56px_40px_36px_40px] items-center gap-2";
 /** 학생이 많아도 카드가 길어지지 않도록 약 9명분 높이에서 목록 안쪽만 스크롤 */
 const LIST_SCROLL = "mt-1 max-h-[400px] overflow-y-auto overscroll-contain";
 
@@ -313,6 +315,11 @@ export function ClassInsights({
                             <span className={cn("text-right text-[13px] font-semibold tabular-nums", s.stars ? "text-grey-800" : "text-grey-300")}>
                               <span className="text-[#f5b301]">★</span>
                               {s.stars}
+                              {s.balance !== s.stars && (
+                                <span className="block text-[11px] font-medium text-grey-400" title="별 상점에서 쓰고 남은 별">
+                                  남음 {s.balance}
+                                </span>
+                              )}
                             </span>
                           </button>
                           {active && <StudentDetail student={s} report={r} weeks={weeks} />}
@@ -323,6 +330,7 @@ export function ClassInsights({
                   </ul>
                   <p className="mt-2 text-center text-[12px] text-grey-500">
                     빨간 숫자 = {HELP_RATE * 100}% 미만 · ★ = 관심 분야 학습에서 모은 별
+                    {students.some((x) => x.balance !== x.stars) && " (남음 = 별 상점에서 쓰고 남은 별)"}
                   </p>
                 </>
               ) : (

@@ -41,3 +41,8 @@ export function withoutAi<T>(run: () => Promise<T>): Promise<T> {
     aiOn = true;
   }
 }
+
+/** 체험판(HTML)에는 별 상점을 넣지 않는다 */
+export function hasShop() {
+  return false;
+}
