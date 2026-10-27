@@ -1,4 +1,4 @@
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryOrigin, QuizItem, QuizType } from "./types";
+import type { GradeLevel, KeywordSummary, LibraryArticle, LibraryField, LibraryOrigin, QuizItem, QuizType } from "./types";
 
 /** 관심 분야 학습 처음 기사(library-seed*.ts)를 적는 틀. 학생 기록이 퀴즈 id에 묶이므로 기사·문항 id는 바꾸지 않는다 */
 
@@ -22,6 +22,8 @@ export interface Seed {
   quiz: Quiz[];
   keyPoints: string[];
   modelSummary: string;
+  /** 초3~4 키워드 요약 자료: 문단마다 중심 문장과 글 전체 요약, [[낱말]]이 빈칸 (lib/keyword-summary.ts) */
+  keywordSummary?: KeywordSummary;
 }
 
 /** 문항 id로 정해지는 순서로 보기를 섞는다. 서버를 다시 켜도 보기 순서가 같아야 학생 기록과 맞는다 */
@@ -59,6 +61,7 @@ export function build(seed: Seed): LibraryArticle {
     quiz,
     keyPoints: seed.keyPoints,
     modelSummary: seed.modelSummary,
+    keywordSummary: seed.keywordSummary,
     // 관심 분야 학습은 혼자 읽는 학습이라 생각 나누기를 두지 않는다
     opinionQuestion: "",
     stances: [],

@@ -4,6 +4,7 @@ import { generateJson } from "./claude";
 import { DEMO_OPINIONS, DEMO_TOPICS } from "./demo-data";
 import { isDemoGeneration } from "./env";
 import { GRADES } from "./grades";
+import { fallbackKeywordSummary, generateKeywordSummary, usesKeywordSummary } from "./keyword-summary";
 import { pickTopicsFromNews, type TopicPick } from "./topics";
 import type { Article, GradeLevel, QuizItem, QuizType, SourceItem } from "./types";
 import { BLANK, clean, newId, shuffle, stripGlosses } from "./utils";
@@ -290,7 +291,12 @@ export async function buildAllArticles(
         );
         // 붙여넣은 기사로 만든 기사는 다시 만들어도 출처 종류(url)를 유지한다
         const sourceMode = article.sourceMode === "url" && built.sourceMode === "web" ? "url" : built.sourceMode;
-        result[index] = { ...article, ...built, sourceMode, status: "ready", error: undefined };
+        const ready: Article = { ...article, ...built, sourceMode, status: "ready", error: undefined, keywordSummary: undefined };
+        // 초3~4는 요약 단계에서 쓸 문단별 키워드 빈칸 자료를 함께 만들어 둔다
+        if (usesKeywordSummary(grade)) {
+          ready.keywordSummary = demo ? fallbackKeywordSummary(ready) : await generateKeywordSummary(ready, grade);
+        }
+        result[index] = ready;
       } catch (error) {
         result[index] = {
           ...article,

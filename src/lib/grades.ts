@@ -65,6 +65,11 @@ export function isGradeLevel(value: unknown): value is GradeLevel {
   return typeof value === "string" && value in GRADES;
 }
 
+/** 초3~4는 스스로 요약문을 쓰는 대신 문단별 키워드 낱말을 찾아 요약 빈칸을 채운다 (lib/keyword-summary.ts) */
+export function usesKeywordSummary(grade: GradeLevel) {
+  return grade === "elem34";
+}
+
 export const MAX_SUMMARY_ATTEMPTS = 3;
 export const MAX_SUMMARY_CHARS = 1000;
 export const MAX_OPINION_CHARS = 500;

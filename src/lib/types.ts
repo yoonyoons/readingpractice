@@ -93,6 +93,32 @@ export interface Article {
   /** 생각 나누기 질문. 비어 있으면 이 단계를 건너뛴다 */
   opinionQuestion: string;
   stances: string[];
+  /** 초3~4 키워드 요약 자료. 없으면 학생이 요약 단계에 처음 들어올 때 만든다 */
+  keywordSummary?: KeywordSummary;
+}
+
+/**
+ * 초3~4 요약하기: 문단마다 중심 문장의 키워드 낱말을 찾아 쓴 뒤, 글 전체 요약의 빈칸을 채운다.
+ * 문장 속 [[낱말]]이 빈칸이고, 정답 낱말은 본문에 쓰인 글자 그대로다.
+ */
+export interface KeywordSummary {
+  /** 문단마다 하나씩 (article.paragraphs와 개수가 같다). 빈칸이 없는 문단도 있다 */
+  paragraphs: string[];
+  /** 글 전체 요약 */
+  summary: string;
+}
+
+/** 학생 화면으로 보내는 빈칸: 정답 대신 낱말마다의 글자 수만 보낸다 (예: "지구 온난화" → [2, 3]) */
+export interface PublicBlank {
+  id: string;
+  lengths: number[];
+}
+
+export type KeywordPiece = string | PublicBlank;
+
+export interface PublicKeywordSummary {
+  paragraphs: KeywordPiece[][];
+  summary: KeywordPiece[];
 }
 
 /** 초안 → 배포 중 → 학습 종료(학생은 기록만 볼 수 있고 더 제출할 수 없다) */
@@ -170,6 +196,8 @@ export interface SummaryFeedback {
   missing: string;
   advice: string;
   demo?: boolean;
+  /** 초3~4 키워드 요약으로 낸 결과: [스스로 맞힌 빈칸 수, 빈칸 수] */
+  keyword?: { paragraphs: [number, number]; summary: [number, number]; words: string[] };
 }
 
 export interface SummaryAttempt {

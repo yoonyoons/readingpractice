@@ -17,12 +17,15 @@ import {
   Textarea,
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
-import { GRADES, MAX_OPINION_CHARS, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS } from "@/lib/grades";
+import { GRADES, MAX_OPINION_CHARS, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS, usesKeywordSummary } from "@/lib/grades";
 import type {
   GradeLevel,
+  KeywordPiece,
   OpinionAnswer,
   OpinionBoard,
   PublicArticle,
+  PublicBlank,
+  PublicKeywordSummary,
   SourceItem,
   SummaryAttempt,
   VocabItem,
@@ -195,7 +198,8 @@ export function LessonFlow({
       )}
 
       {step === "summary" && (
-        <SummaryStep
+        <SummaryStepFor
+          keyword={usesKeywordSummary(gradeLevel)}
           worksheetId={worksheetId}
           article={article}
           gradeLevel={gradeLevel}
@@ -379,12 +383,23 @@ function Sources({ sources }: { sources: SourceItem[] }) {
   );
 }
 
-function ArticleBody({ article, onWord }: { article: PublicArticle; onWord: (v: VocabItem) => void }) {
+function ArticleBody({
+  article,
+  onWord,
+  numbered = false,
+}: {
+  article: PublicArticle;
+  onWord: (v: VocabItem) => void;
+  /** 초3~4 키워드 요약: 문단 앞에 '1문단'처럼 번호를 붙이고 핵심 어휘는 칠하지 않는다 */
+  numbered?: boolean;
+}) {
   return (
     <div className="space-y-5 text-[17px] leading-[1.85] text-grey-800 md:text-[18px]">
       {article.paragraphs.map((p, i) => (
         <p key={i}>
-          <HighlightedText text={p} vocab={article.vocab} onWord={onWord} />
+          {numbered && <ParagraphTag index={i} className="mr-1.5 align-[2px]" />}
+          {/* 키워드 찾기에서는 핵심 어휘를 칠하면 답이 보이므로 그냥 글로 보여 준다 */}
+          {numbered ? p : <HighlightedText text={p} vocab={article.vocab} onWord={onWord} />}
         </p>
       ))}
     </div>
@@ -422,14 +437,22 @@ function VocabAside({ vocab, onWord }: { vocab: VocabItem[]; onWord: (v: VocabIt
 }
 
 /** 태블릿 가로 화면에서 요약·생각 쓰기 옆에 항상 보이는 기사 패널 */
-function ArticlePanel({ article, onWord }: { article: PublicArticle; onWord: (v: VocabItem) => void }) {
+function ArticlePanel({
+  article,
+  onWord,
+  numbered = false,
+}: {
+  article: PublicArticle;
+  onWord: (v: VocabItem) => void;
+  numbered?: boolean;
+}) {
   return (
     <aside className="hidden lg:block">
       <div className="sticky top-[88px] max-h-[calc(100dvh-210px)] overflow-y-auto rounded-2xl border border-grey-100 p-5">
         <p className="text-[12px] font-semibold text-grey-500">📰 기사 다시 보기</p>
         <p className="mt-1 mb-3 text-[17px] font-bold text-grey-900">{article.title}</p>
         <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
-          <ArticleBody article={article} onWord={onWord} />
+          <ArticleBody article={article} onWord={onWord} numbered={numbered} />
         </div>
       </div>
     </aside>
@@ -755,6 +778,11 @@ function QuizDone({ score, nextLabel, onNext }: { score: Score; nextLabel: strin
 
 /* ───────────── 3단계: 스스로 요약 ───────────── */
 
+/** 초3~4는 키워드 낱말 요약, 그 밖의 학년은 스스로 요약 */
+function SummaryStepFor({ keyword, ...props }: Parameters<typeof SummaryStep>[0] & { keyword: boolean }) {
+  return keyword ? <KeywordSummaryStep {...props} /> : <SummaryStep {...props} />;
+}
+
 /** 기사 글자를 길게 눌러 선택·복사하지 못하게 한다 (iOS 길게 누르기 메뉴 포함) */
 const NO_SELECT = "select-none [-webkit-touch-callout:none]";
 /** 한 번에 이만큼보다 많은 글자가 늘어나면 붙여넣기로 본다 */
@@ -912,16 +940,455 @@ function SummaryStep({
   );
 }
 
+/* ───────────── 3단계 (초3~4): 키워드 낱말로 요약 ───────────── */
+
+type BlankStatus = "idle" | "wrong" | "correct" | "revealed";
+interface BlankState {
+  value: string;
+  /** 확인을 누른 횟수 */
+  tries: number;
+  status: BlankStatus;
+  hint?: string;
+  checking?: boolean;
+}
+interface CheckResponse {
+  correct: boolean;
+  hint?: string;
+  answer?: string;
+}
+
+const EMPTY_BLANK: BlankState = { value: "", tries: 0, status: "idle" };
+const isPublicBlank = (piece: KeywordPiece): piece is PublicBlank => typeof piece !== "string";
+const solved = (b: BlankState | undefined) => b?.status === "correct" || b?.status === "revealed";
+
+function ParagraphTag({ index, done = false, className }: { index: number; done?: boolean; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-lg px-2 py-0.5 text-[12px] font-bold leading-normal",
+        done ? "bg-success-weak text-success" : "bg-warning-weak text-warning",
+        className,
+      )}
+    >
+      {index + 1} 문단{done && <CheckIcon className="size-3" />}
+    </span>
+  );
+}
+
+/** 글자 수만큼 네모 칸이 보이는 빈칸. 한글 입력(조합)이 끊기지 않도록 칸 위에 보이지 않는 입력창 하나를 겹친다 */
+function BlankBoxes({
+  blank,
+  state,
+  onChange,
+  onCheck,
+}: {
+  blank: PublicBlank;
+  state: BlankState;
+  onChange: (value: string) => void;
+  onCheck: () => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const done = solved(state);
+  const total = blank.lengths.reduce((n, l) => n + l, 0);
+  const chars = [...state.value.replace(/\s+/g, "")];
+  let cursor = 0;
+  const tone =
+    state.status === "correct"
+      ? "border-success bg-success-weak text-success"
+      : state.status === "revealed"
+        ? "border-grey-300 bg-grey-100 text-grey-600"
+        : state.status === "wrong" && !focused
+          ? "border-danger bg-danger-weak text-danger"
+          : focused
+            ? "border-primary bg-white text-grey-900"
+            : "border-grey-300 bg-white text-grey-900";
+  return (
+    <span className="mx-1 inline-flex items-center gap-1.5 align-middle">
+      <span className="relative inline-flex gap-2">
+        {blank.lengths.map((length, w) => (
+          <span key={w} className="inline-flex gap-[3px]">
+            {Array.from({ length }, () => {
+              const ch = chars[cursor++] ?? "";
+              const hinted = !ch && cursor === 1 && state.hint && !done;
+              return (
+                <span
+                  key={cursor}
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-lg border-2 text-[17px] font-bold leading-none md:size-9",
+                    tone,
+                  )}
+                >
+                  {ch || (hinted ? <span className="text-grey-300">{state.hint}</span> : "")}
+                </span>
+              );
+            })}
+          </span>
+        ))}
+        {!done && (
+          <input
+            value={state.value}
+            onChange={(e) => onChange(e.target.value.slice(0, total + blank.lengths.length + 2))}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                onCheck();
+              }
+            }}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            aria-label={`${total}글자 낱말`}
+            className="absolute inset-0 w-full cursor-text bg-transparent text-[16px] text-transparent caret-transparent outline-none"
+          />
+        )}
+      </span>
+      {!done && state.value.trim() && (
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onCheck}
+          disabled={state.checking}
+          className="rounded-lg bg-primary px-2.5 py-1 text-[13px] font-bold text-white disabled:opacity-50"
+        >
+          확인
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** 문장 조각과 빈칸을 이어 보여 준다. 빈칸을 다 푼 뒤에는 낱말을 굵게 보여 줄 수도 있다 */
+function KeywordSentence({
+  pieces,
+  blanks,
+  onChange,
+  onCheck,
+  filled = false,
+}: {
+  pieces: KeywordPiece[];
+  blanks: Record<string, BlankState>;
+  onChange?: (id: string, value: string) => void;
+  onCheck?: (id: string) => void;
+  /** 빈칸 대신 학생이 찾은 낱말을 굵게 보여 준다 */
+  filled?: boolean;
+}) {
+  return (
+    <>
+      {pieces.map((piece, i) =>
+        !isPublicBlank(piece) ? (
+          <Fragment key={i}>{piece}</Fragment>
+        ) : filled ? (
+          <b key={piece.id} className="font-bold text-grey-900">
+            {blanks[piece.id]?.value}
+          </b>
+        ) : (
+          <BlankBoxes
+            key={piece.id}
+            blank={piece}
+            state={blanks[piece.id] ?? EMPTY_BLANK}
+            onChange={(value) => onChange?.(piece.id, value)}
+            onCheck={() => onCheck?.(piece.id)}
+          />
+        ),
+      )}
+    </>
+  );
+}
+
+function BlankMessage({ state, wrongText }: { state: BlankState | undefined; wrongText: string }) {
+  if (!state) return null;
+  if (state.status === "revealed") {
+    return (
+      <p className="mt-1.5 text-[13px] font-semibold text-grey-600">
+        정답은 ‘{state.value}’예요. 기사에서 이 낱말을 찾아 확인해 보세요.
+      </p>
+    );
+  }
+  if (state.status !== "wrong") return null;
+  return (
+    <>
+      <p className="mt-1.5 text-[13px] font-semibold text-danger">{wrongText}</p>
+      {state.hint && <p className="mt-0.5 text-[13px] font-semibold text-warning">💡 힌트: 첫 글자는 ‘{state.hint}’예요</p>}
+    </>
+  );
+}
+
+function KeywordSummaryStep({
+  worksheetId,
+  article,
+  attemptsLeft,
+  onSubmitted,
+}: {
+  worksheetId: string;
+  article: PublicArticle;
+  attemptsLeft: number;
+  onSubmitted: (data: SummaryResponse) => void;
+}) {
+  const [data, setData] = useState<PublicKeywordSummary | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [phase, setPhase] = useState<"paragraphs" | "summary">("paragraphs");
+  const [blanks, setBlanks] = useState<Record<string, BlankState>>({});
+  const [showArticle, setShowArticle] = useState(false);
+  const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const [loadRound, setLoadRound] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    apiFetch<{ keywordSummary: PublicKeywordSummary }>("/api/student/keywords", {
+      body: { worksheetId, articleId: article.id },
+    })
+      .then((res) => alive && setData(res.keywordSummary))
+      .catch((e) => alive && setLoadError(errorMessage(e)));
+    return () => {
+      alive = false;
+    };
+  }, [worksheetId, article.id, loadRound]);
+  const load = () => {
+    setLoadError("");
+    setLoadRound((n) => n + 1);
+  };
+
+  const update = (id: string, patch: Partial<BlankState>) =>
+    setBlanks((prev) => ({ ...prev, [id]: { ...(prev[id] ?? EMPTY_BLANK), ...patch } }));
+
+  function change(id: string, value: string) {
+    const prev = blanks[id] ?? EMPTY_BLANK;
+    update(id, { value, status: prev.status === "wrong" ? "idle" : prev.status });
+  }
+
+  async function check(id: string) {
+    const state = blanks[id] ?? EMPTY_BLANK;
+    if (!state.value.trim() || state.checking || solved(state)) return;
+    const tries = state.tries + 1;
+    update(id, { checking: true });
+    setError("");
+    try {
+      const res = await apiFetch<CheckResponse>("/api/student/keywords", {
+        body: { worksheetId, articleId: article.id, check: { id, value: state.value, tries } },
+      });
+      if (res.correct) update(id, { tries, status: "correct", checking: false, value: state.value.trim() });
+      else if (res.answer) update(id, { tries, status: "revealed", checking: false, value: res.answer });
+      else update(id, { tries, status: "wrong", checking: false, hint: res.hint });
+    } catch (e) {
+      update(id, { checking: false });
+      setError(errorMessage(e));
+    }
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setError("");
+    try {
+      const body = Object.fromEntries(Object.entries(blanks).map(([id, b]) => [id, { value: b.value, tries: Math.max(1, b.tries) }]));
+      onSubmitted(
+        await apiFetch<SummaryResponse>("/api/student/summary", {
+          body: { worksheetId, articleId: article.id, blanks: body },
+        }),
+      );
+    } catch (e) {
+      setError(errorMessage(e));
+      setSubmitting(false);
+    }
+  }
+
+  const paragraphBlanks = (data?.paragraphs ?? []).map((pieces) => pieces.filter(isPublicBlank));
+  const doneParagraphs = paragraphBlanks.map((list) => list.every((b) => solved(blanks[b.id])));
+  const allParagraphsDone = data !== null && doneParagraphs.every(Boolean);
+  const summaryBlanks = (data?.summary ?? []).filter(isPublicBlank);
+  const leftInSummary = summaryBlanks.filter((b) => !solved(blanks[b.id])).length;
+  const current = doneParagraphs.findIndex((d) => !d);
+  const found = [...new Set(paragraphBlanks.flat().map((b) => blanks[b.id]?.value).filter(Boolean))];
+
+  return (
+    <>
+      <div
+        className={cn("animate-fade-up pb-40 pt-4 md:pt-8", PAD)}
+        onCopy={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+        }}
+      >
+        <div className="lg:grid lg:grid-cols-2 lg:gap-10">
+          <div className={NO_SELECT}>
+            <ArticlePanel article={article} onWord={setActiveWord} numbered />
+          </div>
+
+          <div className="min-w-0">
+            {phase === "paragraphs" ? (
+              <>
+                <p className="text-[14px] font-semibold text-primary">요약 1단계 · 문단별 중심 내용</p>
+                <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">
+                  문단마다 가장 중요한
+                  <br />
+                  낱말을 찾아 써 볼까요?
+                </h2>
+                {data && (
+                  <div className="mt-4 flex gap-1.5">
+                    {doneParagraphs.map((d, i) => (
+                      <span key={i} className={cn("h-1.5 flex-1 rounded-full", d ? "bg-primary" : "bg-grey-200")} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-[14px] font-semibold text-primary">요약 2단계 · 이 글의 중심 내용</p>
+                <h2 className="mt-1.5 text-[23px] font-bold leading-snug text-grey-900 md:text-[26px]">
+                  찾은 낱말로
+                  <br />글 전체를 요약해 봐요
+                </h2>
+              </>
+            )}
+
+            <div className={cn("lg:hidden", NO_SELECT)}>
+              <ArticleToggle
+                article={article}
+                open={showArticle}
+                onToggle={() => setShowArticle((v) => !v)}
+                onWord={setActiveWord}
+                numbered
+              />
+            </div>
+
+            {!data && !loadError && (
+              <div className="mt-10 flex flex-col items-center text-center">
+                <Spinner className="size-8 text-primary" />
+                <p className="mt-4 text-[15px] font-semibold text-grey-700">문단별 낱말 찾기를 준비하고 있어요</p>
+              </div>
+            )}
+            {loadError && (
+              <div className="mt-8 text-center">
+                <ErrorText>{loadError}</ErrorText>
+                <Button variant="grey" size="sm" className="mt-3" onClick={load}>
+                  다시 불러오기
+                </Button>
+              </div>
+            )}
+
+            {data && phase === "paragraphs" && (
+              <div className="mt-4 space-y-2.5">
+                {data.paragraphs.map((pieces, i) => {
+                  const list = paragraphBlanks[i];
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "rounded-2xl border p-3.5 transition",
+                        i === current ? "border-primary ring-3 ring-primary-weak" : "border-grey-100",
+                      )}
+                    >
+                      <ParagraphTag index={i} done={doneParagraphs[i]} />
+                      <p className="mt-2 text-[16px] leading-[2.3] text-grey-800 md:text-[17px]">
+                        <KeywordSentence pieces={pieces} blanks={blanks} onChange={change} onCheck={check} />
+                      </p>
+                      {list.map((b) => (
+                        <BlankMessage
+                          key={b.id}
+                          state={blanks[b.id]}
+                          wrongText={`앗, 다시 생각해 봐요. ${i + 1}문단을 한 번 더 읽어 볼까요?`}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {data && phase === "summary" && (
+              <>
+                {found.length > 0 && (
+                  <>
+                    <p className="mt-5 text-[14px] font-bold text-grey-800">내가 찾은 키워드</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {found.map((word) => (
+                        <span key={word} className="rounded-full bg-primary-weak px-3 py-1.5 text-[14px] font-bold text-primary-hover">
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <ul className="mt-3 divide-y divide-grey-100 rounded-2xl bg-grey-50 px-4 py-1.5">
+                  {data.paragraphs.map((pieces, i) => (
+                    <li key={i} className="flex gap-3 py-2 text-[14px] leading-relaxed text-grey-700">
+                      <span className="shrink-0 text-grey-400">{i + 1}문단</span>
+                      <span>
+                        <KeywordSentence pieces={pieces} blanks={blanks} filled />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="mt-6 text-[14px] font-bold text-grey-800">빈칸을 채워 요약을 완성해요</p>
+                <div className="mt-2 rounded-2xl border-2 border-primary-weak p-4">
+                  <p className="text-[16px] leading-[2.4] text-grey-800 md:text-[17px]">
+                    <KeywordSentence pieces={data.summary} blanks={blanks} onChange={change} onCheck={check} />
+                  </p>
+                  {summaryBlanks.map((b) => (
+                    <BlankMessage key={b.id} state={blanks[b.id]} wrongText="앗, 다시 생각해 봐요. 위 키워드와 기사를 다시 살펴볼까요?" />
+                  ))}
+                </div>
+                <p className="mt-2 text-right text-[13px] text-grey-500">남은 제출 기회 {attemptsLeft}번</p>
+              </>
+            )}
+
+            <div className="mt-3">
+              <ErrorText>{error}</ErrorText>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Modal open={Boolean(activeWord)} onClose={() => setActiveWord(null)} title={activeWord?.word}>
+        <p className="text-[17px] leading-relaxed text-grey-700">{activeWord?.meaning}</p>
+      </Modal>
+
+      <BottomBar className={BAR}>
+        {phase === "paragraphs" ? (
+          <Button
+            size="lg"
+            className="w-full md:ml-auto md:block md:max-w-md"
+            disabled={!allParagraphsDone}
+            onClick={() => {
+              setPhase("summary");
+              window.scrollTo({ top: 0 });
+            }}
+          >
+            {allParagraphsDone ? "전체 요약하러 가기" : `${data?.paragraphs.length ?? ""}문단 모두 찾으면 다음으로`}
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            className="w-full md:ml-auto md:block md:max-w-md"
+            disabled={leftInSummary > 0 || attemptsLeft <= 0}
+            loading={submitting}
+            onClick={submit}
+          >
+            {leftInSummary > 0 ? `빈칸 ${leftInSummary}개 남았어요` : "제출하고 결과 보기"}
+          </Button>
+        )}
+      </BottomBar>
+    </>
+  );
+}
+
 function ArticleToggle({
   article,
   open,
   onToggle,
   onWord,
+  numbered = false,
 }: {
   article: PublicArticle;
   open: boolean;
   onToggle: () => void;
   onWord: (v: VocabItem) => void;
+  numbered?: boolean;
 }) {
   return (
     <>
@@ -937,7 +1404,7 @@ function ArticleToggle({
         <div className="mt-2 max-h-80 overflow-y-auto rounded-2xl border border-grey-100 p-4">
           <p className="mb-3 text-[16px] font-bold">{article.title}</p>
           <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
-            <ArticleBody article={article} onWord={onWord} />
+            <ArticleBody article={article} onWord={onWord} numbered={numbered} />
           </div>
         </div>
       )}
@@ -998,6 +1465,27 @@ function ScoreRow({ label, value, max }: { label: string; value: number; max: nu
   );
 }
 
+/** 완성한 요약에서 빈칸 낱말을 파랗게 칠한다 */
+function MarkedWords({ text, words }: { text: string; words: string[] }) {
+  const list = [...words].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!list.length) return <>{text}</>;
+  const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${list.map(escape).join("|")})`));
+  return (
+    <>
+      {parts.map((part, i) =>
+        list.includes(part) ? (
+          <span key={i} className="rounded bg-primary-weak px-0.5 font-bold text-primary-hover">
+            {part}
+          </span>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 function FeedbackCard({ icon, title, text }: { icon: string; title: string; text: string }) {
   if (!text) return null;
   return (
@@ -1036,6 +1524,7 @@ function ResultStep({
   onRetry: () => void;
 }) {
   const { feedback } = attempt;
+  const keyword = feedback.keyword;
   return (
     <>
       <div className={cn("animate-fade-up pb-44 pt-6", PAD)}>
@@ -1052,32 +1541,48 @@ function ResultStep({
 
             {stars !== null && <StarCard stars={stars} quizRetry={quizRetry} />}
 
-            <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
-              <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
-              <ScoreRow label="텍스트 재구성" value={feedback.breakdown.ownWords} max={30} />
-              <ScoreRow label="문장 완성도" value={feedback.breakdown.sentence} max={20} />
-            </div>
+            {keyword ? (
+              <>
+                <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
+                  <ScoreRow label={`문단 키워드 (${keyword.paragraphs[0]}/${keyword.paragraphs[1]})`} value={feedback.breakdown.content} max={50} />
+                  <ScoreRow label={`전체 요약 빈칸 (${keyword.summary[0]}/${keyword.summary[1]})`} value={feedback.breakdown.ownWords} max={30} />
+                  <ScoreRow label="스스로 찾은 낱말" value={feedback.breakdown.sentence} max={20} />
+                </div>
+                <p className="mt-6 text-center text-[14px] text-grey-500">어휘 퀴즈 {quizScore.correct}/{quizScore.total}</p>
+                <p className="mt-1 text-center text-[13px] text-grey-400">
+                  빈칸을 처음이나 두 번째에 맞히면 점수가 올라가요. 힌트나 정답을 본 빈칸은 점수에 넣지 않아요.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="mt-8 space-y-4 rounded-2xl border border-grey-100 p-5">
+                  <ScoreRow label="핵심 내용" value={feedback.breakdown.content} max={50} />
+                  <ScoreRow label="텍스트 재구성" value={feedback.breakdown.ownWords} max={30} />
+                  <ScoreRow label="문장 완성도" value={feedback.breakdown.sentence} max={20} />
+                </div>
 
-            <p className="mt-6 text-center text-[14px] text-grey-500">
-              어휘 퀴즈 {quizScore.correct}/{quizScore.total}
-              {feedback.demo && " · 데모 모드에서는 간단한 규칙으로 채점해요"}
-            </p>
-            <p className="mt-1 text-center text-[13px] text-grey-400">
-              🤖 AI 선생님의 채점이라 틀릴 수도 있어요. 궁금하면 선생님께 물어보세요.
-            </p>
+                <p className="mt-6 text-center text-[14px] text-grey-500">
+                  어휘 퀴즈 {quizScore.correct}/{quizScore.total}
+                  {feedback.demo && " · 데모 모드에서는 간단한 규칙으로 채점해요"}
+                </p>
+                <p className="mt-1 text-center text-[13px] text-grey-400">
+                  🤖 AI 선생님의 채점이라 틀릴 수도 있어요. 궁금하면 선생님께 물어보세요.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="min-w-0">
             <div className="mt-4 space-y-3 lg:mt-0">
               <FeedbackCard icon="👍" title="잘한 점" text={feedback.strengths} />
-              <FeedbackCard icon="🔍" title="빠진 핵심 내용" text={feedback.missing} />
+              <FeedbackCard icon="🔍" title={keyword ? "다시 볼 낱말" : "빠진 핵심 내용"} text={feedback.missing} />
               <FeedbackCard icon="💡" title="한 줄 조언" text={feedback.advice} />
             </div>
 
             <div className="mt-8">
-              <p className="text-[15px] font-bold text-grey-800">내가 쓴 요약</p>
+              <p className="text-[15px] font-bold text-grey-800">{keyword ? "내가 완성한 요약" : "내가 쓴 요약"}</p>
               <p className="mt-2 whitespace-pre-wrap rounded-2xl bg-grey-50 p-4 text-[15px] leading-relaxed text-grey-700">
-                {attempt.text}
+                {keyword ? <MarkedWords text={attempt.text} words={keyword.words} /> : attempt.text}
               </p>
             </div>
 
@@ -1108,7 +1613,7 @@ function ResultStep({
         <div className="flex gap-2 md:ml-auto md:max-w-lg">
           {attemptsLeft > 0 && (
             <Button size="lg" variant="grey" className="flex-1" onClick={onRetry}>
-              다시 쓰기 ({attemptsLeft})
+              {keyword ? "다시 하기" : "다시 쓰기"} ({attemptsLeft})
             </Button>
           )}
           {next ? (
@@ -1433,7 +1938,7 @@ function EndedView({
                   {latest && (
                     <>
                       <div>
-                        <p className="text-[13px] font-semibold text-grey-500">내가 쓴 요약</p>
+                        <p className="text-[13px] font-semibold text-grey-500">{latest.feedback.keyword ? "내가 완성한 요약" : "내가 쓴 요약"}</p>
                         <p className="mt-1.5 whitespace-pre-wrap rounded-2xl bg-grey-50 p-4 text-[15px] leading-relaxed text-grey-700">
                           {latest.text}
                         </p>
