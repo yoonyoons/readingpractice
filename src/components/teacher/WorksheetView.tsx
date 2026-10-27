@@ -1442,10 +1442,17 @@ function StudentDetail({
               </div>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-grey-800">{s.text}</p>
               <div className="mt-3 space-y-1 border-t border-grey-200 pt-3 text-[13px] leading-relaxed text-grey-600">
-                <p>
-                  핵심 내용 {s.feedback.breakdown.content}/50 · 텍스트 재구성 {s.feedback.breakdown.ownWords}/30 · 문장 완성도{" "}
-                  {s.feedback.breakdown.sentence}/20
-                </p>
+                {s.feedback.keyword ? (
+                  <p>
+                    키워드 요약 · 문단 키워드 {s.feedback.keyword.paragraphs[0]}/{s.feedback.keyword.paragraphs[1]} · 전체 요약 빈칸{" "}
+                    {s.feedback.keyword.summary[0]}/{s.feedback.keyword.summary[1]} (처음·두 번째에 맞힌 빈칸)
+                  </p>
+                ) : (
+                  <p>
+                    핵심 내용 {s.feedback.breakdown.content}/50 · 텍스트 재구성 {s.feedback.breakdown.ownWords}/30 · 문장 완성도{" "}
+                    {s.feedback.breakdown.sentence}/20
+                  </p>
+                )}
                 <p>👍 {s.feedback.strengths}</p>
                 <p>🔍 {s.feedback.missing}</p>
                 <p>💡 {s.feedback.advice}</p>

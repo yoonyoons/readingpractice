@@ -35,6 +35,7 @@ export const ArticleSchema = z.object({
     .array(z.string().trim())
     .default([])
     .transform((stances) => stances.filter(Boolean)),
+  keywordSummary: z.object({ paragraphs: z.array(z.string()), summary: z.string() }).optional(),
 });
 
 /** 별 상점 상품 등록·수정 (수량·1인당 개수는 null이면 제한 없음) */

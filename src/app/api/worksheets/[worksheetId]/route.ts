@@ -38,7 +38,15 @@ export const PATCH = route(async (req: NextRequest, ctx: Ctx) => {
 
   const patch: Parameters<ReturnType<typeof getDb>["updateWorksheet"]>[1] = {};
   if (body.title !== undefined) patch.title = body.title;
-  if (body.articles) patch.articles = body.articles;
+  if (body.articles) {
+    // 본문을 고친 기사는 초3~4 키워드 요약 자료를 지워 학생이 요약할 때 새로 만든다
+    const before = new Map(worksheet.articles.map((a) => [a.id, a]));
+    patch.articles = body.articles.map((a) => {
+      const old = before.get(a.id);
+      const same = old && old.paragraphs.join("\n") === a.paragraphs.join("\n") && old.modelSummary === a.modelSummary;
+      return same ? { ...a, keywordSummary: a.keywordSummary ?? old.keywordSummary } : { ...a, keywordSummary: undefined };
+    });
+  }
   if (body.status === "published" && worksheet.status !== "published") {
     if (!articles.some((a) => a.status === "ready")) {
       throw new HttpError(400, "완성된 기사가 하나 이상 있어야 배포할 수 있어요.");

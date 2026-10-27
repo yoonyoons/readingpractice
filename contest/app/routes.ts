@@ -21,6 +21,7 @@ import * as reportComments from "@/app/api/classes/[classId]/report/comments/rou
 import * as classStudent from "@/app/api/classes/[classId]/students/[studentId]/route";
 import * as classWeekly from "@/app/api/classes/[classId]/weekly/route";
 import * as studentClass from "@/app/api/student/class/route";
+import * as studentKeywords from "@/app/api/student/keywords/route";
 import * as studentLogin from "@/app/api/student/login/route";
 import * as studentLogout from "@/app/api/student/logout/route";
 import * as studentOpinion from "@/app/api/student/opinion/route";
@@ -74,6 +75,7 @@ export const API: [string, RouteModule][] = [
   ["/api/classes/:classId/students/:studentId", classStudent],
   ["/api/classes/:classId/weekly", classWeekly],
   ["/api/student/class", studentClass],
+  ["/api/student/keywords", studentKeywords],
   ["/api/student/login", studentLogin],
   ["/api/student/logout", studentLogout],
   ["/api/student/opinion", studentOpinion],
