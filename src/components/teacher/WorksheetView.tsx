@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
-import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
+import { ADD_ARTICLE_LOCKED, ADD_ARTICLE_LOCKED_MESSAGE, MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import type { Article, QuizItem, QuizType, SourceItem, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
 import { WORKSHEET_STATUS_BADGE } from "./WorksheetList";
 import {
@@ -126,7 +126,7 @@ function TabTool({
   );
 }
 
-/** 기사 추가: 기사 주소(또는 본문)를 붙여넣으면 이 반 학년군에 맞춘 기사를 만들어 학습지 끝에 넣는다 */
+/** 기사 추가(베타 테스트 기간에는 잠금): 기사 주소(또는 본문)를 붙여넣으면 이 반 학년군에 맞춘 기사를 만들어 학습지 끝에 넣는다 */
 function AddArticleButton({
   gradeLabel,
   busy,
@@ -169,6 +169,27 @@ function AddArticleButton({
     setUrl("");
     setText("");
     setPaste(false);
+  }
+
+  if (ADD_ARTICLE_LOCKED) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="기사 추가(잠김)"
+          className="flex shrink-0 items-center gap-1 rounded-2xl border border-dashed border-grey-200 bg-grey-50 px-4 py-3 text-[15px] font-semibold text-grey-400 transition hover:text-grey-500"
+        >
+          🔒 ＋ 기사 추가
+        </button>
+        <Modal open={open} onClose={() => setOpen(false)} title="🔒 기사 추가">
+          <p className="text-[15px] leading-relaxed text-grey-700">{ADD_ARTICLE_LOCKED_MESSAGE}</p>
+          <div className="mt-5 flex justify-end">
+            <Button onClick={() => setOpen(false)}>확인</Button>
+          </div>
+        </Modal>
+      </>
+    );
   }
 
   return (

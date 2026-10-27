@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db";
 import { isDemoTeacher } from "@/lib/demo-account";
 import { isDemoGeneration } from "@/lib/env";
 import { buildAllArticles, emptyArticle } from "@/lib/generation";
-import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
+import { ADD_ARTICLE_LOCKED, ADD_ARTICLE_LOCKED_MESSAGE, MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import { HttpError, readJson, route } from "@/lib/http";
 import { requireTeacherWorksheet } from "@/lib/session";
 
@@ -26,6 +26,7 @@ const FULL = `학습지 하나에는 기사를 ${MAX_ARTICLES_PER_WORKSHEET}개�
 export const POST = route(async (req: NextRequest, ctx: RouteContext<"/api/worksheets/[worksheetId]/articles">) => {
   const { worksheetId } = await ctx.params;
   const { teacher, classRoom, worksheet } = await requireTeacherWorksheet(worksheetId);
+  if (ADD_ARTICLE_LOCKED) throw new HttpError(403, ADD_ARTICLE_LOCKED_MESSAGE);
   const item = await readJson(req, Body);
   if (!item.url && !item.text) throw new HttpError(400, "기사 주소(URL)를 붙여넣어 주세요.");
   if (worksheet.articles.length >= MAX_ARTICLES_PER_WORKSHEET) {
