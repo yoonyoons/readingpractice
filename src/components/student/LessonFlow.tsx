@@ -441,17 +441,30 @@ function ArticlePanel({
   article,
   onWord,
   numbered = false,
+  large = false,
 }: {
   article: PublicArticle;
   onWord: (v: VocabItem) => void;
   numbered?: boolean;
+  /** 키워드 찾기처럼 기사를 보며 풀 때: 글씨를 키우고 화면 아래 끝까지 채운다 (하단 버튼보다 위에 놓인다) */
+  large?: boolean;
 }) {
   return (
-    <aside className="hidden lg:block">
-      <div className="sticky top-[88px] max-h-[calc(100dvh-210px)] overflow-y-auto rounded-2xl border border-grey-100 p-5">
+    <aside className={cn("hidden lg:block", large && "sticky top-[88px] z-50 self-start")}>
+      <div
+        className={cn(
+          "overflow-y-auto rounded-2xl border border-grey-100 bg-white",
+          large ? "h-[calc(100dvh-108px)] p-6" : "sticky top-[88px] max-h-[calc(100dvh-210px)] p-5",
+        )}
+      >
         <p className="text-[12px] font-semibold text-grey-500">📰 기사 다시 보기</p>
-        <p className="mt-1 mb-3 text-[17px] font-bold text-grey-900">{article.title}</p>
-        <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
+        <p className={cn("mt-1 mb-3 font-bold text-grey-900", large ? "text-[21px]" : "text-[17px]")}>{article.title}</p>
+        <div
+          className={cn(
+            "[&_div]:space-y-3",
+            large ? "[&_div]:space-y-4 [&_div]:text-[18px] [&_div]:leading-[1.9]" : "[&_div]:text-[15px] [&_div]:leading-relaxed",
+          )}
+        >
           <ArticleBody article={article} onWord={onWord} numbered={numbered} />
         </div>
       </div>
@@ -785,6 +798,8 @@ function SummaryStepFor({ keyword, ...props }: Parameters<typeof SummaryStep>[0]
 
 /** 기사 글자를 길게 눌러 선택·복사하지 못하게 한다 (iOS 길게 누르기 메뉴 포함) */
 const NO_SELECT = "select-none [-webkit-touch-callout:none]";
+/** 키워드 찾기 하단 버튼: 태블릿 가로 화면에서는 오른쪽 칸(11fr:10fr 중 10fr) 너비에 맞춘다 */
+const BAR_BUTTON = "w-full md:ml-auto md:block md:max-w-md lg:max-w-[calc((100%-2rem)*10/21)]";
 /** 한 번에 이만큼보다 많은 글자가 늘어나면 붙여넣기로 본다 */
 const PASTE_LIKE_CHARS = 30;
 
@@ -945,11 +960,10 @@ function SummaryStep({
 type BlankStatus = "idle" | "wrong" | "correct" | "revealed";
 interface BlankState {
   value: string;
-  /** 확인을 누른 횟수 */
+  /** 채점한 횟수 */
   tries: number;
   status: BlankStatus;
   hint?: string;
-  checking?: boolean;
 }
 interface CheckResponse {
   correct: boolean;
@@ -980,12 +994,10 @@ function BlankBoxes({
   blank,
   state,
   onChange,
-  onCheck,
 }: {
   blank: PublicBlank;
   state: BlankState;
   onChange: (value: string) => void;
-  onCheck: () => void;
 }) {
   const [focused, setFocused] = useState(false);
   const done = solved(state);
@@ -1031,10 +1043,7 @@ function BlankBoxes({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                onCheck();
-              }
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
             }}
             autoComplete="off"
             autoCorrect="off"
@@ -1045,17 +1054,6 @@ function BlankBoxes({
           />
         )}
       </span>
-      {!done && state.value.trim() && (
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onCheck}
-          disabled={state.checking}
-          className="rounded-lg bg-primary px-2.5 py-1 text-[13px] font-bold text-white disabled:opacity-50"
-        >
-          확인
-        </button>
-      )}
     </span>
   );
 }
@@ -1065,13 +1063,11 @@ function KeywordSentence({
   pieces,
   blanks,
   onChange,
-  onCheck,
   filled = false,
 }: {
   pieces: KeywordPiece[];
   blanks: Record<string, BlankState>;
   onChange?: (id: string, value: string) => void;
-  onCheck?: (id: string) => void;
   /** 빈칸 대신 학생이 찾은 낱말을 굵게 보여 준다 */
   filled?: boolean;
 }) {
@@ -1090,7 +1086,6 @@ function KeywordSentence({
             blank={piece}
             state={blanks[piece.id] ?? EMPTY_BLANK}
             onChange={(value) => onChange?.(piece.id, value)}
-            onCheck={() => onCheck?.(piece.id)}
           />
         ),
       )}
@@ -1098,20 +1093,23 @@ function KeywordSentence({
   );
 }
 
-function BlankMessage({ state, wrongText }: { state: BlankState | undefined; wrongText: string }) {
-  if (!state) return null;
-  if (state.status === "revealed") {
-    return (
-      <p className="mt-1.5 text-[13px] font-semibold text-grey-600">
-        정답은 ‘{state.value}’예요. 기사에서 이 낱말을 찾아 확인해 보세요.
-      </p>
-    );
-  }
-  if (state.status !== "wrong") return null;
+/** 채점 뒤 틀린 빈칸이 있으면 한 번 알려 주고, 빈칸마다 첫 글자 힌트나 공개된 정답을 보여 준다 */
+function BlankMessages({ states, wrongText }: { states: (BlankState | undefined)[]; wrongText: string }) {
+  const many = states.length > 1;
   return (
     <>
-      <p className="mt-1.5 text-[13px] font-semibold text-danger">{wrongText}</p>
-      {state.hint && <p className="mt-0.5 text-[13px] font-semibold text-warning">💡 힌트: 첫 글자는 ‘{state.hint}’예요</p>}
+      {states.some((s) => s?.status === "wrong") && <p className="mt-1.5 text-[13px] font-semibold text-danger">{wrongText}</p>}
+      {states.map((state, i) =>
+        state?.status === "revealed" ? (
+          <p key={i} className="mt-1 text-[13px] font-semibold text-grey-600">
+            {many && `${i + 1}번째 빈칸: `}정답은 ‘{state.value}’예요. 기사에서 이 낱말을 찾아 확인해 보세요.
+          </p>
+        ) : state?.status === "wrong" && state.hint ? (
+          <p key={i} className="mt-0.5 text-[13px] font-semibold text-warning">
+            💡 힌트: {many && `${i + 1}번째 빈칸의 `}첫 글자는 ‘{state.hint}’예요
+          </p>
+        ) : null,
+      )}
     </>
   );
 }
@@ -1134,6 +1132,9 @@ function KeywordSummaryStep({
   const [showArticle, setShowArticle] = useState(false);
   const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [grading, setGrading] = useState(false);
+  /** 지금 단계에서 한 번이라도 채점했는지 */
+  const [graded, setGraded] = useState(false);
   const [error, setError] = useState("");
 
   const [loadRound, setLoadRound] = useState(0);
@@ -1161,22 +1162,39 @@ function KeywordSummaryStep({
     update(id, { value, status: prev.status === "wrong" ? "idle" : prev.status });
   }
 
-  async function check(id: string) {
-    const state = blanks[id] ?? EMPTY_BLANK;
-    if (!state.value.trim() || state.checking || solved(state)) return;
-    const tries = state.tries + 1;
-    update(id, { checking: true });
+  /** 아직 맞히지 못한 빈칸을 한꺼번에 채점한다. 틀린 빈칸만 남아 다시 고쳐 쓸 수 있다 */
+  async function gradeAll(list: PublicBlank[]) {
+    const checks = list
+      .filter((b) => !solved(blanks[b.id]))
+      .map((b) => {
+        const state = blanks[b.id] ?? EMPTY_BLANK;
+        return { id: b.id, value: state.value, tries: state.tries + 1 };
+      });
+    if (checks.length === 0 || checks.some((c) => !c.value.trim())) return;
+    setGrading(true);
     setError("");
     try {
-      const res = await apiFetch<CheckResponse>("/api/student/keywords", {
-        body: { worksheetId, articleId: article.id, check: { id, value: state.value, tries } },
+      const { results } = await apiFetch<{ results: Record<string, CheckResponse> }>("/api/student/keywords", {
+        body: { worksheetId, articleId: article.id, checks },
       });
-      if (res.correct) update(id, { tries, status: "correct", checking: false, value: state.value.trim() });
-      else if (res.answer) update(id, { tries, status: "revealed", checking: false, value: res.answer });
-      else update(id, { tries, status: "wrong", checking: false, hint: res.hint });
+      setBlanks((prev) => {
+        const next = { ...prev };
+        for (const { id, value, tries } of checks) {
+          const res = results[id];
+          if (!res) continue;
+          next[id] = res.correct
+            ? { value: value.trim(), tries, status: "correct" }
+            : res.answer
+              ? { value: res.answer, tries, status: "revealed" }
+              : { value, tries, status: "wrong", hint: res.hint };
+        }
+        return next;
+      });
+      setGraded(true);
     } catch (e) {
-      update(id, { checking: false });
       setError(errorMessage(e));
+    } finally {
+      setGrading(false);
     }
   }
 
@@ -1201,7 +1219,11 @@ function KeywordSummaryStep({
   const allParagraphsDone = data !== null && doneParagraphs.every(Boolean);
   const summaryBlanks = (data?.summary ?? []).filter(isPublicBlank);
   const leftInSummary = summaryBlanks.filter((b) => !solved(blanks[b.id])).length;
-  const current = doneParagraphs.findIndex((d) => !d);
+  const emptyCount = (list: PublicBlank[]) => list.filter((b) => !solved(blanks[b.id]) && !blanks[b.id]?.value.trim()).length;
+  const emptyInParagraphs = emptyCount(paragraphBlanks.flat());
+  const emptyInSummary = emptyCount(summaryBlanks);
+  const wrongParagraphs = paragraphBlanks.filter((list) => list.some((b) => blanks[b.id]?.status === "wrong")).length;
+  const filledParagraphs = paragraphBlanks.map((list) => list.every((b) => solved(blanks[b.id]) || blanks[b.id]?.value.trim()));
   const found = [...new Set(paragraphBlanks.flat().map((b) => blanks[b.id]?.value).filter(Boolean))];
 
   return (
@@ -1213,9 +1235,9 @@ function KeywordSummaryStep({
           if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
         }}
       >
-        <div className="lg:grid lg:grid-cols-2 lg:gap-10">
+        <div className="lg:grid lg:grid-cols-[11fr_10fr] lg:gap-8">
           <div className={NO_SELECT}>
-            <ArticlePanel article={article} onWord={setActiveWord} numbered />
+            <ArticlePanel article={article} onWord={setActiveWord} numbered large />
           </div>
 
           <div className="min-w-0">
@@ -1230,9 +1252,17 @@ function KeywordSummaryStep({
                 {data && (
                   <div className="mt-4 flex gap-1.5">
                     {doneParagraphs.map((d, i) => (
-                      <span key={i} className={cn("h-1.5 flex-1 rounded-full", d ? "bg-primary" : "bg-grey-200")} />
+                      <span
+                        key={i}
+                        className={cn("h-1.5 flex-1 rounded-full", d ? "bg-success" : filledParagraphs[i] ? "bg-primary" : "bg-grey-200")}
+                      />
                     ))}
                   </div>
+                )}
+                {data && graded && wrongParagraphs > 0 && (
+                  <p className="mt-3 rounded-xl bg-danger-weak px-3.5 py-2.5 text-[14px] font-semibold text-danger">
+                    {wrongParagraphs}개 문단을 다시 살펴봐요. 빨간 칸만 고쳐 쓰고 다시 채점해요.
+                  </p>
                 )}
               </>
             ) : (
@@ -1274,25 +1304,23 @@ function KeywordSummaryStep({
               <div className="mt-4 space-y-2.5">
                 {data.paragraphs.map((pieces, i) => {
                   const list = paragraphBlanks[i];
+                  const wrong = list.some((b) => blanks[b.id]?.status === "wrong");
                   return (
                     <div
                       key={i}
                       className={cn(
                         "rounded-2xl border p-3.5 transition",
-                        i === current ? "border-primary ring-3 ring-primary-weak" : "border-grey-100",
+                        wrong ? "border-danger ring-3 ring-danger-weak" : "border-grey-100",
                       )}
                     >
                       <ParagraphTag index={i} done={doneParagraphs[i]} />
                       <p className="mt-2 text-[16px] leading-[2.3] text-grey-800 md:text-[17px]">
-                        <KeywordSentence pieces={pieces} blanks={blanks} onChange={change} onCheck={check} />
+                        <KeywordSentence pieces={pieces} blanks={blanks} onChange={change} />
                       </p>
-                      {list.map((b) => (
-                        <BlankMessage
-                          key={b.id}
-                          state={blanks[b.id]}
-                          wrongText={`앗, 다시 생각해 봐요. ${i + 1}문단을 한 번 더 읽어 볼까요?`}
-                        />
-                      ))}
+                      <BlankMessages
+                        states={list.map((b) => blanks[b.id])}
+                        wrongText={`앗, 다시 생각해 봐요. ${i + 1}문단을 한 번 더 읽어 볼까요?`}
+                      />
                     </div>
                   );
                 })}
@@ -1327,11 +1355,12 @@ function KeywordSummaryStep({
                 <p className="mt-6 text-[14px] font-bold text-grey-800">빈칸을 채워 요약을 완성해요</p>
                 <div className="mt-2 rounded-2xl border-2 border-primary-weak p-4">
                   <p className="text-[16px] leading-[2.4] text-grey-800 md:text-[17px]">
-                    <KeywordSentence pieces={data.summary} blanks={blanks} onChange={change} onCheck={check} />
+                    <KeywordSentence pieces={data.summary} blanks={blanks} onChange={change} />
                   </p>
-                  {summaryBlanks.map((b) => (
-                    <BlankMessage key={b.id} state={blanks[b.id]} wrongText="앗, 다시 생각해 봐요. 위 키워드와 기사를 다시 살펴볼까요?" />
-                  ))}
+                  <BlankMessages
+                    states={summaryBlanks.map((b) => blanks[b.id])}
+                    wrongText="앗, 다시 생각해 봐요. 빨간 칸만 고쳐 쓰고 위 키워드와 기사를 다시 살펴볼까요?"
+                  />
                 </div>
                 <p className="mt-2 text-right text-[13px] text-grey-500">남은 제출 기회 {attemptsLeft}번</p>
               </>
@@ -1350,26 +1379,42 @@ function KeywordSummaryStep({
 
       <BottomBar className={BAR}>
         {phase === "paragraphs" ? (
+          allParagraphsDone ? (
+            <Button
+              size="lg"
+              className={BAR_BUTTON}
+              onClick={() => {
+                setPhase("summary");
+                setGraded(false);
+                window.scrollTo({ top: 0 });
+              }}
+            >
+              전체 요약하러 가기
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className={BAR_BUTTON}
+              disabled={!data || emptyInParagraphs > 0}
+              loading={grading}
+              onClick={() => gradeAll(paragraphBlanks.flat())}
+            >
+              {emptyInParagraphs > 0 ? `빈칸 ${emptyInParagraphs}개를 모두 채우면 채점해요` : graded ? "다시 채점하기" : "채점하기"}
+            </Button>
+          )
+        ) : leftInSummary > 0 ? (
           <Button
             size="lg"
-            className="w-full md:ml-auto md:block md:max-w-md"
-            disabled={!allParagraphsDone}
-            onClick={() => {
-              setPhase("summary");
-              window.scrollTo({ top: 0 });
-            }}
+            className={BAR_BUTTON}
+            disabled={emptyInSummary > 0}
+            loading={grading}
+            onClick={() => gradeAll(summaryBlanks)}
           >
-            {allParagraphsDone ? "전체 요약하러 가기" : `${data?.paragraphs.length ?? ""}문단 모두 찾으면 다음으로`}
+            {emptyInSummary > 0 ? `빈칸 ${emptyInSummary}개 남았어요` : graded ? "다시 채점하기" : "채점하기"}
           </Button>
         ) : (
-          <Button
-            size="lg"
-            className="w-full md:ml-auto md:block md:max-w-md"
-            disabled={leftInSummary > 0 || attemptsLeft <= 0}
-            loading={submitting}
-            onClick={submit}
-          >
-            {leftInSummary > 0 ? `빈칸 ${leftInSummary}개 남았어요` : "제출하고 결과 보기"}
+          <Button size="lg" className={BAR_BUTTON} disabled={attemptsLeft <= 0} loading={submitting} onClick={submit}>
+            제출하고 결과 보기
           </Button>
         )}
       </BottomBar>
@@ -1401,9 +1446,14 @@ function ArticleToggle({
         <span className={cn("text-grey-400 transition", open && "rotate-180")}>▾</span>
       </button>
       {open && (
-        <div className="mt-2 max-h-80 overflow-y-auto rounded-2xl border border-grey-100 p-4">
-          <p className="mb-3 text-[16px] font-bold">{article.title}</p>
-          <div className="[&_div]:space-y-3 [&_div]:text-[15px] [&_div]:leading-relaxed">
+        <div className={cn("mt-2 overflow-y-auto rounded-2xl border border-grey-100 p-4", numbered ? "max-h-[60dvh]" : "max-h-80")}>
+          <p className={cn("mb-3 font-bold", numbered ? "text-[18px]" : "text-[16px]")}>{article.title}</p>
+          <div
+            className={cn(
+              "[&_div]:space-y-3",
+              numbered ? "[&_div]:text-[17px] [&_div]:leading-[1.85]" : "[&_div]:text-[15px] [&_div]:leading-relaxed",
+            )}
+          >
             <ArticleBody article={article} onWord={onWord} numbered={numbered} />
           </div>
         </div>
