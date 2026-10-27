@@ -79,3 +79,7 @@ export const CUSTOM_ARTICLES_PER_WEEK = 2;
 
 /** 학습지 하나에 넣을 수 있는 기사 수 */
 export const MAX_ARTICLES_PER_WORKSHEET = 5;
+
+/** 베타 테스트 기간에는 학습지 편집 화면의 '기사 추가'를 잠근다. 해제하려면 false로 바꾼다 */
+export const ADD_ARTICLE_LOCKED = true;
+export const ADD_ARTICLE_LOCKED_MESSAGE = "지금은 베타 테스트 기간으로 기사 추가가 어려워요. 추후에 해제될 예정이에요.";
