@@ -350,8 +350,8 @@ const SEEDS: Seed[] = [
     id: "lib-econ-inflation",
     field: "economy",
     keyword: "물가",
-    grade: "elem56",
-    curriculum: "초5~6 사회 '우리나라의 경제 발전'",
+    grade: "middle",
+    curriculum: "중학교 사회② '우리나라 경제와 세계화'(물가 변동과 실업)",
     origin: {
       site: "미국 연방준비제도(Federal Reserve)",
       title: "What is inflation, and how does the Federal Reserve evaluate changes in the rate of inflation?",

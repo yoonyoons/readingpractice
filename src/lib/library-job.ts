@@ -4,9 +4,10 @@ import { generateJson } from "./claude";
 import { getDb } from "./db";
 import { isDemoGeneration } from "./env";
 import { buildArticle } from "./generation";
-import { GRADE_LIST, isGradeLevel } from "./grades";
+import { type CurriculumStandard, describeStandard, standardsForField } from "./curriculum-standards";
+import { GRADE_LIST } from "./grades";
 import { FIELD_ORDER, LIBRARY_FIELDS, listLibraryArticles } from "./library";
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense } from "./types";
+import type { LibraryArticle, LibraryField, LibraryLicense } from "./types";
 import { newId, nowIso, weekStartIso } from "./utils";
 
 /**
@@ -77,8 +78,7 @@ const AnalysisSchema = z.object({
   reason: z.string(),
   keyword: z.string(),
   title: z.string(),
-  gradeLevels: z.array(z.string()),
-  curriculum: z.string(),
+  standards: z.array(z.string()),
   summary: z.string(),
   facts: z.array(z.string()),
 });
@@ -86,8 +86,8 @@ const AnalysisSchema = z.object({
 const SYSTEM =
   "너는 대한민국 초등학생·중학생을 위한 교육 콘텐츠 편집자이자 저작권 검토자다. 우리나라 교육과정을 잘 알고, 사실에 충실하며, 정치적으로 중립적이다.";
 
-async function analyze(field: LibraryField, item: FeedItem, text: string) {
-  const grades = GRADE_LIST.map((g) => `${g.level}(${g.label})`).join(", ");
+async function analyze(field: LibraryField, item: FeedItem, text: string, standards: CurriculumStandard[]) {
+  const list = standards.map((s) => `${describeStandard(s)} ${s.text}`).join("\n");
   return generateJson(AnalysisSchema, {
     model: ANALYZE_MODEL,
     system: SYSTEM,
@@ -107,9 +107,12 @@ suitable을 false로 하는 경우
 - 우리나라 초3~중학교 교육과정의 어느 단원과도 이어지지 않는 글
 reason에는 판단 까닭을 한 문장으로 쓴다.
 
+[2022 개정 교육과정 성취기준 — 이 분야와 관련 있는 것]
+${list}
+
 suitable이 true이면
-- gradeLevels: 이 내용을 우리나라 교육과정(2022 개정)에서 실제로 배우는 학년군만 고른다. 고를 수 있는 값: ${grades}. 억지로 여러 학년군에 넣지 말고, 관련 단원이 있는 학년군만 넣는다(보통 1개, 많아야 2개).
-- curriculum: 관련 단원 예) "초5~6 과학 '태양계와 별'"
+- standards: 위 성취기준 목록에서 이 글의 내용을 실제로 배우는 성취기준의 코드를 1~3개 고른다. 예) ["[6과12-03]"]. 목록에 없는 코드를 지어내지 않는다. 학년군은 고른 코드의 학년군으로 정해지므로, 억지로 여러 학년군의 코드를 섞지 말고 내용이 가장 잘 맞는 학년군의 코드를 고른다(학년군은 보통 1개, 많아야 2개).
+- 목록에 이 글과 맞는 성취기준이 없으면 suitable을 false로 한다.
 - keyword: 학생이 상자에서 보고 누를 짧은 한국어 키워드(2~8자). 예) "화성", "엘니뇨", "기준금리"
 - title: 학생용 한국어 제목(25자 이내)
 - summary: 무엇에 관한 글인지 한 문장
@@ -126,6 +129,7 @@ async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<Lib
     .slice(0, MAX_CANDIDATES);
   if (items.length === 0) return { skipped: "새 원문 없음" };
 
+  const standards = standardsForField(field);
   const reasons: string[] = [];
   for (const item of items) {
     usedUrls.add(item.url);
@@ -140,10 +144,12 @@ async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<Lib
       reasons.push(`${item.title}: 본문이 짧음`);
       continue;
     }
-    const analysis = await analyze(field, item, text);
-    const gradeLevels = [...new Set(analysis.gradeLevels.filter(isGradeLevel))] as GradeLevel[];
-    if (!analysis.suitable || gradeLevels.length === 0 || analysis.facts.length < 4) {
-      reasons.push(`${item.title}: ${analysis.reason || "학습 자료로 알맞지 않음"}`);
+    const analysis = await analyze(field, item, text, standards);
+    // 목록에 없는 코드는 버리고, 학년군은 남은 성취기준의 학년군으로 정한다
+    const picked = standards.filter((s) => analysis.standards.includes(s.code));
+    const gradeLevels = GRADE_LIST.map((g) => g.level).filter((level) => picked.some((s) => s.grade === level));
+    if (!analysis.suitable || picked.length === 0 || analysis.facts.length < 4) {
+      reasons.push(`${item.title}: ${analysis.suitable && picked.length === 0 ? "목록에 있는 성취기준과 맞지 않음" : analysis.reason || "학습 자료로 알맞지 않음"}`);
       continue;
     }
     // 여러 학년군이 맞으면 가장 낮은 학년군 수준으로 써서 모두가 읽을 수 있게 한다
@@ -170,7 +176,7 @@ async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<Lib
       field,
       keyword: analysis.keyword,
       gradeLevels,
-      curriculum: analysis.curriculum,
+      curriculum: picked.map(describeStandard).join(", "),
       origin: { site: item.feed.site, title: item.title, url: item.url, license: item.feed.license },
       addedBy: "auto",
       createdAt: nowIso(),
