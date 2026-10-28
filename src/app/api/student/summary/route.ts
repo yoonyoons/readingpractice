@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getDb } from "@/lib/db";
+import { isDemoClass } from "@/lib/demo-account";
 import { gradeSummary } from "@/lib/feedback";
 import { GRADES, MAX_SUMMARY_ATTEMPTS, MAX_SUMMARY_CHARS } from "@/lib/grades";
 import { HttpError, readJson, route } from "@/lib/http";
@@ -43,7 +44,7 @@ export const POST = route(async (req) => {
     if (text.length < minChars) throw new HttpError(400, `요약을 ${minChars}자 이상 써 주세요.`);
     const blocked = checkStudentText(text);
     if (blocked) throw new HttpError(400, blocked);
-    const feedback = await gradeSummary(article, classRoom.gradeLevel, text);
+    const feedback = await gradeSummary(article, classRoom.gradeLevel, text, await isDemoClass(classRoom));
     attempt = { text, feedback, submittedAt: nowIso() };
   }
   submission.summaries.push(attempt);

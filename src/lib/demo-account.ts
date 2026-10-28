@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { getDb } from "./db";
-import { ensureDemoClassData } from "./demo-class";
-import type { ClassRoom, ShopItem, Teacher } from "./types";
+import { DEMO_STUDENT_NAMES, ensureDemoClassData } from "./demo-class";
+import type { ClassRoom, ShopItem, StudentRecord, Teacher } from "./types";
 import { makeClassCode, newId, nowIso } from "./utils";
 
 /**
@@ -39,8 +39,26 @@ export function isDemoTeacher(teacher: Pick<Teacher, "email">) {
   return teacher.email === DEMO_TEACHER_EMAIL;
 }
 
+/** 체험 계정의 반인지 (학생 체험에서는 AI 채점 대신 예시 채점을 쓴다) */
+export async function isDemoClass(classRoom: Pick<ClassRoom, "teacherId">) {
+  const teacher = await getDb().getTeacher(classRoom.teacherId);
+  return !!teacher && isDemoTeacher(teacher);
+}
+
 /** 체험 계정과 체험용 반(배포된 예시 학습지 포함)이 없으면 만들고, 계정을 돌려준다 */
 export async function ensureDemoTeacher(): Promise<Teacher> {
+  return (await ensureDemo()).teacher;
+}
+
+/** 학생 체험: 체험용 반의 가상 학생 중 한 명을 무작위로 골라 돌려준다 */
+export async function pickDemoStudent(): Promise<StudentRecord> {
+  const { classRoom } = await ensureDemo();
+  const fakes = (await getDb().listStudents(classRoom.id)).filter((s) => DEMO_STUDENT_NAMES.includes(s.name));
+  if (fakes.length === 0) throw new Error("체험용 반에 가상 학생이 없어요");
+  return fakes[Math.floor(Math.random() * fakes.length)];
+}
+
+async function ensureDemo(): Promise<{ teacher: Teacher; classRoom: ClassRoom }> {
   const db = getDb();
   let teacher: Teacher | null = await db.getTeacherByEmail(DEMO_TEACHER_EMAIL);
   if (!teacher) {
@@ -71,5 +89,5 @@ export async function ensureDemoTeacher(): Promise<Teacher> {
   // 체험자 여럿이 동시에 들어와 겹치면 실패할 수 있지만, 입장은 막지 않는다 (다음 입장 때 다시 채운다)
   await ensureDemoClassData(classRoom).catch((e) => console.error("체험용 반의 가상 학생·결과를 만들지 못했어요", e));
   await ensureDemoShop(classRoom).catch((e) => console.error("체험용 반의 예시 상품을 만들지 못했어요", e));
-  return teacher;
+  return { teacher, classRoom };
 }
