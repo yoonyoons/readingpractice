@@ -51,7 +51,7 @@ export default async function StudentHome() {
 
   return (
     // 휴대폰: 세로 한 단, 태블릿 이상: 넓은 컨테이너에 카드형 배치
-    <main className="mx-auto min-h-dvh w-full max-w-md bg-grey-50 pb-12 md:max-w-3xl md:px-6 lg:max-w-5xl lg:px-8">
+    <main className="mx-auto min-h-dvh w-full max-w-md bg-grey-50 pb-12 md:max-w-3xl md:px-6 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:px-8">
       <div className="bg-white md:mt-6 md:rounded-3xl">
         <header className="flex h-14 items-center justify-between px-5 md:px-8">
           <span className="text-[15px] font-semibold text-grey-700">{classRoom.name}</span>

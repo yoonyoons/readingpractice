@@ -36,7 +36,7 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
   const openCount = list.filter((a) => unlocked.has(a.id)).length;
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-md bg-grey-50 pb-12 md:max-w-3xl md:px-6 lg:max-w-5xl lg:px-8">
+    <main className="mx-auto min-h-dvh w-full max-w-md bg-grey-50 pb-12 md:max-w-3xl md:px-6 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:px-8">
       <div className="bg-white md:mt-6 md:rounded-3xl">
         <header className="flex h-14 items-center px-3 md:px-6">
           <Link href="/s" className="inline-flex items-center gap-1 rounded-full p-2 text-[15px] font-medium text-grey-600 hover:bg-grey-100">

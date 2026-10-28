@@ -91,7 +91,7 @@ p{font-size:18px;color:#4e5968;line-height:1.6}</style></head><body>
         >
           <p className="text-[24px] font-bold md:text-[32px]">카메라로 QR을 찍어 입장해요</p>
           <div
-            className="aspect-square w-[min(70vh,80vw)] [&_svg]:size-full"
+            className="aspect-square w-[min(var(--dvh)*70,var(--dvw)*80)] [&_svg]:size-full"
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
           <p className="font-mono text-[40px] font-bold tracking-[0.2em] md:text-[56px]">{code}</p>

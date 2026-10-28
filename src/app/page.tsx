@@ -17,7 +17,7 @@ export default async function Home() {
   await connection();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white px-5 pb-8 pt-12 md:max-w-3xl md:px-10 lg:max-w-5xl lg:justify-center lg:px-12 lg:py-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-white bleed-white px-5 pb-8 pt-12 md:max-w-3xl md:px-10 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:justify-center lg:px-12 lg:py-16">
       <ModeNotice className="mb-8" />
 
       {/* 휴대폰: 세로로 쌓고 입장 버튼을 아래에, 태블릿 가로: 왼쪽 소개·오른쪽 입장 버튼 */}
