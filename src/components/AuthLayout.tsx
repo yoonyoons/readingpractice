@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TypewriterTitle } from "./TypewriterTitle";
 
 const COPY = {
   teacher: {
@@ -29,21 +30,17 @@ export function AuthLayout({ role = "teacher", children }: { role?: keyof typeof
   const copy = COPY[role];
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      <aside className="hidden flex-col justify-center bg-primary px-12 py-16 text-white lg:flex xl:px-20">
-        <div className="ml-auto w-full max-w-lg">
-          <p className="text-[16px] font-semibold text-white/80">시사 문해력 기르기 학습지 · {copy.eyebrow}</p>
-          <h2 className="mt-4 text-[40px] font-bold leading-[1.3] tracking-tight xl:text-[44px]">
-            {copy.title.map((line, i) => (
-              <span key={line}>
-                {i > 0 && <br />}
-                {line}
-              </span>
-            ))}
-          </h2>
-          <ul className="mt-10 space-y-3">
+      <aside className="hidden flex-col justify-center bg-primary px-12 py-16 text-white lg:flex xl:px-16">
+        <div className="mx-auto w-full max-w-3xl">
+          <p className="text-[20px] font-semibold text-white/80 xl:text-[22px]">시사 문해력 기르기 학습지 · {copy.eyebrow}</p>
+          <TypewriterTitle
+            lines={copy.title}
+            className="mt-5 text-[52px] font-bold leading-[1.3] tracking-tight xl:text-[60px]"
+          />
+          <ul className="mt-12 space-y-4">
             {copy.points.map((p) => (
-              <li key={p.text} className="flex items-center gap-4 rounded-2xl bg-white/10 px-5 py-4 text-[16px] font-medium">
-                <span className="text-2xl" aria-hidden>
+              <li key={p.text} className="flex items-center gap-4 rounded-2xl bg-white/10 px-8 py-6 text-[20px] font-semibold xl:text-[22px]">
+                <span className="text-3xl" aria-hidden>
                   {p.icon}
                 </span>
                 {p.text}
