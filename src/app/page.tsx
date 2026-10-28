@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Byline } from "@/components/Byline";
+import { ClickHere } from "@/components/ClickHere";
 import { ModeNotice } from "@/components/ModeNotice";
 import { ChevronRight } from "@/components/ui";
 import { GUIDE } from "@/lib/guide";
@@ -75,12 +76,11 @@ export default async function Home() {
             </span>
             <ChevronRight className="size-5 text-grey-400" />
           </Link>
-          <p className="pt-2 text-center text-[14px]">
-            <Link href="/teacher/beta" className="font-semibold text-primary underline-offset-2 hover:underline">
-              가입 없이 체험하기 (선생님·학생)
-            </Link>
-          </p>
-          <p className="text-center text-[13px] text-grey-400">
+          <div className="pt-2 text-center">
+            <ClickHere href="/teacher/beta">가입 없이 체험하기</ClickHere>
+            <p className="text-[16px] text-grey-600">선생님·학생 화면 모두 바로 써 볼 수 있어요</p>
+          </div>
+          <p className="pt-2 text-center text-[16px] text-grey-500">
             처음이라면 사용 안내서를 먼저 보세요 ·{" "}
             <a href={GUIDE.pdf} download={GUIDE.pdfName} className="underline underline-offset-2">
               PDF
@@ -90,7 +90,7 @@ export default async function Home() {
               PPTX
             </a>
           </p>
-          <p className="text-center text-[13px] leading-relaxed text-grey-400">
+          <p className="text-center text-[16px] leading-relaxed text-grey-500">
             뉴스 수집에 Brave 검색, 기사·퀴즈·채점에 AI(Claude)를 사용해요 ·{" "}
             <Link href="/policy" className="underline underline-offset-2">
               운영 정책
