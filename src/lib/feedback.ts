@@ -17,8 +17,14 @@ const FeedbackSchema = z.object({
 /** 채점에 쓰는 기사 내용 */
 type GradedArticle = Pick<Article, "title" | "paragraphs" | "keyPoints">;
 
-export async function gradeSummary(article: GradedArticle, grade: GradeLevel, text: string): Promise<SummaryFeedback> {
-  if (!hasAnthropic()) return demoFeedback(article, text);
+/** demo: 베타 체험용 반처럼 AI 비용을 들이지 않고 예시 채점으로 돌려줄 때 */
+export async function gradeSummary(
+  article: GradedArticle,
+  grade: GradeLevel,
+  text: string,
+  demo = false,
+): Promise<SummaryFeedback> {
+  if (demo || !hasAnthropic()) return demoFeedback(article, text);
 
   const g = GRADES[grade];
   const r = await generateJson(FeedbackSchema, {

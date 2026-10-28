@@ -75,7 +75,12 @@ export default async function Home() {
             </span>
             <ChevronRight className="size-5 text-grey-400" />
           </Link>
-          <p className="pt-2 text-center text-[13px] text-grey-400">
+          <p className="pt-2 text-center text-[14px]">
+            <Link href="/teacher/beta" className="font-semibold text-primary underline-offset-2 hover:underline">
+              가입 없이 체험하기 (선생님·학생)
+            </Link>
+          </p>
+          <p className="text-center text-[13px] text-grey-400">
             처음이라면 사용 안내서를 먼저 보세요 ·{" "}
             <a href={GUIDE.pdf} download={GUIDE.pdfName} className="underline underline-offset-2">
               PDF

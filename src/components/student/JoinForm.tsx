@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Byline } from "@/components/Byline";
+import { BetaEnterButton } from "@/components/teacher/BetaEnterButton";
 import { BottomBar, Button, ChevronLeft, ErrorText, Field, Input } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
 
@@ -98,7 +99,10 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
           <div className="mt-4 text-center">
             <ErrorText>{error}</ErrorText>
           </div>
-          <div className="mt-10 rounded-2xl bg-grey-50 px-4 py-3.5 text-[13px] leading-relaxed text-grey-600">
+          <div className="mt-6">
+            <BetaEnterButton as="student" variant="ghost" size="sm" label="반 코드 없이 체험해 보기 →" />
+          </div>
+          <div className="mt-4 rounded-2xl bg-grey-50 px-4 py-3.5 text-[13px] leading-relaxed text-grey-600">
             🤖 이 학습지는 <b>Brave 검색</b>으로 모은 뉴스를 <b>AI(Claude)</b>가 다시 쓴 기사와 AI 채점을 사용해요. 선생님이 내용을 확인한 뒤
             내보내요.{" "}
             <Link href="/policy" className="font-semibold text-grey-700 underline underline-offset-2">
