@@ -152,7 +152,7 @@ export function LessonFlow({
   }
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
+    <div className="mx-auto min-h-dvh w-full max-w-md bg-white bleed-white md:max-w-3xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       <LessonHeader step={step} hasOpinion={hasOpinion} homeHref={homeHref} />
       {celebrate && unlockNext && <UnlockCelebration next={unlockNext} onClose={() => setCelebrate(false)} />}
 
@@ -281,10 +281,10 @@ export function LessonFlow({
 
 /* ───────────── 공통 레이아웃 (휴대폰: 한 단, 태블릿 가로: 넓은 본문·두 단) ───────────── */
 
-/** 본문 좌우 여백. 컨테이너 너비(md:max-w-3xl, lg:max-w-5xl)에 맞춰 커진다 */
+/** 본문 좌우 여백. 컨테이너 너비(md:max-w-3xl, lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl)에 맞춰 커진다 */
 const PAD = "px-5 md:px-8 lg:px-12";
 /** 하단 고정 버튼 영역을 본문과 같은 너비·여백으로 맞춘다 */
-const BAR = "md:max-w-3xl md:px-8 lg:max-w-5xl lg:px-12";
+const BAR = "md:max-w-3xl md:px-8 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:px-12";
 
 /* ───────────── 상단 단계 표시 ───────────── */
 
@@ -454,7 +454,7 @@ function ArticlePanel({
       <div
         className={cn(
           "overflow-y-auto rounded-2xl border border-grey-100 bg-white",
-          large ? "h-[calc(100dvh-108px)] p-6" : "sticky top-[88px] max-h-[calc(100dvh-210px)] p-5",
+          large ? "h-[calc(var(--dvh)*100-108px)] p-6" : "sticky top-[88px] max-h-[calc(var(--dvh)*100-210px)] p-5",
         )}
       >
         <p className="text-[12px] font-semibold text-grey-500">📰 기사 다시 보기</p>
@@ -770,7 +770,7 @@ function QuizDone({ score, nextLabel, onNext }: { score: Score; nextLabel: strin
 
   return (
     <>
-      <div className="flex min-h-[calc(100dvh-56px)] flex-col items-center justify-center px-6 pb-32 text-center md:min-h-[calc(100dvh-64px)]">
+      <div className="flex min-h-[calc(var(--dvh)*100-56px)] flex-col items-center justify-center px-6 pb-32 text-center md:min-h-[calc(var(--dvh)*100-64px)]">
         <div className="animate-pop text-7xl md:text-8xl">{emoji}</div>
         <p className="mt-8 text-[15px] font-semibold text-grey-500">어휘 퀴즈 결과</p>
         <h2 className="animate-fade-up mt-2 text-[28px] font-bold leading-snug text-grey-900 md:text-[34px]">
@@ -1446,7 +1446,7 @@ function ArticleToggle({
         <span className={cn("text-grey-400 transition", open && "rotate-180")}>▾</span>
       </button>
       {open && (
-        <div className={cn("mt-2 overflow-y-auto rounded-2xl border border-grey-100 p-4", numbered ? "max-h-[60dvh]" : "max-h-80")}>
+        <div className={cn("mt-2 overflow-y-auto rounded-2xl border border-grey-100 p-4", numbered ? "max-h-[calc(var(--dvh)*60)]" : "max-h-80")}>
           <p className={cn("mb-3 font-bold", numbered ? "text-[18px]" : "text-[16px]")}>{article.title}</p>
           <div
             className={cn(
@@ -1943,7 +1943,7 @@ function EndedView({
   const [activeWord, setActiveWord] = useState<VocabItem | null>(null);
   const studied = read || quizScore || latest || opinion;
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-md bg-white md:max-w-3xl lg:max-w-5xl">
+    <div className="mx-auto min-h-dvh w-full max-w-md bg-white bleed-white md:max-w-3xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       <header className="sticky top-0 z-30 flex h-14 items-center bg-white/95 px-2 backdrop-blur md:h-16 md:px-5 lg:px-9">
         <Link href={homeHref} className="rounded-full p-2 text-grey-800 hover:bg-grey-100" aria-label="목록으로">
           <ChevronLeft />

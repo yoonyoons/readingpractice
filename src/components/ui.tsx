@@ -239,7 +239,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onClick={onClose}>
       <div
         className={cn(
-          "animate-fade-up max-h-[90dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl",
+          "animate-fade-up max-h-[calc(var(--dvh)*90)] w-full overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl",
           wide ? "sm:max-w-2xl" : "sm:max-w-md",
         )}
         onClick={(e) => e.stopPropagation()}

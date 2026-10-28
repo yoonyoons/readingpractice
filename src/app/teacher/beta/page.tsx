@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthLayout } from "@/components/AuthLayout";
 import { Byline } from "@/components/Byline";
 import { BetaEnterButton } from "@/components/teacher/BetaEnterButton";
 import { Card } from "@/components/ui";
@@ -19,35 +20,37 @@ const POINTS = [
 export default async function TeacherBetaPage() {
   if (await getTeacher()) redirect("/teacher");
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 md:max-w-md">
-      <Link href="/" className="text-[15px] font-semibold text-primary">
-        ← 처음으로
-      </Link>
-      <h1 className="mt-2 text-[28px] font-bold tracking-tight">베타 테스트 체험</h1>
-      <p className="mt-2 text-[15px] text-grey-600">가입하기 전에 이 사이트의 기능을 먼저 써 볼 수 있어요.</p>
-      <Card className="mt-8">
-        <ul className="space-y-2.5 text-[14px] leading-relaxed text-grey-700">
-          {POINTS.map((p) => (
-            <li key={p} className="flex gap-2">
-              <span className="text-primary">✓</span>
-              <span>{p}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-6 space-y-1">
-          <BetaEnterButton as="teacher" />
-          <BetaEnterButton as="student" variant="secondary" />
-        </div>
-      </Card>
-      <p className="mt-6 text-center text-[14px] text-grey-500">
-        실제 수업에 쓰려면{" "}
-        <Link href="/teacher/signup" className="font-semibold text-primary">
-          교육청 메일로 회원가입
+    <AuthLayout>
+      <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 md:max-w-md lg:max-w-lg">
+        <Link href="/" className="text-[15px] font-semibold text-primary">
+          ← 처음으로
         </Link>
-      </p>
-      <p className="mt-6 text-center text-[13px] text-grey-400">
-        <Byline />
-      </p>
-    </main>
+        <h1 className="mt-2 text-[28px] font-bold tracking-tight">베타 테스트 체험</h1>
+        <p className="mt-2 text-[15px] text-grey-600">가입하기 전에 이 사이트의 기능을 먼저 써 볼 수 있어요.</p>
+        <Card className="mt-8">
+          <ul className="space-y-2.5 text-[14px] leading-relaxed text-grey-700">
+            {POINTS.map((p) => (
+              <li key={p} className="flex gap-2">
+                <span className="text-primary">✓</span>
+                <span>{p}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 space-y-1">
+            <BetaEnterButton as="teacher" />
+            <BetaEnterButton as="student" variant="secondary" />
+          </div>
+        </Card>
+        <p className="mt-6 text-center text-[14px] text-grey-500">
+          실제 수업에 쓰려면{" "}
+          <Link href="/teacher/signup" className="font-semibold text-primary">
+            교육청 메일로 회원가입
+          </Link>
+        </p>
+        <p className="mt-6 text-center text-[13px] text-grey-400">
+          <Byline />
+        </p>
+      </main>
+    </AuthLayout>
   );
 }

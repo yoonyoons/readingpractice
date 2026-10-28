@@ -59,6 +59,46 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * 큰 모니터(또는 브라우저 축소 보기)에서 화면 전체를 조금씩 키워, 가운데만 작게 보이고 양옆이 비는 것을 막는다.
+ * zoom을 걸면 dvh·vw도 함께 커지므로, 화면 크기는 --dvh·--dvw(= zoom을 되돌린 1dvh·1dvw)로 쓴다.
+ */
+html {
+  --page-zoom: 1;
+  --dvh: calc(1dvh / var(--page-zoom));
+  --dvw: calc(1dvw / var(--page-zoom));
+  zoom: var(--page-zoom);
+}
+@media (min-width: 1680px) {
+  html {
+    --page-zoom: 1.1;
+  }
+}
+@media (min-width: 1900px) {
+  html {
+    --page-zoom: 1.2;
+  }
+}
+@media (min-width: 2300px) {
+  html {
+    --page-zoom: 1.35;
+  }
+}
+@media (min-width: 2800px) {
+  html {
+    --page-zoom: 1.6;
+  }
+}
+
+@utility min-h-dvh {
+  min-height: calc(var(--dvh) * 100);
+}
+
+/* 가운데 흰 본문의 배경을 화면 양끝까지 이어, 흰 기둥 + 회색 양옆으로 잘려 보이지 않게 한다 */
+@utility bleed-white {
+  box-shadow: 0 0 0 100vmax #fff;
+}
+
 body {
   background: var(--color-grey-50);
   color: var(--color-grey-900);
