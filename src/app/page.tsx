@@ -78,7 +78,6 @@ export default async function Home() {
           </Link>
           <div className="pt-2 text-center">
             <ClickHere href="/teacher/beta">가입 없이 체험하기</ClickHere>
-            <p className="text-[16px] text-grey-600">선생님·학생 화면 모두 바로 써 볼 수 있어요</p>
           </div>
           <p className="pt-2 text-center text-[16px] text-grey-500">
             처음이라면 사용 안내서를 먼저 보세요 ·{" "}
