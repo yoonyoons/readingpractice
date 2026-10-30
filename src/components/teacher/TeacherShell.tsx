@@ -7,8 +7,8 @@ import type { Teacher } from "@/lib/types";
 
 export function TeacherShell({ teacher, children }: { teacher: Teacher; children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-grey-50">
-      <header className="sticky top-0 z-40 border-b border-grey-100 bg-white/90 backdrop-blur">
+    <div className="min-h-dvh bg-grey-50 print:bg-white">
+      <header className="print:hidden sticky top-0 z-40 border-b border-grey-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl items-center justify-between px-5">
           <Link href="/teacher" className="flex items-center gap-2.5 text-[17px] font-bold text-grey-900">
             <span className="flex size-8 items-center justify-center rounded-xl bg-primary text-[15px] text-white">📰</span>
@@ -21,7 +21,7 @@ export function TeacherShell({ teacher, children }: { teacher: Teacher; children
         </div>
       </header>
       {isDemoTeacher(teacher) && (
-        <div className="bg-warning-weak">
+        <div className="bg-warning-weak print:hidden">
           <p className="mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-5 py-2.5 text-[13px] leading-relaxed text-[#8a5300]">
             <b>베타 테스트 체험 모드</b>예요. 예시 기사로 동작하고, 여기서 만든 내용은 다른 체험자에게도 보여요. 실제 수업에는{" "}
             <Link href="/teacher/signup" className="font-semibold underline underline-offset-2">
@@ -31,8 +31,8 @@ export function TeacherShell({ teacher, children }: { teacher: Teacher; children
           </p>
         </div>
       )}
-      <main className="mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-5 py-8">{children}</main>
-      <footer className="mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-5 pb-10 text-[13px] text-grey-400">
+      <main className="mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-5 py-8 print:max-w-none print:p-0">{children}</main>
+      <footer className="print:hidden mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-5 pb-10 text-[13px] text-grey-400">
         AI(Claude)가 만든 내용은 틀릴 수 있으니 배포 전에 꼭 확인해 주세요 ·{" "}
         <Link href="/policy" className="underline underline-offset-2">
           운영 정책
