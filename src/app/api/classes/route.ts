@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getDb } from "@/lib/db";
+import { isDemoTeacher } from "@/lib/demo-account";
 import { HttpError, readJson, route } from "@/lib/http";
 import { requireTeacher } from "@/lib/session";
 import { makeClassCode, newId, nowIso } from "@/lib/utils";
@@ -11,6 +12,7 @@ const Body = z.object({
 
 export const POST = route(async (req) => {
   const teacher = await requireTeacher();
+  if (isDemoTeacher(teacher)) throw new HttpError(403, "체험 계정에서는 새 반을 만들 수 없어요.");
   const body = await readJson(req, Body);
   const db = getDb();
 

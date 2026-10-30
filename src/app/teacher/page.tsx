@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -6,10 +7,11 @@ import { CreateClassButton } from "@/components/teacher/CreateClassButton";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { Badge, buttonClass, Card, ChevronRight, EmptyState } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { DEMO_CLASS_COOKIE, isDemoTeacher } from "@/lib/demo-account";
 import { GUIDE } from "@/lib/guide";
-import { GRADES } from "@/lib/grades";
+import { GRADE_LIST, GRADES } from "@/lib/grades";
 import { getTeacher } from "@/lib/session";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 /** 학교 제출용 서식 (public/forms). 학교명·담당 교사·날짜 칸은 비어 있어 학교에서 채워 쓴다. */
 const SCHOOL_FORMS = [
@@ -22,7 +24,14 @@ export default async function TeacherHome() {
   if (!teacher) redirect("/teacher/login");
 
   const db = getDb();
-  const classes = await db.listClasses(teacher.id);
+  const demo = isDemoTeacher(teacher);
+  let classes = await db.listClasses(teacher.id);
+  // 체험 계정: 학년군 순서로 보여 주고, 체험 페이지에서 고른 학년군의 반을 표시한다
+  const currentDemoClassId = demo ? (await cookies()).get(DEMO_CLASS_COOKIE)?.value : undefined;
+  if (demo) {
+    const order = GRADE_LIST.map((g) => g.level);
+    classes = classes.toSorted((a, b) => order.indexOf(a.gradeLevel) - order.indexOf(b.gradeLevel));
+  }
   const rows = await Promise.all(
     classes.map(async (c) => {
       const [students, worksheets] = await Promise.all([db.listStudents(c.id), db.listWorksheets(c.id)]);
@@ -38,7 +47,7 @@ export default async function TeacherHome() {
           <h1 className="text-[26px] font-bold tracking-tight">우리 반</h1>
           <p className="mt-1 text-[15px] text-grey-500">반을 골라 학습지를 만들고 결과를 확인하세요.</p>
         </div>
-        {rows.length > 0 && <CreateClassButton />}
+        {rows.length > 0 && !demo && <CreateClassButton />}
       </div>
 
       {rows.length === 0 ? (
@@ -47,7 +56,7 @@ export default async function TeacherHome() {
             icon="🏫"
             title="첫 반을 만들어 볼까요?"
             description="반을 만들면 학생들이 입장할 반 코드가 생겨요."
-            action={<CreateClassButton label="반 만들기" size="lg" />}
+            action={demo ? undefined : <CreateClassButton label="반 만들기" size="lg" />}
           />
         </Card>
       ) : (
@@ -56,11 +65,17 @@ export default async function TeacherHome() {
             <Link
               key={classRoom.id}
               href={`/teacher/classes/${classRoom.id}`}
-              className="group flex min-w-0 flex-col rounded-3xl bg-white p-7 transition hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] active:scale-[0.99]"
+              className={cn(
+                "group flex min-w-0 flex-col rounded-3xl bg-white p-7 transition hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] active:scale-[0.99]",
+                classRoom.id === currentDemoClassId && "ring-2 ring-primary",
+              )}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <Badge tone="blue">{GRADES[classRoom.gradeLevel].label}</Badge>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge tone="blue">{GRADES[classRoom.gradeLevel].label}</Badge>
+                    {classRoom.id === currentDemoClassId && <Badge tone="orange">지금 체험 중</Badge>}
+                  </div>
                   <p className="mt-3 text-[26px] font-bold tracking-tight text-grey-900">{classRoom.name}</p>
                 </div>
                 <ChevronRight className="size-6 text-grey-300 transition group-hover:text-grey-500" />
