@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PrintButton } from "@/components/teacher/PrintButton";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { Badge, Card, ChevronLeft, EmptyState } from "@/components/ui";
+import { getDb } from "@/lib/db";
 import { CURRICULUM_STANDARDS, describeStandard } from "@/lib/curriculum-standards";
 import { GRADES } from "@/lib/grades";
-import { LIBRARY_FIELDS, listLibraryArticles } from "@/lib/library";
+import { LIBRARY_FIELDS, listLibraryFor } from "@/lib/library";
 import { getTeacher } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
@@ -17,37 +18,45 @@ function standardsOf(curriculum: string) {
   return codes.flatMap((code) => STANDARD_BY_CODE.get(code) ?? []);
 }
 
-/** 서버가 매주 자동으로 추가한 관심 분야 기사의 전문. 브라우저 인쇄로 PDF로 저장할 수 있다 */
-export default async function LibraryArticlesPage() {
+/** 서버가 매주 자동으로 추가한 관심 분야 기사 중 이 반 학년군 기사의 전문. 브라우저 인쇄로 PDF로 저장할 수 있다 */
+export default async function ClassLibraryPage(props: PageProps<"/teacher/classes/[classId]/library">) {
+  const { classId } = await props.params;
   const teacher = await getTeacher();
   if (!teacher) redirect("/teacher/login");
 
+  const classRoom = await getDb().getClass(classId);
+  if (!classRoom || classRoom.teacherId !== teacher.id) notFound();
+
   // 목록은 오래된 것부터라 번호가 새 기사가 늘어도 바뀌지 않는다
-  const articles = (await listLibraryArticles()).filter((a) => a.addedBy === "auto");
+  const articles = (await listLibraryFor(classRoom.gradeLevel)).filter((a) => a.addedBy === "auto");
+  const gradeLabel = GRADES[classRoom.gradeLevel].label;
 
   return (
     <TeacherShell teacher={teacher}>
       <div className="print:hidden">
-        <Link href="/teacher" className="inline-flex items-center gap-1 text-[14px] font-medium text-grey-500 hover:text-grey-800">
+        <Link
+          href={`/teacher/classes/${classId}/worksheets`}
+          className="inline-flex items-center gap-1 text-[14px] font-medium text-grey-500 hover:text-grey-800"
+        >
           <ChevronLeft className="size-4" />
-          우리 반
+          학습지 관리
         </Link>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-[26px] font-bold tracking-tight">📚 관심 분야 자동 추가 기사</h1>
             <p className="mt-1 text-[14px] text-grey-500">
-              서버가 매주 분야별로 추가한 기사 {articles.length}편의 전문과 관련 성취기준이에요. 인쇄 창에서 &lsquo;PDF로 저장&rsquo;을 고르면 파일로 받을 수 있어요.
+              서버가 매주 분야별로 추가한 {gradeLabel} 기사 {articles.length}편의 전문과 관련 성취기준이에요. 인쇄 창에서 &lsquo;PDF로 저장&rsquo;을 고르면 파일로 받을 수 있어요.
             </p>
           </div>
           {articles.length > 0 && <PrintButton />}
         </div>
       </div>
 
-      <h1 className="hidden text-[20pt] font-bold print:block">관심 분야 자동 추가 기사 전문 ({articles.length}편)</h1>
+      <h1 className="hidden text-[20pt] font-bold print:block">관심 분야 자동 추가 기사 전문 · {gradeLabel} ({articles.length}편)</h1>
 
       {articles.length === 0 ? (
         <Card className="mt-6">
-          <EmptyState icon="🗂️" title="아직 자동으로 추가된 기사가 없어요" description="서버가 매주 분야별로 새 기사를 추가하면 여기에 모여요." />
+          <EmptyState icon="🗂️" title={`아직 자동으로 추가된 ${gradeLabel} 기사가 없어요`} description="서버가 매주 분야별로 새 기사를 추가하면 여기에 모여요." />
         </Card>
       ) : (
         <div className="mt-6 space-y-5 print:mt-4 print:space-y-0">

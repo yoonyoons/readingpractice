@@ -3,8 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetList } from "@/components/teacher/WorksheetList";
 import { toWorksheetRow } from "@/components/teacher/WorksheetRow";
-import { Card, ChevronLeft } from "@/components/ui";
+import { buttonClass, Card, ChevronLeft } from "@/components/ui";
 import { getDb } from "@/lib/db";
+import { listLibraryFor } from "@/lib/library";
 import { getTeacher } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,12 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
   const classRoom = await db.getClass(classId);
   if (!classRoom || classRoom.teacherId !== teacher.id) notFound();
 
-  const [students, worksheets] = await Promise.all([db.listStudents(classId), db.listWorksheets(classId)]);
+  const [students, worksheets, library] = await Promise.all([
+    db.listStudents(classId),
+    db.listWorksheets(classId),
+    listLibraryFor(classRoom.gradeLevel),
+  ]);
+  const autoCount = library.filter((a) => a.addedBy === "auto").length;
   const filter = FILTERS.find((f) => f.key === query.status)?.key ?? "all";
   const count = (key: (typeof FILTERS)[number]["key"]) =>
     key === "all" ? worksheets.length : worksheets.filter((w) => w.status === key).length;
@@ -70,6 +76,18 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
             rows={shown.map((w, i) => toWorksheetRow(w, students, submissionLists[i]))}
           />
         )}
+      </Card>
+
+      <Card className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[16px] font-bold text-grey-800">🗂️ 관심 분야 자동 추가 기사</p>
+          <p className="mt-0.5 text-[14px] text-grey-500">
+            서버가 매주 추가한 이 반 학년군 기사 {autoCount}편의 전문과 관련 성취기준을 보고, 인쇄·PDF로 저장할 수 있어요.
+          </p>
+        </div>
+        <Link href={`/teacher/classes/${classId}/library`} className={buttonClass("secondary", "sm", "shrink-0")}>
+          기사 전문 보기
+        </Link>
       </Card>
     </TeacherShell>
   );
