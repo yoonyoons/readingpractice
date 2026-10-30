@@ -107,6 +107,13 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* 인쇄·PDF 저장 때는 화면용 회색 바탕을 빼고 흰 종이로 */
+@media print {
+  body {
+    background: white;
+  }
+}
+
 /* ClickHere 버튼(가입 없이 체험하기)의 움직임 */
 @keyframes click-press {
   0%, 35%, 100% {
