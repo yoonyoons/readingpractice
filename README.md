@@ -66,10 +66,10 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
 
 ## 관심 분야 학습 (상시 학습·별 모으기)
 
-- 처음 기사 36편(4분야 × 3학년군 × 3편)은 [`src/lib/library-seed.ts`](src/lib/library-seed.ts)·[`library-seed-science.ts`](src/lib/library-seed-science.ts)·[`library-seed-society.ts`](src/lib/library-seed-society.ts)에 들어 있습니다. NASA Space Place·NOAA·미국 연방준비제도(공공 저작물), 정책브리핑(공공누리 제1유형)과 한국은행·국립민속박물관·국립한글박물관(내용 참고·재구성) 자료를 바탕으로 새로 쓴 글이며, 원문 문장·사진·로고는 쓰지 않고 출처 이름과 링크만 보여 줍니다.
+- 처음 기사 27편은 [`src/lib/library-seed.ts`](src/lib/library-seed.ts)·[`library-seed-science.ts`](src/lib/library-seed-science.ts)·[`library-seed-society.ts`](src/lib/library-seed-society.ts)에 들어 있습니다. NASA Space Place·NOAA(공공 저작물), 정책브리핑(공공누리 제1유형)과 한국은행(내용 참고·재구성) 자료를 바탕으로 새로 쓴 글이며, 원문 문장·사진·로고는 쓰지 않고 출처 이름과 링크만 보여 줍니다.
 - 분야·학년군마다 기사가 한 줄로 이어집니다(코드에 넣은 순서 → 자동 추가된 순서). 첫 기사만 열려 있고 앞 기사에서 별 3개를 모아야 다음 기사가 열리며, 잠긴 기사는 주소로 들어가도 열리지 않습니다.
 - 기사마다 우리나라 교육과정 단원(`curriculum`)과 그 내용을 배우는 학년군(`gradeLevels`)이 있어, 그 학년군 반 학생에게만 보입니다.
-- **자동 추가** ([`src/lib/library-job.ts`](src/lib/library-job.ts)): 매일 06:00 Cron이 화요일부터, 이번 주에 아직 자동 기사가 없는 분야마다 공공 기관 RSS(NASA, NOAA, 연방준비제도, 국립민속박물관 웹진, 미국 의회도서관 블로그)에서 새 글을 골라 1편씩 만듭니다. Claude Haiku가 외부 작가·사진가 저작권 표시가 있는 글이나 학습에 알맞지 않은 글을 거르고, 교육과정에 맞는 학년군을 정한 뒤 기사·퀴즈를 만듭니다. Anthropic·Brave 키가 없으면(데모 모드) 자동 추가를 하지 않습니다.
+- **자동 추가** ([`src/lib/library-job.ts`](src/lib/library-job.ts)): 매일 06:00 Cron이 화요일부터, 이번 주에 아직 자동 기사가 없는 분야마다 원문 출처 허용 목록([`src/lib/library-sources.ts`](src/lib/library-sources.ts))에 있는 곳(NASA·NOAA·USGS RSS, 정책브리핑 기상청·국가유산청 보도자료, 경제배움e+의 정부 기관 자료)에서 새 글을 골라 1편씩 만듭니다. 정책브리핑·기상청·국립생태원 글은 원문 페이지에 공공누리 제1유형 표시가 있을 때만 씁니다. 허용 목록에 없는 출처의 기사는 학생 화면에 보이지 않습니다. Claude Haiku가 외부 작가·사진가 저작권 표시가 있는 글이나 학습에 알맞지 않은 글을 거르고, 교육과정에 맞는 학년군을 정한 뒤 기사·퀴즈를 만듭니다. Anthropic·Brave 키가 없으면(데모 모드) 자동 추가를 하지 않습니다.
 - 학습 기록은 `library_submissions` 표(퀴즈를 다시 풀기 전 최고 기록 `quiz_best` 포함), 자동으로 만든 기사는 `library_articles` 표에 저장합니다. **이미 운영 중인 Supabase에는 [`supabase/schema.sql`](supabase/schema.sql)을 SQL Editor에서 한 번 더 실행**해 두 표를 만들어야 합니다.
 
 ## 공모전 체험판 (HTML 파일 하나)

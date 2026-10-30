@@ -1,6 +1,7 @@
 import { getDb } from "./db";
 import { LIBRARY_WORKSHEET_ID } from "./db/repo";
 import { LIBRARY_SEED } from "./library-seed";
+import { isApprovedOrigin } from "./library-sources";
 import { countStars, MAX_STARS } from "./stars";
 import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense, Submission } from "./types";
 import { quizResult } from "./utils";
@@ -22,7 +23,7 @@ export const LICENSE_LABEL: Record<LibraryLicense, string> = {
   reference: "내용을 참고해 새로 씀",
 };
 
-/** 코드에 넣어 둔 기사와 서버가 자동으로 만든 기사를 모두 모은다 (오래된 것부터) */
+/** 코드에 넣어 둔 기사와 서버가 자동으로 만든 기사를 모두 모은다 (오래된 것부터). 허용 목록에 없는 출처의 기사는 뺀다 */
 export async function listLibraryArticles(): Promise<LibraryArticle[]> {
   const auto = await getDb()
     .listLibraryArticles()
@@ -32,7 +33,9 @@ export async function listLibraryArticles(): Promise<LibraryArticle[]> {
       return [];
     });
   const seen = new Set(LIBRARY_SEED.map((a) => a.id));
-  return [...LIBRARY_SEED, ...auto.filter((a) => !seen.has(a.id) && a.status === "ready")];
+  return [...LIBRARY_SEED, ...auto.filter((a) => !seen.has(a.id) && a.status === "ready")].filter((a) =>
+    isApprovedOrigin(a.origin.url),
+  );
 }
 
 /** 이 학년군 학생이 읽을 수 있는 기사 */
