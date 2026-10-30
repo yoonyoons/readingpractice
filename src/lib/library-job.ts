@@ -6,6 +6,7 @@ import { isDemoGeneration } from "./env";
 import { buildArticle } from "./generation";
 import { type CurriculumStandard, describeStandard, standardsForField } from "./curriculum-standards";
 import { GRADE_LIST } from "./grades";
+import { hasKogl1Mark, sourceOf } from "./library-sources";
 import { FIELD_ORDER, LIBRARY_FIELDS, listLibraryArticles } from "./library";
 import type { LibraryArticle, LibraryField, LibraryLicense } from "./types";
 import { newId, nowIso, weekStartIso } from "./utils";
@@ -19,32 +20,72 @@ import { newId, nowIso, weekStartIso } from "./utils";
 interface Feed {
   url: string;
   site: string;
-  /** public-domain: 미국 정부 기관 공공 저작물, reference: 저작권이 있는 공공기관 자료라 내용만 참고해 새로 쓴다 */
+  /** public-domain: 미국 정부 기관 공공 저작물, kogl: 공공누리 제1유형, reference: 내용만 참고해 새로 쓴다 */
   license: LibraryLicense;
+  /** rss: RSS 피드, korea-kr: 정책브리핑 보도자료 목록 페이지(RSS가 중단됨) */
+  kind?: "rss" | "korea-kr";
+  /** 여러 기관 자료를 모은 피드에서 이 기관이 올린 글만 쓴다 (RSS author) */
+  publishers?: string[];
+  /** 원문 페이지 대신 RSS 설명과 기관 소개 글을 본문으로 쓴다 (본문이 영상·파일이라 페이지에서 글을 뽑을 수 없는 곳) */
+  textFromFeed?: boolean;
 }
 
-/** 원문 복제·재가공이 가능하거나 교육 목적 참고가 가능한 공공 기관의 RSS */
+/** 정책브리핑 보도자료 목록: 부처 코드(repCode)로 거른다 */
+const koreaKr = (repCode: string) =>
+  `https://www.korea.kr/briefing/pressReleaseList.do?repCodeType=${encodeURIComponent("정부부처")}&repCode=${repCode}`;
+
+/** 경제배움e+에서 쓸 정부 기관 (민간 언론사·연구원·협회 자료는 쓰지 않는다) */
+const ECONEDU_GOV = [
+  "재정경제부",
+  "기획재정부",
+  "국세청",
+  "관세청",
+  "공정거래위원회",
+  "금융위원회",
+  "국토교통부",
+  "고용노동부",
+  "산업통상부",
+  "중소벤처기업부",
+  "통계청",
+  "국가데이터처",
+  "대한민국 정부",
+];
+
+/** 원문 출처 허용 목록(library-sources.ts)에 있는 곳의 피드. 원문 주소도 다시 한 번 허용 목록으로 거른다 */
 const FEEDS: Record<LibraryField, Feed[]> = {
   space: [
     { url: "https://science.nasa.gov/feed/", site: "NASA Science", license: "public-domain" },
     { url: "https://www.nasa.gov/feed/", site: "NASA", license: "public-domain" },
   ],
-  earth: [{ url: "https://www.noaa.gov/rss.xml", site: "NOAA", license: "public-domain" }],
-  economy: [{ url: "https://www.federalreserve.gov/feeds/press_all.xml", site: "미국 연방준비제도(Federal Reserve)", license: "public-domain" }],
-  culture: [
-    { url: "https://webzine.nfm.go.kr/feed/", site: "국립민속박물관 웹진", license: "reference" },
-    { url: "https://blogs.loc.gov/loc/feed/", site: "미국 의회도서관(Library of Congress)", license: "public-domain" },
+  earth: [
+    { url: "https://www.noaa.gov/rss.xml", site: "NOAA", license: "public-domain" },
+    { url: "https://www.usgs.gov/news/all-news/feed", site: "USGS", license: "public-domain" },
+    { url: koreaKr("B00005"), site: "대한민국 정책브리핑(기상청 보도자료)", license: "kogl", kind: "korea-kr" },
   ],
+  economy: [
+    {
+      url: "https://www.econedu.go.kr/user/siteInfo/rssGuid/findEcon/feed",
+      site: "경제배움e+",
+      license: "reference",
+      publishers: ECONEDU_GOV,
+      textFromFeed: true,
+    },
+  ],
+  culture: [{ url: koreaKr("B00025"), site: "대한민국 정책브리핑(국가유산청 보도자료)", license: "kogl", kind: "korea-kr" }],
 };
 
 const ANALYZE_MODEL = "claude-haiku-4-5-20251001";
 const MAX_CANDIDATES = 4;
-const FEED_TIMEOUT_MS = 15000;
+const FEED_TIMEOUT_MS = 20000;
+/** 큰 피드(경제배움e+는 수천 건)에서 앞쪽 최신 글만 본다 */
+const MAX_FEED_ITEMS = 60;
 
 interface FeedItem {
   title: string;
   url: string;
   feed: Feed;
+  /** textFromFeed 피드의 RSS 설명 */
+  description?: string;
 }
 
 const decode = (text: string) =>
@@ -54,23 +95,57 @@ const decode = (text: string) =>
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
+    .replace(/&middot;/g, "·")
     .replace(/&#0?39;|&#8217;/g, "'")
     .trim();
 
-async function readFeed(feed: Feed): Promise<FeedItem[]> {
-  const res = await fetch(feed.url, {
+const stripTags = (html: string) => decode(decode(html)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+async function fetchText(url: string) {
+  const res = await fetch(url, {
     headers: { "user-agent": "Mozilla/5.0 (readingpractice education bot)" },
     signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`${feed.site} RSS ${res.status}`);
-  const xml = await res.text();
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.text();
+}
+
+async function readFeed(feed: Feed): Promise<FeedItem[]> {
+  const body = await fetchText(feed.url).catch((e) => {
+    throw new Error(`${feed.site} 목록: ${e instanceof Error ? e.message : "가져오기 실패"}`);
+  });
   const items: FeedItem[] = [];
-  for (const [, body] of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/g)) {
-    const title = decode(body.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? "");
-    const url = decode(body.match(/<link\b[^>]*>([\s\S]*?)<\/link>/)?.[1] ?? "");
-    if (title && /^https?:\/\//.test(url)) items.push({ title, url, feed });
+  if (feed.kind === "korea-kr") {
+    for (const [, id, title] of body.matchAll(/pressReleaseView\.do\?newsId=(\d+)[^"]*"[\s\S]{0,600}?<strong>([^<]+)<\/strong>/g)) {
+      const url = `https://www.korea.kr/briefing/pressReleaseView.do?newsId=${id}`;
+      if (!items.some((i) => i.url === url)) items.push({ title: decode(title), url, feed });
+    }
+  } else {
+    for (const [, item] of body.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/g)) {
+      if (items.length >= MAX_FEED_ITEMS) break;
+      const title = decode(decode(item.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? ""));
+      const url = decode(item.match(/<link\b[^>]*>([\s\S]*?)<\/link>/)?.[1] ?? "");
+      const author = decode(item.match(/<(?:author|dc:creator)\b[^>]*>([\s\S]*?)<\/(?:author|dc:creator)>/)?.[1] ?? "");
+      if (feed.publishers && !feed.publishers.includes(author)) continue;
+      const description = feed.textFromFeed ? stripTags(item.match(/<description\b[^>]*>([\s\S]*?)<\/description>/)?.[1] ?? "") : undefined;
+      if (title && /^https?:\/\//.test(url)) items.push({ title, url, feed, description });
+    }
   }
-  return items;
+  return items.slice(0, MAX_FEED_ITEMS);
+}
+
+/** 원문 글. 공공누리 제1유형 표시가 있어야 하는 곳은 페이지에서 표시를 확인한다 */
+async function readSource(item: FeedItem): Promise<string> {
+  const source = sourceOf(item.url);
+  if (!source) throw new Error("허용 목록에 없는 출처");
+  if (item.feed.license === "kogl" || source.kogl1Only) {
+    if (!hasKogl1Mark(await fetchText(item.url))) throw new Error("공공누리 제1유형 표시 없음");
+  }
+  if (item.feed.textFromFeed) {
+    // 경제배움e+ 글은 RSS 설명이 곧 기관이 쓴 소개 글이다
+    return `${item.title}\n\n${item.description ?? ""}`;
+  }
+  return (await fetchArticle(item.url)).text;
 }
 
 const AnalysisSchema = z.object({
@@ -135,12 +210,12 @@ async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<Lib
     usedUrls.add(item.url);
     let text: string;
     try {
-      text = (await fetchArticle(item.url)).text;
+      text = await readSource(item);
     } catch (error) {
       reasons.push(`${item.title}: ${error instanceof Error ? error.message : "가져오기 실패"}`);
       continue;
     }
-    if (text.length < 600) {
+    if (text.length < (item.feed.textFromFeed ? 250 : 600)) {
       reasons.push(`${item.title}: 본문이 짧음`);
       continue;
     }
