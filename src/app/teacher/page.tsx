@@ -103,11 +103,6 @@ export default async function TeacherHome() {
             PowerPoint (PPTX)
           </a>
         </DownloadRow>
-        <DownloadRow icon="📚" title="관심 분야 자동 추가 기사 전문 보기">
-          <Link href="/teacher/library" className={buttonClass("secondary", "sm")}>
-            기사 전문·성취기준
-          </Link>
-        </DownloadRow>
       </Card>
     </TeacherShell>
   );
