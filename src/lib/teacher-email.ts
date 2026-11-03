@@ -5,32 +5,58 @@ import { hasMailer, sendMail } from "./mailer";
 import { nowIso } from "./utils";
 
 /**
- * 교사 가입은 교육청 메일로만 할 수 있다.
- * TEACHER_EMAIL_DOMAINS 에 "sen.go.kr,goe.go.kr"처럼 적으면 그 도메인(과 하위 도메인)만,
- * 비어 있으면 ".go.kr"로 끝나는 모든 도메인을 허용한다.
+ * 교사 가입은 17개 시·도 교육청 메일로만 할 수 있다.
+ * 아래 목록의 도메인(과 그 하위 도메인, 예: abc.sen.go.kr)만 허용하고,
+ * TEACHER_EMAIL_DOMAINS 에 "example.go.kr"처럼 적은 도메인은 목록에 더해 허용한다.
  */
 export const CODE_TTL_MINUTES = 10;
 export const MAX_CODE_ATTEMPTS = 5;
 const RESEND_INTERVAL_MS = 60 * 1000;
 
-function configuredDomains() {
+/** 17개 시·도 교육청 메일 도메인 (괄호 안 별칭 주소 포함) */
+export const EDUCATION_OFFICE_DOMAINS = [
+  "sen.go.kr", // 서울
+  "pen.go.kr", // 부산
+  "dge.go.kr", // 대구
+  "ice.go.kr", // 인천
+  "gen.go.kr", // 광주
+  "jge.go.kr", // 광주(별칭)
+  "dje.go.kr", // 대전
+  "use.go.kr", // 울산
+  "sje.go.kr", // 세종
+  "goe.go.kr", // 경기
+  "gwe.go.kr", // 강원
+  "kwe.go.kr", // 강원(별칭)
+  "cbe.go.kr", // 충북
+  "cne.go.kr", // 충남
+  "jbe.go.kr", // 전북
+  "jne.go.kr", // 전남
+  "gbe.kr", // 경북
+  "gbe.go.kr", // 경북
+  "gne.go.kr", // 경남
+  "jje.go.kr", // 제주
+];
+
+function extraDomains() {
   return (process.env.TEACHER_EMAIL_DOMAINS ?? "")
     .split(",")
     .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
     .filter(Boolean);
 }
 
+export function allowedTeacherDomains() {
+  return [...new Set([...EDUCATION_OFFICE_DOMAINS, ...extraDomains()])];
+}
+
 export function isTeacherEmailAllowed(email: string) {
-  const domain = email.toLowerCase().split("@")[1] ?? "";
-  const list = configuredDomains();
-  if (list.length === 0) return domain.endsWith(".go.kr");
-  return list.some((d) => domain === d || domain.endsWith("." + d));
+  const domain = email.trim().toLowerCase().split("@")[1] ?? "";
+  if (!domain) return false;
+  return allowedTeacherDomains().some((d) => domain === d || domain.endsWith("." + d));
 }
 
 /** 가입 화면에 보여줄 허용 도메인 안내 문구 */
 export function teacherDomainHint() {
-  const list = configuredDomains();
-  return list.length ? list.map((d) => "@" + d).join(", ") : "교육청 메일(@…go.kr)";
+  return "17개 시·도 교육청 메일(@sen.go.kr, @goe.go.kr 등)";
 }
 
 function hashCode(email: string, code: string) {
