@@ -9,7 +9,7 @@
 
 | 구분 | 기능 |
 | --- | --- |
-| 교사 | **교육청 메일(.go.kr)로만 가입**: 메일로 받은 인증 코드 확인 후 계정 생성, 로그인, 반 만들기(초3~4 / 초5~6 / 중학생), 반 코드 발급, 학생 PIN 초기화 |
+| 교사 | **17개 시·도 교육청 메일로만 가입**: 메일로 받은 인증 코드 확인 후 계정 생성, 로그인, 반 만들기(초3~4 / 초5~6 / 중학생), 반 코드 발급, 학생 PIN 초기화 |
 | 교사 | **베타 테스트 체험**: 가입 없이 공용 체험 계정으로 모든 기능 사용(예시 기사, AI 비용 없음) |
 | 교사 | 기사·어휘·퀴즈·채점 기준·생각 나누기 질문 편집, 기사별 다시 만들기, 배포/배포 취소 |
 | 교사 | **이번 주 기사 불러오기**: 서버가 매주 학년군별로 미리 만들어 둔 기사를 AI 호출 없이 복사해 초안으로 만들기. 아직 준비되지 않았으면(Cron 실패 등) 누를 때 그 반 학년군 기사를 바로 만듦 (카드에서 이번 주 기사 제목 미리 보기, 이미 불러왔으면 표시) |
@@ -49,7 +49,7 @@ http://localhost:3000 에 접속 → **선생님으로 시작하기**에서 가�
    - Vercel에서 Supabase 연동(Marketplace)을 쓰면 자동으로 들어가는 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`도 그대로 인식합니다.
 4. **SESSION_SECRET**, **CRON_SECRET** — 각각 32자 이상 무작위 문자열 (예: `openssl rand -base64 32`)
 5. **SMTP (교사 가입 인증 메일)** — Gmail이면 [앱 비밀번호](https://myaccount.google.com/apppasswords)를 만들고 `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER=내 Gmail`, `SMTP_PASS=앱 비밀번호`. 없으면 개발 환경에서만 인증 코드가 화면·콘솔에 표시되고, 배포 환경에서는 가입이 막힙니다.
-6. (선택) **TEACHER_EMAIL_DOMAINS** — 가입을 허용할 도메인(예: `sen.go.kr,goe.go.kr`). 비우면 `.go.kr`로 끝나는 모든 메일 허용.
+6. (선택) **TEACHER_EMAIL_DOMAINS** — 17개 시·도 교육청 메일(`src/lib/teacher-email.ts`에 고정) 외에 더 허용할 도메인(예: `example.go.kr`). 쉼표로 여러 개.
 7. (선택) **TEACHER_SIGNUP_CODE** — 넣으면 메일 인증에 더해 이 코드도 입력해야 가입할 수 있습니다.
 
 ## Vercel 배포
