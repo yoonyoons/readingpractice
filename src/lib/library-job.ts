@@ -5,16 +5,16 @@ import { getDb } from "./db";
 import { isDemoGeneration } from "./env";
 import { buildArticle } from "./generation";
 import { type CurriculumStandard, describeStandard, standardsForField } from "./curriculum-standards";
-import { GRADE_LIST } from "./grades";
+import { GRADE_LIST, GRADES } from "./grades";
 import { hasKogl1Mark, sourceOf } from "./library-sources";
 import { FIELD_ORDER, LIBRARY_FIELDS, listLibraryArticles } from "./library";
-import type { LibraryArticle, LibraryField, LibraryLicense } from "./types";
+import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense } from "./types";
 import { newId, nowIso, weekStartIso } from "./utils";
 
 /**
- * 관심 분야 학습 자동 추가: 매주 분야마다 기사 1편.
- * 매일 Cron(06:00 KST)에서 부르지만, 이번 주(서울 월요일 기준)에 그 분야 자동 기사가 이미 있으면 건너뛴다.
- * 이번 주 기사 준비로 바쁜 월요일은 쉬고 화요일부터 만든다. 실패하면 다음 날 다시 시도한다.
+ * 관심 분야 학습 자동 추가: 매주 분야마다 학년군(초3~4·초5~6·중학교)별 기사 1편씩.
+ * 매일 Cron(06:00 KST)에서 부르고, 한 번에 분야마다 아직 없는 학년군 기사를 낮은 학년군부터 1편만 만든다(실행 시간 제한).
+ * 이번 주 기사 준비로 바쁜 월요일은 쉬고 화요일부터 만든다. 그 학년군에 맞는 원문이 없으면 다음 날 새 원문으로 다시 찾는다.
  */
 
 interface Feed {
@@ -161,7 +161,7 @@ const AnalysisSchema = z.object({
 const SYSTEM =
   "너는 대한민국 초등학생·중학생을 위한 교육 콘텐츠 편집자이자 저작권 검토자다. 우리나라 교육과정을 잘 알고, 사실에 충실하며, 정치적으로 중립적이다.";
 
-async function analyze(field: LibraryField, item: FeedItem, text: string, standards: CurriculumStandard[]) {
+async function analyze(field: LibraryField, grade: GradeLevel, item: FeedItem, text: string, standards: CurriculumStandard[]) {
   const list = standards.map((s) => `${describeStandard(s)} ${s.text}`).join("\n");
   return generateJson(AnalysisSchema, {
     model: ANALYZE_MODEL,
@@ -173,20 +173,21 @@ async function analyze(field: LibraryField, item: FeedItem, text: string, standa
 [원문]
 ${text}
 
-위 원문으로 학생이 상시로 읽을 '${LIBRARY_FIELDS[field].label}' 분야 읽기 자료를 만들 수 있는지 판단하라.
+위 원문으로 ${GRADES[grade].label} 학생이 상시로 읽을 '${LIBRARY_FIELDS[field].label}' 분야 읽기 자료를 만들 수 있는지 판단하라.
 
 suitable을 false로 하는 경우
 - 원문에 기관이 아닌 외부 작가·사진가·언론사의 저작권 표시가 있거나, 다른 매체 글을 옮겨 실은 글(© 표시, "Reprinted with permission", "Guest post", "Courtesy of" 등). 사이트 맨 아래의 일반적인 저작권 문구는 해당하지 않는다.
 - 인사 발령, 행사 안내, 입찰, 조직 소식, 보도 일정처럼 학생이 배울 내용이 거의 없는 글
 - 정치적 논쟁, 특정 정당·정치인 평가, 폭력·재난 피해 묘사가 중심인 글
-- 우리나라 초3~중학교 교육과정의 어느 단원과도 이어지지 않는 글
+- 아래 ${GRADES[grade].label} 성취기준 어느 것과도 내용이 실제로 이어지지 않는 글 (다른 학년군 내용을 억지로 맞추지 않는다)
+- ${GRADES[grade].label} 학생이 쉬운 말로 풀어 써도 이해하기 어려울 만큼 개념이 어려운 글
 reason에는 판단 까닭을 한 문장으로 쓴다.
 
-[2022 개정 교육과정 성취기준 — 이 분야와 관련 있는 것]
+[2022 개정 교육과정 ${GRADES[grade].label} 성취기준 — 이 분야와 관련 있는 것]
 ${list}
 
 suitable이 true이면
-- standards: 위 성취기준 목록에서 이 글의 내용을 실제로 배우는 성취기준의 코드를 1~3개 고른다. 예) ["[6과12-03]"]. 목록에 없는 코드를 지어내지 않는다. 학년군은 고른 코드의 학년군으로 정해지므로, 억지로 여러 학년군의 코드를 섞지 말고 내용이 가장 잘 맞는 학년군의 코드를 고른다(학년군은 보통 1개, 많아야 2개).
+- standards: 위 성취기준 목록에서 이 글의 내용을 실제로 배우는 성취기준의 코드를 1~3개 고른다. 예) ["[6과12-03]"]. 목록에 없는 코드를 지어내지 않는다.
 - 목록에 이 글과 맞는 성취기준이 없으면 suitable을 false로 한다.
 - keyword: 학생이 상자에서 보고 누를 짧은 한국어 키워드(2~8자). 예) "화성", "엘니뇨", "기준금리"
 - title: 학생용 한국어 제목(25자 이내)
@@ -196,43 +197,50 @@ suitable이 false이면 나머지 칸은 빈 값으로 둔다.`,
   });
 }
 
-async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<LibraryArticle | { skipped: string }> {
-  const lists = await Promise.allSettled(FEEDS[field].map(readFeed));
-  const items = lists
-    .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
-    .filter((item) => !usedUrls.has(item.url))
-    .slice(0, MAX_CANDIDATES);
-  if (items.length === 0) return { skipped: "새 원문 없음" };
+/** 원문 본문. 가져오지 못했거나 너무 짧으면 까닭(문자열)을 돌려준다 */
+async function sourceText(item: FeedItem): Promise<{ text: string } | { reason: string }> {
+  try {
+    const text = await readSource(item);
+    if (text.length < (item.feed.textFromFeed ? 250 : 600)) return { reason: "본문이 짧음" };
+    return { text };
+  } catch (error) {
+    return { reason: error instanceof Error ? error.message : "가져오기 실패" };
+  }
+}
 
-  const standards = standardsForField(field);
+/** 원문 후보 중에서 이 학년군 성취기준과 맞는 글을 찾아 그 학년군 수준으로 기사를 쓴다. 기사로 쓴 원문은 usedUrls에 넣는다 */
+async function buildFor(
+  field: LibraryField,
+  grade: GradeLevel,
+  items: FeedItem[],
+  usedUrls: Set<string>,
+  texts: Map<string, Promise<{ text: string } | { reason: string }>>,
+): Promise<LibraryArticle | { skipped: string }> {
+  const candidates = items.filter((item) => !usedUrls.has(item.url)).slice(0, MAX_CANDIDATES);
+  if (candidates.length === 0) return { skipped: "새 원문 없음" };
+
+  const standards = standardsForField(field).filter((s) => s.grade === grade);
   const reasons: string[] = [];
-  for (const item of items) {
-    usedUrls.add(item.url);
-    let text: string;
-    try {
-      text = await readSource(item);
-    } catch (error) {
-      reasons.push(`${item.title}: ${error instanceof Error ? error.message : "가져오기 실패"}`);
+  for (const item of candidates) {
+    // 같은 원문을 다른 학년군에서 다시 볼 때 페이지를 또 받지 않는다
+    if (!texts.has(item.url)) texts.set(item.url, sourceText(item));
+    const source = await texts.get(item.url)!;
+    if ("reason" in source) {
+      reasons.push(`${item.title}: ${source.reason}`);
       continue;
     }
-    if (text.length < (item.feed.textFromFeed ? 250 : 600)) {
-      reasons.push(`${item.title}: 본문이 짧음`);
-      continue;
-    }
-    const analysis = await analyze(field, item, text, standards);
-    // 목록에 없는 코드는 버리고, 학년군은 남은 성취기준의 학년군으로 정한다
+    const analysis = await analyze(field, grade, item, source.text, standards);
+    // 목록(이 학년군 성취기준)에 없는 코드는 버린다
     const picked = standards.filter((s) => analysis.standards.includes(s.code));
-    const gradeLevels = GRADE_LIST.map((g) => g.level).filter((level) => picked.some((s) => s.grade === level));
     if (!analysis.suitable || picked.length === 0 || analysis.facts.length < 4) {
       reasons.push(`${item.title}: ${analysis.suitable && picked.length === 0 ? "목록에 있는 성취기준과 맞지 않음" : analysis.reason || "학습 자료로 알맞지 않음"}`);
       continue;
     }
-    // 여러 학년군이 맞으면 가장 낮은 학년군 수준으로 써서 모두가 읽을 수 있게 한다
-    const writeFor = GRADE_LIST.find((g) => gradeLevels.includes(g.level))!.level;
+    usedUrls.add(item.url);
     const sources = [{ title: `${item.feed.site} — ${item.title}`, url: item.url, description: "", pubDate: "" }];
     const built = await buildArticle(
       { name: analysis.keyword, summary: analysis.summary, facts: analysis.facts, sources },
-      writeFor,
+      grade,
       false,
     );
     return {
@@ -250,7 +258,7 @@ async function buildFor(field: LibraryField, usedUrls: Set<string>): Promise<Lib
       stances: [],
       field,
       keyword: analysis.keyword,
-      gradeLevels,
+      gradeLevels: [grade],
       curriculum: picked.map(describeStandard).join(", "),
       origin: { site: item.feed.site, title: item.title, url: item.url, license: item.feed.license },
       addedBy: "auto",
@@ -268,23 +276,39 @@ export async function runLibraryJob(now = new Date()) {
   const weekStart = weekStartIso(now);
   const articles = await listLibraryArticles();
   const usedUrls = new Set(articles.map((a) => a.origin.url));
-  const todo = FIELD_ORDER.filter(
-    (field) => !articles.some((a) => a.field === field && a.addedBy === "auto" && a.createdAt >= weekStart),
-  );
-  if (todo.length === 0) return { skipped: "이번 주 분야별 기사가 모두 있어요" };
+  /** 분야마다 이번 주 자동 기사가 아직 없는 학년군 (낮은 학년군부터) */
+  const missing = (field: LibraryField) =>
+    GRADE_LIST.map((g) => g.level).filter(
+      (grade) =>
+        !articles.some((a) => a.field === field && a.addedBy === "auto" && a.createdAt >= weekStart && a.gradeLevels.includes(grade)),
+    );
+  const todo = FIELD_ORDER.filter((field) => missing(field).length > 0);
+  if (todo.length === 0) return { skipped: "이번 주 분야·학년군별 기사가 모두 있어요" };
 
-  const results = await Promise.allSettled(todo.map((field) => buildFor(field, usedUrls)));
+  // 분야끼리는 함께, 한 분야 안에서는 학년군을 차례로 시도해 같은 원문을 두 번 쓰지 않는다
+  const results = await Promise.allSettled(
+    todo.map(async (field) => {
+      const lists = await Promise.allSettled(FEEDS[field].map(readFeed));
+      const items = lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+      const texts = new Map<string, Promise<{ text: string } | { reason: string }>>();
+      const tried: string[] = [];
+      for (const grade of missing(field)) {
+        const result = await buildFor(field, grade, items, usedUrls, texts);
+        if (!("skipped" in result)) {
+          await getDb().saveLibraryArticle(result);
+          return [...tried, `추가: ${result.keyword} (${grade})`].join(" / ");
+        }
+        tried.push(`${grade} 건너뜀: ${result.skipped}`);
+      }
+      return tried.join(" / ");
+    }),
+  );
   const report: Record<string, string> = {};
   for (const [i, result] of results.entries()) {
-    const field = todo[i];
-    if (result.status === "rejected") {
-      report[field] = `실패: ${result.reason instanceof Error ? result.reason.message : "알 수 없는 오류"}`;
-    } else if ("skipped" in result.value) {
-      report[field] = `건너뜀: ${result.value.skipped}`;
-    } else {
-      await getDb().saveLibraryArticle(result.value);
-      report[field] = `추가: ${result.value.keyword} (${result.value.gradeLevels.join(",")})`;
-    }
+    report[todo[i]] =
+      result.status === "fulfilled"
+        ? result.value
+        : `실패: ${result.reason instanceof Error ? result.reason.message : "알 수 없는 오류"}`;
   }
   return report;
 }
