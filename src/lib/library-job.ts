@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fetchArticle } from "./article-fetch";
 import { generateJson } from "./claude";
 import { getDb } from "./db";
+import { checkReadability, ECONOMY_KEYWORD_LIST, ECONOMY_STRUCTURE } from "./economy-guide";
 import { isDemoGeneration } from "./env";
 import { buildArticle } from "./generation";
 import { type CurriculumStandard, describeStandard, standardsForField } from "./curriculum-standards";
@@ -15,6 +16,8 @@ import { newId, nowIso, weekStartIso } from "./utils";
  * 관심 분야 학습 자동 추가: 매주 분야마다 학년군(초3~4·초5~6·중학교)별 기사 1편씩.
  * 매일 Cron(06:00 KST)에서 부르고, 한 번에 분야마다 아직 없는 학년군 기사를 낮은 학년군부터 1편만 만든다(실행 시간 제한).
  * 이번 주 기사 준비로 바쁜 월요일은 쉬고 화요일부터 만든다. 그 학년군에 맞는 원문이 없으면 다음 날 새 원문으로 다시 찾는다.
+ * 경제 기사는 초등 경제 참고 자료의 개념 낱말과 글 짜임(economy-guide.ts)으로 쓰고, 학년군 문해력 기준(분량·문단·문장 길이)을 재어
+ * 맞지 않으면 한 번 고쳐 쓰고, 그래도 맞지 않으면 쓰지 않는다.
  */
 
 interface Feed {
@@ -189,7 +192,11 @@ ${list}
 suitable이 true이면
 - standards: 위 성취기준 목록에서 이 글의 내용을 실제로 배우는 성취기준의 코드를 1~3개 고른다. 예) ["[6과12-03]"]. 목록에 없는 코드를 지어내지 않는다.
 - 목록에 이 글과 맞는 성취기준이 없으면 suitable을 false로 한다.
-- keyword: 학생이 상자에서 보고 누를 짧은 한국어 키워드(2~8자). 예) "화성", "엘니뇨", "기준금리"
+- keyword: 학생이 상자에서 보고 누를 짧은 한국어 키워드(2~8자). 예) "화성", "엘니뇨", "기준금리"${
+      field === "economy"
+        ? `\n  경제 분야는 글의 중심 개념이 다음 경제 개념 낱말 가운데 하나와 맞으면 그 낱말을 keyword로 쓴다: ${ECONOMY_KEYWORD_LIST.join(", ")}`
+        : ""
+    }
 - title: 학생용 한국어 제목(25자 이내)
 - summary: 무엇에 관한 글인지 한 문장
 - facts: 원문에서 확인되는 사실 6~12개를 한국어 한 문장씩. 원문에 없는 숫자·이름·날짜를 지어내지 않는다.
@@ -238,11 +245,21 @@ async function buildFor(
     }
     usedUrls.add(item.url);
     const sources = [{ title: `${item.feed.site} — ${item.title}`, url: item.url, description: "", pubDate: "" }];
-    const built = await buildArticle(
-      { name: analysis.keyword, summary: analysis.summary, facts: analysis.facts, sources },
-      grade,
-      false,
-    );
+    const topic = { name: analysis.keyword, summary: analysis.summary, facts: analysis.facts, sources };
+    const structure = field === "economy" ? ECONOMY_STRUCTURE : undefined;
+    let built = await buildArticle(topic, grade, false, structure);
+    if (field === "economy") {
+      // 학년군 문해력 기준에 맞지 않으면 고칠 점을 알려 주고 한 번만 다시 쓴다
+      let problems = checkReadability(built.paragraphs, grade).problems;
+      if (problems.length) {
+        built = await buildArticle(topic, grade, false, structure, problems.map((p) => `- ${p}`).join("\n"));
+        problems = checkReadability(built.paragraphs, grade).problems;
+      }
+      if (problems.length) {
+        reasons.push(`${item.title}: ${GRADES[grade].label} 문해력 기준에 맞지 않음 (${problems.join(", ")})`);
+        continue;
+      }
+    }
     return {
       id: `lib-auto-${newId()}`,
       topic: analysis.keyword,

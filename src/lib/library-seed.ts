@@ -2,6 +2,7 @@ import type { LibraryArticle } from "./types";
 import { BLANK_PROMPT, build, syn, type Seed } from "./library-seed-kit";
 import { SEED_KEYWORDS } from "./library-seed-keywords";
 import { SEEDS_SCIENCE } from "./library-seed-science";
+import { SEEDS_ECONOMY } from "./library-seed-economy";
 import { SEEDS_SOCIETY } from "./library-seed-society";
 import { BLANK } from "./utils";
 
@@ -399,8 +400,8 @@ const SEEDS: Seed[] = [
 
 /**
  * 분야마다 학년군별로 기사가 한 줄로 이어지고, 앞 기사에서 별 3개를 모으면 다음 기사가 열린다.
- * 같은 분야·학년군 안에서는 이 목록 순서가 여는 순서다 (처음 기사 → 우주·과학·지구·환경 → 경제·역사·문화 추가분).
+ * 같은 분야·학년군 안에서는 이 목록 순서가 여는 순서다 (처음 기사 → 우주·과학·지구·환경 → 경제·역사·문화 추가분 → 경제 추가분).
  */
-export const LIBRARY_SEED: LibraryArticle[] = [...SEEDS, ...SEEDS_SCIENCE, ...SEEDS_SOCIETY].map((seed) =>
+export const LIBRARY_SEED: LibraryArticle[] = [...SEEDS, ...SEEDS_SCIENCE, ...SEEDS_SOCIETY, ...SEEDS_ECONOMY].map((seed) =>
   build({ ...seed, keywordSummary: seed.keywordSummary ?? SEED_KEYWORDS[seed.id] }),
 );
