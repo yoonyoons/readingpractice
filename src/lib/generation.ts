@@ -173,6 +173,10 @@ export async function buildArticle(
   topic: { name: string; summary: string; facts: string[]; sources: SourceItem[] },
   grade: GradeLevel,
   demo = isDemoGeneration(),
+  /** 기본 시사 기사 짜임 대신 쓸 글쓰기 규칙 (예: 관심 분야 경제 기사의 설명하는 글 짜임) */
+  structure?: string,
+  /** 이전에 만든 글이 기준에 맞지 않았을 때 고칠 점 */
+  note?: string,
 ): Promise<BuiltArticle> {
   if (demo) {
     await sleep(900);
@@ -206,7 +210,7 @@ ${sources}
 - 문장: ${g.sentence}.
 - 어휘: ${g.vocab}.
 - 문체: ${g.tone}.
-- 첫 문단에서 무슨 일이 있었는지(누가·무엇을·어떻게) 먼저 알려 주고, 이어서 까닭과 배경, 영향, 앞으로의 과제 순서로 쓴다.
+${structure ?? "- 첫 문단에서 무슨 일이 있었는지(누가·무엇을·어떻게) 먼저 알려 주고, 이어서 까닭과 배경, 영향, 앞으로의 과제 순서로 쓴다."}
 - title: 25자 이내. whyItMatters: 이 소식이 학생의 생활이나 우리 사회와 어떻게 이어지는지 한두 문장.
 
 핵심 어휘(vocab)
@@ -241,7 +245,7 @@ modelSummary: ${g.modelSummaryLength} 분량의 모범 요약.
 
 생각 나누기
 - opinionQuestion: 기사를 읽은 학생이 자기 입장을 정하고 까닭을 쓸 수 있는 열린 질문 1개. 학생의 생활과 이어지면 더 좋다. 정답이 정해진 질문, 특정 정당·정치인·종교를 지지하는지 묻는 질문은 쓰지 않는다.
-- stances: 학생이 고를 입장 2~3개(각 15자 이내). 찬반이 갈리는 질문이면 "찬성해요", "반대해요"처럼, 아니면 서로 다른 선택지로 쓴다.`;
+- stances: 학생이 고를 입장 2~3개(각 15자 이내). 찬반이 갈리는 질문이면 "찬성해요", "반대해요"처럼, 아니면 서로 다른 선택지로 쓴다.${note ? `\n\n[이전에 쓴 글에서 고칠 점]\n${note}` : ""}`;
 
   let retryNote = "";
   let lastRejects: string[] = [];
