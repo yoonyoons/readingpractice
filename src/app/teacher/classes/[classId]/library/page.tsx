@@ -6,7 +6,7 @@ import { Badge, Card, ChevronLeft, EmptyState } from "@/components/ui";
 import { getDb } from "@/lib/db";
 import { CURRICULUM_STANDARDS, describeStandard } from "@/lib/curriculum-standards";
 import { GRADES } from "@/lib/grades";
-import { LIBRARY_FIELDS, listLibraryFor } from "@/lib/library";
+import { LIBRARY_FIELDS, listLibraryFor, sourceNoteOf } from "@/lib/library";
 import { getTeacher } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
@@ -101,6 +101,8 @@ export default async function ClassLibraryPage(props: PageProps<"/teacher/classe
 
                   <p className="mt-5 break-all text-[12px] text-grey-400">
                     출처: {article.origin.site} — {article.origin.title} ({article.origin.url})
+                    <br />
+                    {sourceNoteOf(article.origin)}
                   </p>
                 </article>
               </Card>

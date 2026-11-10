@@ -9,6 +9,7 @@ import { type CurriculumStandard, describeStandard, standardsForField } from "./
 import { GRADE_LIST, GRADES } from "./grades";
 import { hasKogl1Mark, sourceOf } from "./library-sources";
 import { FIELD_ORDER, LIBRARY_FIELDS, listLibraryArticles } from "./library";
+import { findOverlap } from "./text-overlap";
 import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense } from "./types";
 import { newId, nowIso, weekStartIso } from "./utils";
 
@@ -18,6 +19,7 @@ import { newId, nowIso, weekStartIso } from "./utils";
  * 이번 주 기사 준비로 바쁜 월요일은 쉬고 화요일부터 만든다. 그 학년군에 맞는 원문이 없으면 다음 날 새 원문으로 다시 찾는다.
  * 경제 기사는 초등 경제 참고 자료의 개념 낱말과 글 짜임(economy-guide.ts)으로 쓰고, 학년군 문해력 기준(분량·문단·문장 길이)을 재어
  * 맞지 않으면 한 번 고쳐 쓰고, 그래도 맞지 않으면 쓰지 않는다.
+ * 내용만 참고해야 하는 원문(reference: 한국은행·경제배움e+)은 새로 쓴 글에 원문과 똑같이 이어지는 구절이 있는지도 재어 같은 방식으로 고친다.
  */
 
 interface Feed {
@@ -247,18 +249,25 @@ async function buildFor(
     const sources = [{ title: `${item.feed.site} — ${item.title}`, url: item.url, description: "", pubDate: "" }];
     const topic = { name: analysis.keyword, summary: analysis.summary, facts: analysis.facts, sources };
     const structure = field === "economy" ? ECONOMY_STRUCTURE : undefined;
+    /** 경제 기사는 학년군 문해력 기준, 내용만 참고할 원문은 원문 구절을 옮겼는지 잰다 */
+    const problemsOf = (b: Awaited<ReturnType<typeof buildArticle>>) => [
+      ...(field === "economy" ? checkReadability(b.paragraphs, grade).problems : []),
+      ...(item.feed.license === "reference"
+        ? findOverlap([...b.paragraphs, b.modelSummary, ...b.keyPoints], source.text).copied.map(
+            (c) => `원문과 똑같이 이어지는 구절이 있어요(${c}). 원문의 문장을 옮기지 말고 새 문장으로 써라`,
+          )
+        : []),
+    ];
     let built = await buildArticle(topic, grade, false, structure);
-    if (field === "economy") {
-      // 학년군 문해력 기준에 맞지 않으면 고칠 점을 알려 주고 한 번만 다시 쓴다
-      let problems = checkReadability(built.paragraphs, grade).problems;
-      if (problems.length) {
-        built = await buildArticle(topic, grade, false, structure, problems.map((p) => `- ${p}`).join("\n"));
-        problems = checkReadability(built.paragraphs, grade).problems;
-      }
-      if (problems.length) {
-        reasons.push(`${item.title}: ${GRADES[grade].label} 문해력 기준에 맞지 않음 (${problems.join(", ")})`);
-        continue;
-      }
+    let problems = problemsOf(built);
+    if (problems.length) {
+      // 고칠 점을 알려 주고 한 번만 다시 쓴다. 그래도 맞지 않으면 이 원문은 쓰지 않는다
+      built = await buildArticle(topic, grade, false, structure, problems.map((p) => `- ${p}`).join("\n"));
+      problems = problemsOf(built);
+    }
+    if (problems.length) {
+      reasons.push(`${item.title}: 기준에 맞지 않음 (${problems.join(", ")})`);
+      continue;
     }
     return {
       id: `lib-auto-${newId()}`,
