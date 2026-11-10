@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영상 퀴즈 체험</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #191f28; --sub: #6b7684; --line: #e5e8eb;
+    --blue: #3182f6; --blue-soft: #e8f3ff; --green: #03b26c; --green-soft: #e5f8ef; --red: #f04452; --red-soft: #feeef0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101114; --card: #1c1d22; --text: #f2f4f6; --sub: #9ea6b0; --line: #2c2e35;
+      --blue: #4c95ff; --blue-soft: #1b2a42; --green: #2fca8a; --green-soft: #15302a; --red: #ff6470; --red-soft: #3a1d22;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101114; --card: #1c1d22; --text: #f2f4f6; --sub: #9ea6b0; --line: #2c2e35;
+    --blue: #4c95ff; --blue-soft: #1b2a42; --green: #2fca8a; --green-soft: #15302a; --red: #ff6470; --red-soft: #3a1d22;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; line-height: 1.6; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--sub); font-size: 14px; margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .player-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+  #player, .player-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.72); padding: 16px; overflow: auto; }
+  .overlay.show { display: flex; }
+  .quiz { background: var(--card); color: var(--text); border-radius: 16px; padding: 20px; width: min(560px, 100%); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-soft);
+    border-radius: 999px; padding: 2px 10px; }
+  .q { font-size: 18px; font-weight: 700; margin: 10px 0 14px; }
+  .opts { display: grid; gap: 8px; }
+  .opt { text-align: left; font: inherit; font-size: 16px; padding: 12px 14px; border-radius: 12px; cursor: pointer;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--text); }
+  .opt:hover:not(:disabled) { border-color: var(--blue); }
+  .opt.right { border-color: var(--green); background: var(--green-soft); }
+  .opt.wrong { border-color: var(--red); background: var(--red-soft); }
+  .opt:disabled { cursor: default; }
+  .feedback { margin-top: 12px; font-size: 15px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .btn { font: inherit; font-weight: 700; font-size: 15px; border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer; }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.ghost { background: var(--blue-soft); color: var(--blue); }
+  .bar { position: relative; height: 10px; background: var(--line); border-radius: 999px; margin: 14px 0 6px; }
+  .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); border-radius: 999px; width: 0; }
+  .bar .dot { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+    background: var(--card); border: 3px solid var(--sub); }
+  .bar .dot.done { border-color: var(--green); background: var(--green); }
+  .meta { display: flex; justify-content: space-between; color: var(--sub); font-size: 13px; }
+  .notice { margin-top: 12px; font-size: 14px; color: var(--sub); }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #191f28; color: #fff;
+    padding: 10px 16px; border-radius: 12px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+  #result { display: none; margin-top: 16px; }
+  #result h2 { font-size: 18px; margin: 0 0 8px; }
+  #result ul { margin: 0; padding-left: 20px; }
+  .error { color: var(--red); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">영상 보며 퀴즈 풀기</h1>
+  <p class="sub" id="source">경제배움e+ 「지구별 경제탐험」 시즌 1 · EP 01</p>
+
+  <div class="card">
+    <div class="player-wrap">
+      <div id="player"></div>
+      <div class="overlay" id="overlay"><div class="quiz" id="quiz"></div></div>
+    </div>
+    <div class="bar" id="bar"><div class="fill" id="fill"></div></div>
+    <div class="meta"><span id="time">0:00</span><span id="score">퀴즈 0 / 0</span></div>
+    <p class="notice" id="notice">▶ 재생을 누르면 시작해요. 아직 보지 않은 부분으로는 건너뛸 수 없고, 중간중간 영상이 멈추면 퀴즈를 풀어야 이어서 볼 수 있어요.</p>
+  </div>
+
+  <div class="card" id="result"></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─────────── 영상과 퀴즈 ───────────
+ * at: 퀴즈가 나오는 시각(초), from: 틀렸을 때 다시 볼 구간의 시작(초)
+ * answer: 정답 보기 번호(0부터)
+ */
+const LESSON = {
+  videoId: "t9pDA6SUTq0",
+  title: "[지구별 경제탐험] EP 01. 합리적인 선택이란 무엇일까?",
+  checkpoints: [
+    // 영상 대본을 받은 뒤 채움
+  ],
+};
+
+const SKIP_GRACE = 2;   // 이만큼(초)은 앞으로 넘겨도 봐 줌 (버퍼링 오차)
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+let player, duration = 0, maxWatched = 0, timer = null, activeQuiz = null;
+const results = LESSON.checkpoints.map(() => ({ done: false, firstTry: null, tries: 0 }));
+document.title = "영상 퀴즈 체험";
+$("title").textContent = LESSON.title;
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function drawBar() {
+  if (!duration) return;
+  $("fill").style.width = `${(maxWatched / duration) * 100}%`;
+  const bar = $("bar");
+  bar.querySelectorAll(".dot").forEach((d) => d.remove());
+  LESSON.checkpoints.forEach((c, i) => {
+    const d = document.createElement("div");
+    d.className = "dot" + (results[i].done ? " done" : "");
+    d.style.left = `${(c.at / duration) * 100}%`;
+    bar.appendChild(d);
+  });
+  const done = results.filter((r) => r.done).length;
+  $("score").textContent = `퀴즈 ${done} / ${LESSON.checkpoints.length}`;
+}
+
+// 유튜브 IFrame Player API
+const tag = document.createElement("script");
+tag.src = "https://www.youtube.com/iframe_api";
+document.head.appendChild(tag);
+
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player("player", {
+    videoId: LESSON.videoId,
+    playerVars: { rel: 0, modestbranding: 1, playsinline: 1, cc_load_policy: 1, hl: "ko", origin: location.origin === "null" ? undefined : location.origin },
+    events: {
+      onReady: () => { duration = player.getDuration(); drawBar(); },
+      onStateChange: (e) => {
+        if (e.data === YT.PlayerState.PLAYING) { duration = player.getDuration(); start(); }
+        else stop();
+        if (e.data === YT.PlayerState.ENDED) finish();
+      },
+      onError: (e) => {
+        const why = { 2: "영상 주소가 잘못됐어요.", 5: "이 브라우저에서 재생할 수 없어요.", 100: "영상이 삭제됐거나 비공개예요.",
+          101: "영상 주인이 다른 사이트에 퍼가기를 막아 두었어요.", 150: "영상 주인이 다른 사이트에 퍼가기를 막아 두었어요.",
+          153: "파일을 바로 열면 유튜브가 재생을 막아요. 웹 주소(http://…)로 열어 주세요." }[e.data] || `재생 오류(${e.data})`;
+        $("notice").innerHTML = `<span class="error">⚠ ${why}</span>`;
+      },
+    },
+  });
+};
+
+function start() { if (!timer) timer = setInterval(tick, 250); }
+function stop() { clearInterval(timer); timer = null; }
+
+function tick() {
+  if (activeQuiz !== null) return;
+  const t = player.getCurrentTime();
+
+  // 아직 보지 않은 곳으로 건너뛰면 되돌린다 (되감기는 허용)
+  if (t > maxWatched + SKIP_GRACE) {
+    player.seekTo(maxWatched, true);
+    toast("아직 보지 않은 부분으로는 넘어갈 수 없어요");
+    return;
+  }
+
+  // 풀지 않은 퀴즈 시각에 닿으면 멈추고 퀴즈를 띄운다
+  const i = LESSON.checkpoints.findIndex((c, k) => !results[k].done && t >= c.at);
+  if (i !== -1) {
+    maxWatched = Math.max(maxWatched, LESSON.checkpoints[i].at);
+    player.pauseVideo();
+    showQuiz(i);
+    drawBar();
+    return;
+  }
+
+  maxWatched = Math.max(maxWatched, t);
+  $("time").textContent = `${fmt(t)} / ${fmt(duration)}`;
+  drawBar();
+}
+
+function showQuiz(i) {
+  activeQuiz = i;
+  const c = LESSON.checkpoints[i];
+  const box = $("quiz");
+  box.innerHTML = `
+    <span class="tag">퀴즈 ${i + 1} / ${LESSON.checkpoints.length}</span>
+    <div class="q"></div>
+    <div class="opts"></div>
+    <div class="feedback"></div>
+    <div class="actions"></div>`;
+  box.querySelector(".q").textContent = c.question;
+  const opts = box.querySelector(".opts");
+  c.options.forEach((text, k) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = `${k + 1}. ${text}`;
+    b.onclick = () => choose(i, k, b);
+    opts.appendChild(b);
+  });
+  $("overlay").classList.add("show");
+}
+
+function choose(i, k, btn) {
+  const c = LESSON.checkpoints[i], r = results[i];
+  const box = $("quiz"), fb = box.querySelector(".feedback"), actions = box.querySelector(".actions");
+  r.tries++;
+  if (k === c.answer) {
+    if (r.firstTry === null) r.firstTry = true;
+    r.done = true;
+    box.querySelectorAll(".opt").forEach((b) => (b.disabled = true));
+    btn.classList.add("right");
+    fb.textContent = `⭕ 맞았어요! ${c.explain || ""}`;
+    actions.innerHTML = "";
+    const go = document.createElement("button");
+    go.className = "btn primary"; go.textContent = "이어서 보기 ▶";
+    go.onclick = () => { closeQuiz(); player.playVideo(); };
+    actions.appendChild(go);
+    drawBar();
+  } else {
+    if (r.firstTry === null) r.firstTry = false;
+    btn.classList.add("wrong"); btn.disabled = true;
+    fb.textContent = `❌ 다시 생각해 보세요. ${c.hint || ""}`;
+    actions.innerHTML = "";
+    const again = document.createElement("button");
+    again.className = "btn ghost"; again.textContent = `⏪ 그 부분 다시 보기 (${fmt(c.from)}부터)`;
+    again.onclick = () => { closeQuiz(); player.seekTo(c.from, true); player.playVideo(); };
+    actions.appendChild(again);
+  }
+}
+
+function closeQuiz() { activeQuiz = null; $("overlay").classList.remove("show"); }
+
+function finish() {
+  if (results.some((r) => !r.done)) return;
+  maxWatched = duration; drawBar();
+  const first = results.filter((r) => r.firstTry).length;
+  const box = $("result");
+  box.style.display = "block";
+  box.innerHTML = `<h2>🎉 다 봤어요!</h2>
+    <p>퀴즈 ${LESSON.checkpoints.length}개 중 <b>${first}개</b>를 한 번에 맞혔어요.</p><ul></ul>`;
+  const ul = box.querySelector("ul");
+  LESSON.checkpoints.forEach((c, i) => {
+    const li = document.createElement("li");
+    li.textContent = `${results[i].firstTry ? "⭕" : "🔁"} ${c.question} (${results[i].tries}번 만에)`;
+    ul.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
