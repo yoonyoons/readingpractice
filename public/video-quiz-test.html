@@ -78,6 +78,11 @@
     <p class="notice" id="notice">▶ 재생을 누르면 시작해요. 아직 보지 않은 부분으로는 건너뛸 수 없고, 중간중간 영상이 멈추면 퀴즈를 풀어야 이어서 볼 수 있어요.</p>
   </div>
 
+  <div class="card" id="jumps" style="margin-top:16px;display:none">
+    <b>🧪 테스트 모드</b> <span class="sub">타임라인을 자유롭게 넘길 수 있어요. 아래 버튼을 누르면 그 퀴즈 시각으로 가서 문제를 바로 띄워요.</span>
+    <div class="actions" id="jumpList"></div>
+  </div>
+
   <div class="card" id="result"></div>
 </main>
 <div class="toast" id="toast"></div>
@@ -167,11 +172,14 @@ const LESSON = {
   ],
 };
 
+// 선생님 테스트용: true면 타임라인을 마음대로 넘길 수 있고, 퀴즈 바로 가기 버튼이 보여요.
+// 학생에게 쓸 때는 false로 바꾸면 건너뛰기가 막혀요.
+const TEST_MODE = true;
 const SKIP_GRACE = 2;   // 이만큼(초)은 앞으로 넘겨도 봐 줌 (버퍼링 오차)
 const $ = (id) => document.getElementById(id);
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-let player, duration = 0, maxWatched = 0, timer = null, activeQuiz = null;
+let lastT = 0, player, duration = 0, maxWatched = 0, timer = null, activeQuiz = null;
 const results = LESSON.checkpoints.map(() => ({ done: false, firstTry: null, tries: 0 }));
 document.title = "영상 퀴즈 체험";
 $("title").textContent = LESSON.title;
@@ -194,6 +202,24 @@ function drawBar() {
   });
   const done = results.filter((r) => r.done).length;
   $("score").textContent = `퀴즈 ${done} / ${LESSON.checkpoints.length}`;
+}
+
+if (TEST_MODE) {
+  $("jumps").style.display = "block";
+  $("notice").textContent = "🧪 테스트 모드: 건너뛰기가 열려 있어요. 재생 중 퀴즈 시각을 지나면 멈추고 퀴즈가 떠요.";
+  LESSON.checkpoints.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "btn ghost";
+    b.textContent = `퀴즈 ${i + 1} (${fmt(c.at)})`;
+    b.onclick = () => {
+      if (!player || !player.seekTo) return;
+      closeQuiz();
+      player.seekTo(c.at, true);
+      player.pauseVideo();
+      showQuiz(i);
+    };
+    $("jumpList").appendChild(b);
+  });
 }
 
 // 유튜브 IFrame Player API
@@ -229,6 +255,18 @@ function tick() {
   if (activeQuiz !== null) return;
   const t = player.getCurrentTime();
 
+  // 테스트 모드: 재생하다가 퀴즈 시각을 지나칠 때만 퀴즈를 띄운다 (넘기기 자유)
+  if (TEST_MODE) {
+    const crossed = t - lastT > 0 && t - lastT < 1.5;
+    const k = crossed ? LESSON.checkpoints.findIndex((c) => lastT < c.at && t >= c.at) : -1;
+    lastT = t;
+    maxWatched = Math.max(maxWatched, t);
+    $("time").textContent = `${fmt(t)} / ${fmt(duration)}`;
+    if (k !== -1) { player.pauseVideo(); showQuiz(k); }
+    drawBar();
+    return;
+  }
+
   // 아직 보지 않은 곳으로 건너뛰면 되돌린다 (되감기는 허용)
   if (t > maxWatched + SKIP_GRACE) {
     player.seekTo(maxWatched, true);
@@ -253,6 +291,7 @@ function tick() {
 
 function showQuiz(i) {
   activeQuiz = i;
+  lastT = LESSON.checkpoints[i].at;
   const c = LESSON.checkpoints[i];
   const box = $("quiz");
   box.innerHTML = `
@@ -303,7 +342,7 @@ function choose(i, k, btn) {
 function closeQuiz() { activeQuiz = null; $("overlay").classList.remove("show"); }
 
 function finish() {
-  if (results.some((r) => !r.done)) return;
+  if (!TEST_MODE && results.some((r) => !r.done)) return;
   maxWatched = duration; drawBar();
   const first = results.filter((r) => r.firstTry).length;
   const box = $("result");
@@ -313,7 +352,9 @@ function finish() {
   const ul = box.querySelector("ul");
   LESSON.checkpoints.forEach((c, i) => {
     const li = document.createElement("li");
-    li.textContent = `${results[i].firstTry ? "⭕" : "🔁"} ${c.question} (${results[i].tries}번 만에)`;
+    li.textContent = results[i].done
+      ? `${results[i].firstTry ? "⭕" : "🔁"} ${c.question} (${results[i].tries}번 만에)`
+      : `➖ ${c.question} (안 풂)`;
     ul.appendChild(li);
   });
 }
