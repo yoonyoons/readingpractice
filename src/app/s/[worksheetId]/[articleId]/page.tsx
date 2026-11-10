@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { LessonFlow } from "@/components/student/LessonFlow";
 import { getDb } from "@/lib/db";
-import { LIBRARY_WORKSHEET_ID, libraryChains, listLibraryFor, starsOf } from "@/lib/library";
+import { LIBRARY_WORKSHEET_ID, libraryChains, listLibraryFor, sourceNoteOf, starsOf } from "@/lib/library";
 import { getStudentSession } from "@/lib/session";
 import { requireStudentArticle } from "@/lib/student-access";
 import type { LibraryArticle, Submission } from "@/lib/types";
@@ -57,6 +57,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
       showStars={library}
       unlockNext={unlockNext}
       ended={worksheet.status === "ended"}
+      sourceNote={library ? sourceNoteOf((article as LibraryArticle).origin) : undefined}
       initial={{
         read: Boolean(submission.readAt),
         answeredIds: article.quiz.filter((q) => submission.quizAnswers[q.id]).map((q) => q.id),

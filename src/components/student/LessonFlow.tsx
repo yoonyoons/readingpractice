@@ -71,6 +71,8 @@ interface Props {
   unlockNext?: { href: string; keyword: string; title: string } | null;
   /** 선생님이 학습을 종료한 학습지: 기사와 내 기록만 보고 더 제출할 수 없다 */
   ended?: boolean;
+  /** 관심 분야 학습: 원문 자료를 어떻게 다시 썼는지 알리는 문구 (없으면 AI 뉴스 기사 안내) */
+  sourceNote?: string;
 }
 
 export function LessonFlow({
@@ -83,6 +85,7 @@ export function LessonFlow({
   showStars = false,
   unlockNext = null,
   ended = false,
+  sourceNote,
 }: Props) {
   const hasOpinion = Boolean(article.opinionQuestion) && article.stances.length >= 2;
   const [step, setStep] = useState<Step>(() => {
@@ -160,6 +163,7 @@ export function LessonFlow({
         <ReadStep
           worksheetId={worksheetId}
           article={article}
+          sourceNote={sourceNote}
           onDone={() => go(article.quiz.length > 0 ? "quiz" : "summary")}
         />
       )}
@@ -360,11 +364,11 @@ function HighlightedText({ text, vocab, onWord }: { text: string; vocab: VocabIt
   );
 }
 
-function Sources({ sources }: { sources: SourceItem[] }) {
+function Sources({ sources, original = false }: { sources: SourceItem[]; original?: boolean }) {
   if (sources.length === 0) return null;
   return (
     <div className="mt-10 border-t border-grey-100 pt-5">
-      <p className="text-[13px] font-semibold text-grey-500">참고한 기사</p>
+      <p className="text-[13px] font-semibold text-grey-500">{original ? "원문 자료" : "참고한 기사"}</p>
       <ul className="mt-2 space-y-1.5">
         {sources.slice(0, 3).map((s, i) => (
           <li key={i}>
@@ -472,7 +476,17 @@ function ArticlePanel({
   );
 }
 
-function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; article: PublicArticle; onDone: () => void }) {
+function ReadStep({
+  worksheetId,
+  article,
+  sourceNote,
+  onDone,
+}: {
+  worksheetId: string;
+  article: PublicArticle;
+  sourceNote?: string;
+  onDone: () => void;
+}) {
   const [progress, setProgress] = useState(0);
   const [reachedEnd, setReachedEnd] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -542,7 +556,7 @@ function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; artic
             <h1 className="mt-3 text-[26px] font-bold leading-snug tracking-tight text-grey-900 md:text-[32px]">
               {article.title}
             </h1>
-            <p className="mt-2 text-[13px] text-grey-400">🤖 AI가 뉴스를 조사해 쓰고 선생님이 확인한 기사예요</p>
+            <p className="mt-2 text-[13px] text-grey-400">{sourceNote ?? "🤖 AI가 뉴스를 조사해 쓰고 선생님이 확인한 기사예요"}</p>
 
             <div className="mt-5 lg:hidden">
               <WhyCard text={article.whyItMatters} />
@@ -559,7 +573,7 @@ function ReadStep({ worksheetId, article, onDone }: { worksheetId: string; artic
               <ArticleBody article={article} onWord={setActiveWord} />
             </div>
             <div ref={endRef} className="h-px" />
-            <Sources sources={article.sources} />
+            <Sources sources={article.sources} original={Boolean(sourceNote)} />
           </div>
 
           <aside className="hidden lg:block">

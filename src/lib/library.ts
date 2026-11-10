@@ -3,7 +3,7 @@ import { LIBRARY_WORKSHEET_ID } from "./db/repo";
 import { LIBRARY_SEED } from "./library-seed";
 import { isApprovedOrigin } from "./library-sources";
 import { countStars, MAX_STARS } from "./stars";
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense, Submission } from "./types";
+import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense, LibraryOrigin, Submission } from "./types";
 import { quizResult } from "./utils";
 
 export { LIBRARY_WORKSHEET_ID };
@@ -20,8 +20,18 @@ export const FIELD_ORDER: LibraryField[] = ["space", "earth", "economy", "cultur
 export const LICENSE_LABEL: Record<LibraryLicense, string> = {
   "public-domain": "공공 저작물을 한국어로 다시 씀",
   kogl: "공공누리 자료를 다시 씀",
-  reference: "내용을 참고해 새로 씀",
+  reference: "내용을 참고해 AI로 새로 씀",
 };
+
+/** 기사 읽기 화면 제목 아래에 보여 줄, 원문을 어떻게 다시 썼는지 알리는 문구 */
+export function sourceNoteOf(origin: LibraryOrigin) {
+  const how: Record<LibraryLicense, string> = {
+    "public-domain": "공공 저작물을 바탕으로 AI가 한국어로 새로 쓴 글이에요.",
+    kogl: "공공누리 자료를 바탕으로 AI가 새로 쓴 글이에요.",
+    reference: "자료의 내용을 참고해 AI가 새로 쓴 글이에요. 원문의 문장은 옮기지 않았어요.",
+  };
+  return `🤖 ${origin.site} ${how[origin.license]}`;
+}
 
 /** 코드에 넣어 둔 기사와 서버가 자동으로 만든 기사를 모두 모은다 (오래된 것부터). 허용 목록에 없는 출처의 기사는 뺀다 */
 export async function listLibraryArticles(): Promise<LibraryArticle[]> {
