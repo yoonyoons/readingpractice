@@ -5,13 +5,12 @@ import type { LibraryField } from "./types";
  * 처음 기사·자동 추가 기사 모두 원문 주소가 여기 있는 곳이어야 학생에게 보인다.
  *
  * - 미국 연방 정부 기관(NASA·NOAA·USGS)의 공공 저작물: 복제·가공·재배포 자유
- * - 정책브리핑(korea.kr): 모든 글에 공공누리 제1유형 표시
  * - 기상청·국립생태원: 글마다 공공누리 유형이 달라 제1유형 표시가 있는 글만 쓴다 (kogl1Only)
  * - 한국은행·경제배움e+: 공공누리 제1유형이 아니어서 내용만 참고해 새로 쓴다(원문 복제 없음).
  *   경제배움e+는 여러 기관 자료를 모은 곳이라 정부 기관이 올린 글만 쓴다
  *
  * 쓰지 않는 곳: 우리역사넷(개인 학술·연구 목적만 허용), KDI 경제정보센터(사전 동의 없는 복제 금지),
- * Smithsonian(CC0 표시 자료 말고는 저작권 있음), 미국 연방준비제도·의회도서관·국립민속박물관·국립한글박물관(목록에 없음)
+ * Smithsonian(CC0 표시 자료 말고는 저작권 있음), 대한민국 정책브리핑(2026-11-11 목록에서 뺌), 미국 연방준비제도·의회도서관·국립민속박물관·국립한글박물관(목록에 없음)
  */
 export interface LibrarySource {
   name: string;
@@ -30,7 +29,6 @@ export const LIBRARY_SOURCES: LibrarySource[] = [
   { name: "국립생태원", hosts: ["nie.re.kr"], fields: ["earth"], kogl1Only: true },
   { name: "한국은행", hosts: ["bok.or.kr"], fields: ["economy"] },
   { name: "경제배움e+ (정부 기관 자료)", hosts: ["econedu.go.kr"], fields: ["economy"] },
-  { name: "대한민국 정책브리핑", hosts: ["korea.kr"], fields: ["culture", "economy", "earth", "space"] },
 ];
 
 export function sourceOf(url: string): LibrarySource | null {
