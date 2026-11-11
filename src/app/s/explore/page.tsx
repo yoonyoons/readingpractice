@@ -94,7 +94,7 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
         </div>
         {list.length === 0 ? (
           <div className="rounded-3xl bg-white">
-            <EmptyState icon="🔭" title="아직 이 분야 기사가 없어요" description="새 기사가 매주 조금씩 늘어나요. 다른 분야를 먼저 탐험해 보세요!" />
+            <EmptyState icon="🔭" title="아직 이 분야 기사가 없어요" description="선생님이 기사를 올리면 여기에 나와요. 다른 분야를 먼저 탐험해 보세요!" />
           </div>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">

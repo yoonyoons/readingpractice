@@ -48,26 +48,26 @@ export async function listLibraryArticles(): Promise<LibraryArticle[]> {
   );
 }
 
-/** 이 학년군의 기사 전체 (처음 기사 + 자동 기사). 선생님이 자동 기사를 고르는 목록이다 */
+/** 이 학년군의 기사 전체 (처음 기사 + 자동 기사). 선생님이 반 목록에 올릴 기사를 고르는 목록이다 */
 export async function listLibraryFor(grade: GradeLevel) {
   return (await listLibraryArticles()).filter((a) => a.gradeLevels.includes(grade));
 }
 
-/** 반에서 고른 자동 기사 id. 고른 기록 표(class_library_picks)가 아직 없는 DB면 아무것도 고르지 않은 것으로 본다 */
-export async function libraryPicksOf(classId: string): Promise<Set<string>> {
-  const ids = await getDb()
+/** 반에 올린 기사 id (선생님이 정한 순서). 목록 표(class_library_picks)가 아직 없는 DB면 빈 목록으로 본다 */
+export async function libraryPicksOf(classId: string): Promise<string[]> {
+  return getDb()
     .listLibraryPicks(classId)
     .catch((e) => {
-      console.error("관심 분야 기사 고른 기록을 불러오지 못했어요 (supabase/schema.sql을 실행했는지 확인)", e);
+      console.error("관심 분야 기사 목록을 불러오지 못했어요 (supabase/schema.sql을 실행했는지 확인)", e);
       return [] as string[];
     });
-  return new Set(ids);
 }
 
-/** 이 반 학생이 읽는 기사: 학년군의 처음 기사 + 선생님이 고른 자동 기사 */
+/** 이 반 학생이 읽는 기사: 선생님이 고르고 순서를 정해 올린 기사만. 아직 올리지 않았으면 비어 있다 */
 export async function listLibraryForClass(classRoom: ClassRoom) {
   const [articles, picks] = await Promise.all([listLibraryFor(classRoom.gradeLevel), libraryPicksOf(classRoom.id)]);
-  return articles.filter((a) => a.addedBy === "seed" || picks.has(a.id));
+  const byId = new Map(articles.map((a) => [a.id, a]));
+  return picks.flatMap((id) => byId.get(id) ?? []);
 }
 
 export function starsOf(article: LibraryArticle, submission: Submission | null | undefined) {
@@ -87,16 +87,17 @@ export function starsOf(article: LibraryArticle, submission: Submission | null |
 
 /**
  * 분야마다 기사가 한 줄로 이어진다. 첫 기사만 열려 있고, 앞 기사에서 별 3개를 모으면 다음 기사가 열린다.
- * 순서는 코드에 넣어 둔 기사(library-seed 순서) 다음에 자동으로 추가된 기사(만든 순서)다.
+ * 순서는 반 목록(선생님이 정한 순서)이다. 선생님이 순서를 바꿔도 학생이 이미 읽기 시작한 기사는 계속 열려 있다.
  */
 export function libraryChains(articles: LibraryArticle[], subMap: Map<string, Submission>) {
   const chains = Object.fromEntries(FIELD_ORDER.map((f) => [f, [] as LibraryArticle[]])) as Record<LibraryField, LibraryArticle[]>;
   for (const article of articles) chains[article.field].push(article);
   const unlocked = new Set<string>();
   for (const field of FIELD_ORDER) {
+    let open = true;
     for (const [i, article] of chains[field].entries()) {
-      if (i > 0 && starsOf(chains[field][i - 1], subMap.get(chains[field][i - 1].id)) < MAX_STARS) break;
-      unlocked.add(article.id);
+      if (i > 0 && starsOf(chains[field][i - 1], subMap.get(chains[field][i - 1].id)) < MAX_STARS) open = false;
+      if (open || subMap.get(article.id)?.readAt) unlocked.add(article.id);
     }
   }
   return { chains, unlocked };

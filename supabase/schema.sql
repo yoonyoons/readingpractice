@@ -128,10 +128,12 @@ create table if not exists library_submissions (
 );
 create index if not exists library_submissions_student_idx on library_submissions (student_id);
 
--- 관심 분야 학습: 반마다 선생님이 학생에게 보이도록 고른 자동 기사. 처음 기사(코드)는 늘 보이고, 자동 기사는 여기 있는 것만 보인다.
+-- 관심 분야 학습: 반마다 선생님이 고르고 순서를 정해 올린 기사 목록(처음 기사·자동 기사 모두). 여기 있는 기사만 학생에게 보인다.
+-- position 은 목록 순서다. 학생 화면은 분야마다 이 순서로 한 편씩 열린다.
 create table if not exists class_library_picks (
   class_id uuid not null references classes(id) on delete cascade,
   article_id text not null,
+  position int not null default 0,
   created_at timestamptz not null default now(),
   primary key (class_id, article_id)
 );
@@ -170,6 +172,7 @@ alter table classes add column if not exists auto_draft boolean not null default
 alter table submissions add column if not exists opinion jsonb;
 alter table students add column if not exists last_login_at timestamptz;
 alter table library_submissions add column if not exists quiz_best int;
+alter table class_library_picks add column if not exists position int not null default 0;
 -- 학습지 '학습 종료' 상태
 alter table worksheets drop constraint if exists worksheets_status_check;
 alter table worksheets add constraint worksheets_status_check check (status in ('draft', 'published', 'ended'));

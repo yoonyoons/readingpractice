@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { getDb } from "./db";
+import { listLibraryFor } from "./library";
 import { DEMO_STUDENT_NAMES, ensureDemoClassData } from "./demo-class";
 import { GRADE_LIST } from "./grades";
 import type { ClassRoom, GradeLevel, ShopItem, StudentRecord, Teacher } from "./types";
@@ -43,6 +44,14 @@ async function ensureDemoShop(classRoom: ClassRoom) {
   for (const [i, item] of DEMO_SHOP_ITEMS.entries()) {
     await db.saveShopItem({ id: newId(), classId: classRoom.id, ...item, createdAt: new Date(base + i).toISOString() });
   }
+}
+
+/** 체험용 반에 올린 관심 분야 기사가 없으면 처음 넣어 둔 기사를 기본 순서로 올린다 (체험자가 모두 빼도 다음 입장 때 다시 채운다) */
+async function ensureDemoLibrary(classRoom: ClassRoom) {
+  const db = getDb();
+  if ((await db.listLibraryPicks(classRoom.id)).length > 0) return;
+  const seeds = (await listLibraryFor(classRoom.gradeLevel)).filter((a) => a.addedBy === "seed");
+  await db.saveLibraryPicks(classRoom.id, seeds.map((a) => a.id));
 }
 
 export function isDemoTeacher(teacher: Pick<Teacher, "email">) {
@@ -108,5 +117,6 @@ async function ensureDemoClass(teacher: Teacher, classes: ClassRoom[], grade: Gr
   // 체험자 여럿이 동시에 들어와 겹치면 실패할 수 있지만, 입장은 막지 않는다 (다음 입장 때 다시 채운다)
   await ensureDemoClassData(classRoom).catch((e) => console.error("체험용 반의 가상 학생·결과를 만들지 못했어요", e));
   await ensureDemoShop(classRoom).catch((e) => console.error("체험용 반의 예시 상품을 만들지 못했어요", e));
+  await ensureDemoLibrary(classRoom).catch((e) => console.error("체험용 반의 관심 분야 기사 목록을 만들지 못했어요", e));
   return classRoom;
 }
