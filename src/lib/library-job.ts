@@ -27,17 +27,11 @@ interface Feed {
   site: string;
   /** public-domain: 미국 정부 기관 공공 저작물, kogl: 공공누리 제1유형, reference: 내용만 참고해 새로 쓴다 */
   license: LibraryLicense;
-  /** rss: RSS 피드, korea-kr: 정책브리핑 보도자료 목록 페이지(RSS가 중단됨) */
-  kind?: "rss" | "korea-kr";
   /** 여러 기관 자료를 모은 피드에서 이 기관이 올린 글만 쓴다 (RSS author) */
   publishers?: string[];
   /** 원문 페이지 대신 RSS 설명과 기관 소개 글을 본문으로 쓴다 (본문이 영상·파일이라 페이지에서 글을 뽑을 수 없는 곳) */
   textFromFeed?: boolean;
 }
-
-/** 정책브리핑 보도자료 목록: 부처 코드(repCode)로 거른다 */
-const koreaKr = (repCode: string) =>
-  `https://www.korea.kr/briefing/pressReleaseList.do?repCodeType=${encodeURIComponent("정부부처")}&repCode=${repCode}`;
 
 /** 경제배움e+에서 쓸 정부 기관 (민간 언론사·연구원·협회 자료는 쓰지 않는다) */
 const ECONEDU_GOV = [
@@ -65,7 +59,6 @@ const FEEDS: Record<LibraryField, Feed[]> = {
   earth: [
     { url: "https://www.noaa.gov/rss.xml", site: "NOAA", license: "public-domain" },
     { url: "https://www.usgs.gov/news/all-news/feed", site: "USGS", license: "public-domain" },
-    { url: koreaKr("B00005"), site: "대한민국 정책브리핑(기상청 보도자료)", license: "kogl", kind: "korea-kr" },
   ],
   economy: [
     {
@@ -76,7 +69,8 @@ const FEEDS: Record<LibraryField, Feed[]> = {
       textFromFeed: true,
     },
   ],
-  culture: [{ url: koreaKr("B00025"), site: "대한민국 정책브리핑(국가유산청 보도자료)", license: "kogl", kind: "korea-kr" }],
+  // 역사·문화는 원문 출처를 다시 정할 때까지 자동 추가를 하지 않는다
+  culture: [],
 };
 
 const ANALYZE_MODEL = "claude-haiku-4-5-20251001";
@@ -120,21 +114,14 @@ async function readFeed(feed: Feed): Promise<FeedItem[]> {
     throw new Error(`${feed.site} 목록: ${e instanceof Error ? e.message : "가져오기 실패"}`);
   });
   const items: FeedItem[] = [];
-  if (feed.kind === "korea-kr") {
-    for (const [, id, title] of body.matchAll(/pressReleaseView\.do\?newsId=(\d+)[^"]*"[\s\S]{0,600}?<strong>([^<]+)<\/strong>/g)) {
-      const url = `https://www.korea.kr/briefing/pressReleaseView.do?newsId=${id}`;
-      if (!items.some((i) => i.url === url)) items.push({ title: decode(title), url, feed });
-    }
-  } else {
-    for (const [, item] of body.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/g)) {
-      if (items.length >= MAX_FEED_ITEMS) break;
-      const title = decode(decode(item.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? ""));
-      const url = decode(item.match(/<link\b[^>]*>([\s\S]*?)<\/link>/)?.[1] ?? "");
-      const author = decode(item.match(/<(?:author|dc:creator)\b[^>]*>([\s\S]*?)<\/(?:author|dc:creator)>/)?.[1] ?? "");
-      if (feed.publishers && !feed.publishers.includes(author)) continue;
-      const description = feed.textFromFeed ? stripTags(item.match(/<description\b[^>]*>([\s\S]*?)<\/description>/)?.[1] ?? "") : undefined;
-      if (title && /^https?:\/\//.test(url)) items.push({ title, url, feed, description });
-    }
+  for (const [, item] of body.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/g)) {
+    if (items.length >= MAX_FEED_ITEMS) break;
+    const title = decode(decode(item.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? ""));
+    const url = decode(item.match(/<link\b[^>]*>([\s\S]*?)<\/link>/)?.[1] ?? "");
+    const author = decode(item.match(/<(?:author|dc:creator)\b[^>]*>([\s\S]*?)<\/(?:author|dc:creator)>/)?.[1] ?? "");
+    if (feed.publishers && !feed.publishers.includes(author)) continue;
+    const description = feed.textFromFeed ? stripTags(item.match(/<description\b[^>]*>([\s\S]*?)<\/description>/)?.[1] ?? "") : undefined;
+    if (title && /^https?:\/\//.test(url)) items.push({ title, url, feed, description });
   }
   return items.slice(0, MAX_FEED_ITEMS);
 }
