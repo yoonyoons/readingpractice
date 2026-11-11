@@ -30,7 +30,7 @@ export default async function ExplorePage(props: PageProps<"/s/explore">) {
   const { field: rawField } = await props.searchParams;
   const field: LibraryField = FIELD_ORDER.includes(rawField as LibraryField) ? (rawField as LibraryField) : "space";
 
-  const { subMap, total, ready, chains, unlocked } = await studentLibrary(classRoom.gradeLevel, student.id);
+  const { subMap, total, ready, chains, unlocked } = await studentLibrary(classRoom, student.id);
   if (!ready) redirect("/s");
   const list = chains[field];
   const openCount = list.filter((a) => unlocked.has(a.id)).length;

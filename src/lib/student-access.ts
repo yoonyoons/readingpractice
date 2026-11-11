@@ -1,14 +1,14 @@
 import { getDb } from "./db";
 import { LIBRARY_WORKSHEET_ID } from "./db/repo";
 import { HttpError } from "./http";
-import { libraryChains, listLibraryFor } from "./library";
+import { libraryChains, listLibraryForClass } from "./library";
 import { requireStudent } from "./session";
 import type { Article, ClassRoom, Submission, Worksheet } from "./types";
 import { newId, nowIso } from "./utils";
 
 /**
  * 관심 분야 학습 기사는 학습지가 없으므로, 그 기사 하나만 든 배포된 학습지처럼 다룬다.
- * 학생 반의 학년군이 기사의 학년군에 들어 있고, 잠금이 풀린 기사여야 한다.
+ * 학생 반에서 읽는 기사(학년군의 처음 기사 또는 선생님이 고른 자동 기사)이고, 잠금이 풀린 기사여야 한다.
  */
 async function libraryWorksheet(
   classRoom: ClassRoom,
@@ -16,7 +16,7 @@ async function libraryWorksheet(
   articleId: string,
 ): Promise<{ worksheet: Worksheet; article: Article }> {
   const [articles, submissions] = await Promise.all([
-    listLibraryFor(classRoom.gradeLevel),
+    listLibraryForClass(classRoom),
     getDb().listLibrarySubmissions([studentId]),
   ]);
   const article = articles.find((a) => a.id === articleId);
