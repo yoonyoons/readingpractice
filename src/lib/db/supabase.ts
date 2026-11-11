@@ -394,6 +394,21 @@ export function createSupabaseRepo(): Repo {
         ),
       );
     },
+    async listLibraryPicks(classId) {
+      const rows = check(await sb.from("class_library_picks").select("article_id").eq("class_id", classId).order("created_at"));
+      return (rows ?? []).map((r: any) => r.article_id as string);
+    },
+    async setLibraryPick(classId, articleId, picked) {
+      if (picked) {
+        check(
+          await sb
+            .from("class_library_picks")
+            .upsert({ class_id: classId, article_id: articleId }, { onConflict: "class_id,article_id", ignoreDuplicates: true }),
+        );
+      } else {
+        check(await sb.from("class_library_picks").delete().eq("class_id", classId).eq("article_id", articleId));
+      }
+    },
     async listLibrarySubmissions(studentIds) {
       if (studentIds.length === 0) return [];
       const rows = check(await sb.from("library_submissions").select(LIBRARY_SUBMISSION_COLUMNS).in("student_id", studentIds));

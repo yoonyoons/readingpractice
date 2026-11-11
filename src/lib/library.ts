@@ -3,7 +3,7 @@ import { LIBRARY_WORKSHEET_ID } from "./db/repo";
 import { LIBRARY_SEED } from "./library-seed";
 import { isApprovedOrigin } from "./library-sources";
 import { countStars, MAX_STARS } from "./stars";
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense, LibraryOrigin, Submission } from "./types";
+import type { ClassRoom, GradeLevel, LibraryArticle, LibraryField, LibraryLicense, LibraryOrigin, Submission } from "./types";
 import { quizResult } from "./utils";
 
 export { LIBRARY_WORKSHEET_ID };
@@ -48,9 +48,26 @@ export async function listLibraryArticles(): Promise<LibraryArticle[]> {
   );
 }
 
-/** 이 학년군 학생이 읽을 수 있는 기사 */
+/** 이 학년군의 기사 전체 (처음 기사 + 자동 기사). 선생님이 자동 기사를 고르는 목록이다 */
 export async function listLibraryFor(grade: GradeLevel) {
   return (await listLibraryArticles()).filter((a) => a.gradeLevels.includes(grade));
+}
+
+/** 반에서 고른 자동 기사 id. 고른 기록 표(class_library_picks)가 아직 없는 DB면 아무것도 고르지 않은 것으로 본다 */
+export async function libraryPicksOf(classId: string): Promise<Set<string>> {
+  const ids = await getDb()
+    .listLibraryPicks(classId)
+    .catch((e) => {
+      console.error("관심 분야 기사 고른 기록을 불러오지 못했어요 (supabase/schema.sql을 실행했는지 확인)", e);
+      return [] as string[];
+    });
+  return new Set(ids);
+}
+
+/** 이 반 학생이 읽는 기사: 학년군의 처음 기사 + 선생님이 고른 자동 기사 */
+export async function listLibraryForClass(classRoom: ClassRoom) {
+  const [articles, picks] = await Promise.all([listLibraryFor(classRoom.gradeLevel), libraryPicksOf(classRoom.id)]);
+  return articles.filter((a) => a.addedBy === "seed" || picks.has(a.id));
 }
 
 export function starsOf(article: LibraryArticle, submission: Submission | null | undefined) {
@@ -97,12 +114,13 @@ export function totalStars(articles: LibraryArticle[], submissions: Submission[]
   return totals;
 }
 
-/** 학생 화면용: 학년군 기사, 기사별 기록, 분야별·전체 별 */
-export async function studentLibrary(grade: GradeLevel, studentId: string) {
+/** 학생 화면용: 반에서 읽는 기사, 기사별 기록, 분야별·전체 별 */
+export async function studentLibrary(classRoom: ClassRoom, studentId: string) {
   // 학습 기록 표(library_submissions)가 아직 없는 DB면 ready가 false다. 이때는 학습을 열지 않는다
   let ready = true;
-  const [articles, submissions] = await Promise.all([
-    listLibraryFor(grade),
+  const [all, articles, submissions] = await Promise.all([
+    listLibraryArticles(),
+    listLibraryForClass(classRoom),
     getDb()
       .listLibrarySubmissions([studentId])
       .catch((e) => {
@@ -115,15 +133,14 @@ export async function studentLibrary(grade: GradeLevel, studentId: string) {
   const byField = Object.fromEntries(
     FIELD_ORDER.map((f) => [f, { stars: 0, max: 0, count: 0 }]),
   ) as Record<LibraryField, { stars: number; max: number; count: number }>;
-  let total = 0;
   for (const article of articles) {
-    const stars = starsOf(article, subMap.get(article.id));
     const f = byField[article.field];
-    f.stars += stars;
+    f.stars += starsOf(article, subMap.get(article.id));
     f.max += MAX_STARS;
     f.count++;
-    total += stars;
   }
+  // 선생님이 목록에서 뺀 기사에서 이미 모은 별도 그대로 센다 (별 상점과 같은 기준)
+  const total = totalStars(all, submissions).get(studentId) ?? 0;
   const { chains, unlocked } = libraryChains(articles, subMap);
   return { articles, subMap, byField, total, ready, chains, unlocked };
 }

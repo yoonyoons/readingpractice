@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { LessonFlow } from "@/components/student/LessonFlow";
 import { getDb } from "@/lib/db";
-import { LIBRARY_WORKSHEET_ID, libraryChains, listLibraryFor, sourceNoteOf, starsOf } from "@/lib/library";
+import { LIBRARY_WORKSHEET_ID, libraryChains, listLibraryForClass, sourceNoteOf, starsOf } from "@/lib/library";
 import { getStudentSession } from "@/lib/session";
 import { requireStudentArticle } from "@/lib/student-access";
 import type { LibraryArticle, Submission } from "@/lib/types";
@@ -30,7 +30,7 @@ export default async function LessonPage(props: PageProps<"/s/[worksheetId]/[art
   let stars = 0;
   if (library) {
     const field = (article as LibraryArticle).field;
-    const articles = await listLibraryFor(classRoom.gradeLevel);
+    const articles = await listLibraryForClass(classRoom);
     const { chains, unlocked } = libraryChains(articles, mine);
     const candidates = articles.filter((a) => a.id !== article.id && unlocked.has(a.id) && !isArticleDone(a, mine.get(a.id)));
     const next = candidates.find((a) => a.field === field) ?? candidates[0];

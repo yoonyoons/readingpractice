@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetList } from "@/components/teacher/WorksheetList";
 import { toWorksheetRow } from "@/components/teacher/WorksheetRow";
 import { buttonClass, Card, ChevronLeft } from "@/components/ui";
 import { getDb } from "@/lib/db";
-import { listLibraryFor } from "@/lib/library";
+import { libraryPicksOf, listLibraryFor } from "@/lib/library";
+import { librarySeenCookie, unseenLibraryArticles } from "@/lib/library-seen";
 import { getTeacher } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +27,15 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
   const classRoom = await db.getClass(classId);
   if (!classRoom || classRoom.teacherId !== teacher.id) notFound();
 
-  const [students, worksheets, library] = await Promise.all([
+  const [students, worksheets, library, picks] = await Promise.all([
     db.listStudents(classId),
     db.listWorksheets(classId),
     listLibraryFor(classRoom.gradeLevel),
+    libraryPicksOf(classId),
   ]);
-  const autoCount = library.filter((a) => a.addedBy === "auto").length;
+  const auto = library.filter((a) => a.addedBy === "auto");
+  const pickedCount = auto.filter((a) => picks.has(a.id)).length;
+  const newLibrary = unseenLibraryArticles(auto, (await cookies()).get(librarySeenCookie(classId))?.value);
   const filter = FILTERS.find((f) => f.key === query.status)?.key ?? "all";
   const count = (key: (typeof FILTERS)[number]["key"]) =>
     key === "all" ? worksheets.length : worksheets.filter((w) => w.status === key).length;
@@ -80,13 +85,18 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
 
       <Card className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[16px] font-bold text-grey-800">🗂️ 관심 분야 자동 추가 기사</p>
+          <p className="flex items-center gap-2 text-[16px] font-bold text-grey-800">
+            🗂️ 관심 분야 자동 추가 기사
+            {newLibrary > 0 && (
+              <span className="rounded-full bg-primary-weak px-2 py-0.5 text-[12px] font-bold text-primary">새 기사 {newLibrary}</span>
+            )}
+          </p>
           <p className="mt-0.5 text-[14px] text-grey-500">
-            서버가 매주 추가한 이 반 학년군 기사 {autoCount}편의 전문과 관련 성취기준을 보고, 인쇄·PDF로 저장할 수 있어요.
+            서버가 매주 추가한 이 반 학년군 기사 {auto.length}편 중 {pickedCount}편을 학생에게 추가했어요. 전문을 읽어 보고 학생에게 보일 기사를 골라 주세요.
           </p>
         </div>
         <Link href={`/teacher/classes/${classId}/library`} className={buttonClass("secondary", "sm", "shrink-0")}>
-          기사 전문 보기
+          기사 전문 보고 고르기
         </Link>
       </Card>
     </TeacherShell>

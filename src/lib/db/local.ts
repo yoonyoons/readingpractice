@@ -31,6 +31,7 @@ interface Data {
   classReports: ClassReport[];
   customUsage: { classId: string; week: string; articleCount: number }[];
   libraryArticles: LibraryArticle[];
+  libraryPicks: { classId: string; articleId: string; createdAt: string }[];
   shopItems: ShopItem[];
   shopPurchases: ShopPurchase[];
 }
@@ -52,6 +53,7 @@ async function load(): Promise<Data> {
     state.data.classReports ??= [];
     state.data.customUsage ??= [];
     state.data.libraryArticles ??= [];
+    state.data.libraryPicks ??= [];
     state.data.shopItems ??= [];
     state.data.shopPurchases ??= [];
   } catch {
@@ -66,6 +68,7 @@ async function load(): Promise<Data> {
       classReports: [],
       customUsage: [],
       libraryArticles: [],
+      libraryPicks: [],
       shopItems: [],
       shopPurchases: [],
     };
@@ -239,6 +242,13 @@ export function createLocalRepo(): Repo {
       write((d) => {
         d.libraryArticles = d.libraryArticles.filter((a) => a.id !== article.id);
         d.libraryArticles.push(article);
+      }),
+    listLibraryPicks: (classId) =>
+      read((d) => d.libraryPicks.filter((p) => p.classId === classId).map((p) => p.articleId)),
+    setLibraryPick: (classId, articleId, picked) =>
+      write((d) => {
+        d.libraryPicks = d.libraryPicks.filter((p) => !(p.classId === classId && p.articleId === articleId));
+        if (picked) d.libraryPicks.push({ classId, articleId, createdAt: new Date().toISOString() });
       }),
     listLibrarySubmissions: (studentIds) =>
       read((d) => {

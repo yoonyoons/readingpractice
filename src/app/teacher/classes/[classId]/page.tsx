@@ -18,6 +18,7 @@ import { buildClassReport, TREND_WEEKS } from "@/lib/report";
 import { loadClassReport } from "@/lib/report-ai";
 import { getTeacher } from "@/lib/session";
 import { loadShop, walletOf } from "@/lib/shop";
+import { librarySeenCookie, unseenLibraryArticles } from "@/lib/library-seen";
 import { shopSeenCookie, unseenPurchases } from "@/lib/shop-rules";
 import { recentWeekKeys, seoulDate } from "@/lib/utils";
 import { findLoadedWorksheet, getWeeklySet, readyArticles } from "@/lib/weekly";
@@ -64,7 +65,12 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
   const qrSvg = await QRCode.toString(`${joinUrl}?code=${classRoom.code}`, { type: "svg", margin: 0 });
 
   // 선생님이 상점 페이지에서 아직 보지 못한 교환 수 (🔔)
-  const newPurchases = unseenPurchases(shop.purchases, (await cookies()).get(shopSeenCookie(classId))?.value);
+  const cookieStore = await cookies();
+  const newPurchases = unseenPurchases(shop.purchases, cookieStore.get(shopSeenCookie(classId))?.value);
+  const newLibrary = unseenLibraryArticles(
+    libraryArticles.filter((a) => a.gradeLevels.includes(classRoom.gradeLevel)),
+    cookieStore.get(librarySeenCookie(classId))?.value,
+  );
 
   return (
     <TeacherShell teacher={teacher}>
@@ -80,6 +86,11 @@ export default async function ClassPage(props: PageProps<"/teacher/classes/[clas
         <div className="flex flex-wrap items-center justify-end gap-2">
           <LinkButton href={`/teacher/classes/${classRoom.id}/worksheets`} variant="grey" size="sm">
             📚 학습지 관리
+            {newLibrary > 0 && (
+              <span className="rounded-full bg-primary-weak px-1.5 text-[12px] font-bold text-primary" title={`새 관심 분야 자동 기사 ${newLibrary}편`}>
+                새 기사 {newLibrary}
+              </span>
+            )}
           </LinkButton>
           {hasShop() && (
             <LinkButton href={`/teacher/classes/${classRoom.id}/shop`} variant="grey" size="sm">

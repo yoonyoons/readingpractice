@@ -39,7 +39,7 @@ export default async function StudentHome() {
     db.listSubmissionsByStudent(student.id),
     // 만드는 중인 AI 의견이 도착했으면 가져온다 (1분에 한 번만 확인)
     loadClassReport(classRoom.id, true),
-    studentLibrary(classRoom.gradeLevel, student.id),
+    studentLibrary(classRoom, student.id),
   ]);
   // 학습 종료된 학습지는 '지난 학습지'에서 기록만 볼 수 있다
   const visible = worksheets

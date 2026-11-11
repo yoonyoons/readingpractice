@@ -128,6 +128,14 @@ create table if not exists library_submissions (
 );
 create index if not exists library_submissions_student_idx on library_submissions (student_id);
 
+-- 관심 분야 학습: 반마다 선생님이 학생에게 보이도록 고른 자동 기사. 처음 기사(코드)는 늘 보이고, 자동 기사는 여기 있는 것만 보인다.
+create table if not exists class_library_picks (
+  class_id uuid not null references classes(id) on delete cascade,
+  article_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (class_id, article_id)
+);
+
 -- 별 상점: 선생님이 반마다 등록한 상품. 학생은 관심 분야 학습에서 모은 별로 교환한다.
 -- stock(남은 수량)과 per_student_limit(1인당 최대 개수)이 비어 있으면 제한이 없다.
 create table if not exists shop_items (
@@ -177,5 +185,6 @@ alter table class_reports enable row level security;
 alter table custom_usage enable row level security;
 alter table library_articles enable row level security;
 alter table library_submissions enable row level security;
+alter table class_library_picks enable row level security;
 alter table shop_items enable row level security;
 alter table shop_purchases enable row level security;
