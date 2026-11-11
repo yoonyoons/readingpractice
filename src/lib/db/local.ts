@@ -31,7 +31,7 @@ interface Data {
   classReports: ClassReport[];
   customUsage: { classId: string; week: string; articleCount: number }[];
   libraryArticles: LibraryArticle[];
-  libraryPicks: { classId: string; articleId: string; createdAt: string }[];
+  libraryPicks: { classId: string; articleId: string; position: number; createdAt: string }[];
   shopItems: ShopItem[];
   shopPurchases: ShopPurchase[];
 }
@@ -244,11 +244,19 @@ export function createLocalRepo(): Repo {
         d.libraryArticles.push(article);
       }),
     listLibraryPicks: (classId) =>
-      read((d) => d.libraryPicks.filter((p) => p.classId === classId).map((p) => p.articleId)),
-    setLibraryPick: (classId, articleId, picked) =>
+      read((d) =>
+        d.libraryPicks
+          .filter((p) => p.classId === classId)
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .map((p) => p.articleId),
+      ),
+    saveLibraryPicks: (classId, articleIds) =>
       write((d) => {
-        d.libraryPicks = d.libraryPicks.filter((p) => !(p.classId === classId && p.articleId === articleId));
-        if (picked) d.libraryPicks.push({ classId, articleId, createdAt: new Date().toISOString() });
+        const createdAt = new Date().toISOString();
+        d.libraryPicks = [
+          ...d.libraryPicks.filter((p) => p.classId !== classId),
+          ...articleIds.map((articleId, position) => ({ classId, articleId, position, createdAt })),
+        ];
       }),
     listLibrarySubmissions: (studentIds) =>
       read((d) => {

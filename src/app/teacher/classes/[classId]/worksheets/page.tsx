@@ -34,7 +34,8 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
     libraryPicksOf(classId),
   ]);
   const auto = library.filter((a) => a.addedBy === "auto");
-  const pickedCount = auto.filter((a) => picks.has(a.id)).length;
+  const known = new Set(library.map((a) => a.id));
+  const listed = picks.filter((id) => known.has(id)).length;
   const newLibrary = unseenLibraryArticles(auto, (await cookies()).get(librarySeenCookie(classId))?.value);
   const filter = FILTERS.find((f) => f.key === query.status)?.key ?? "all";
   const count = (key: (typeof FILTERS)[number]["key"]) =>
@@ -86,17 +87,19 @@ export default async function ClassWorksheetsPage(props: PageProps<"/teacher/cla
       <Card className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-[16px] font-bold text-grey-800">
-            🗂️ 관심 분야 자동 추가 기사
+            🗂️ 관심 분야 학습 기사
             {newLibrary > 0 && (
               <span className="rounded-full bg-primary-weak px-2 py-0.5 text-[12px] font-bold text-primary">새 기사 {newLibrary}</span>
             )}
           </p>
           <p className="mt-0.5 text-[14px] text-grey-500">
-            서버가 매주 추가한 이 반 학년군 기사 {auto.length}편 중 {pickedCount}편을 학생에게 추가했어요. 전문을 읽어 보고 학생에게 보일 기사를 골라 주세요.
+            {listed > 0
+              ? `우리 반 목록에 ${listed}편을 올렸어요. 처음 넣어 둔 기사와 매주 자동 추가 기사(${auto.length}편) 중에서 고르고 순서를 바꿀 수 있어요.`
+              : "아직 올린 기사가 없어 학생 관심 분야 학습이 비어 있어요. 기사를 골라 우리 반에 올려 주세요."}
           </p>
         </div>
         <Link href={`/teacher/classes/${classId}/library`} className={buttonClass("secondary", "sm", "shrink-0")}>
-          기사 전문 보고 고르기
+          기사 고르기·순서 정하기
         </Link>
       </Card>
     </TeacherShell>

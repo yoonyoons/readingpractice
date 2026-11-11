@@ -74,9 +74,10 @@ export interface Repo {
   /** 서버가 자동으로 만든 관심 분야 학습 기사 (코드에 넣어 둔 기사는 lib/library-seed.ts) */
   listLibraryArticles(): Promise<LibraryArticle[]>;
   saveLibraryArticle(article: LibraryArticle): Promise<void>;
-  /** 반에서 학생에게 보이도록 고른 자동 기사 id (고른 순서) */
+  /** 반에서 선생님이 올린 관심 분야 기사 id (정한 순서) */
   listLibraryPicks(classId: string): Promise<string[]>;
-  setLibraryPick(classId: string, articleId: string, picked: boolean): Promise<void>;
+  /** 반의 기사 목록을 통째로 바꾼다 */
+  saveLibraryPicks(classId: string, articleIds: string[]): Promise<void>;
   /** 학생들의 관심 분야 학습 기록 */
   listLibrarySubmissions(studentIds: string[]): Promise<Submission[]>;
 

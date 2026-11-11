@@ -1,6 +1,6 @@
 export async function apiFetch<T = { ok: true }>(
   url: string,
-  options: { method?: "POST" | "PATCH" | "DELETE"; body?: unknown } = {},
+  options: { method?: "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown } = {},
 ): Promise<T> {
   const res = await fetch(url, {
     method: options.method ?? "POST",
