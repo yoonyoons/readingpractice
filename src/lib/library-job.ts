@@ -10,7 +10,7 @@ import { GRADE_LIST, GRADES } from "./grades";
 import { hasKogl1Mark, sourceOf } from "./library-sources";
 import { FIELD_ORDER, LIBRARY_FIELDS, listLibraryArticles } from "./library";
 import { findOverlap } from "./text-overlap";
-import type { GradeLevel, LibraryArticle, LibraryField, LibraryLicense } from "./types";
+import type { GradeLevel, LibraryArticle, LibraryField, LibraryJobRun, LibraryLicense } from "./types";
 import { newId, nowIso, weekStartIso } from "./utils";
 
 /**
@@ -20,6 +20,9 @@ import { newId, nowIso, weekStartIso } from "./utils";
  * 경제 기사는 초등 경제 참고 자료의 개념 낱말과 글 짜임(economy-guide.ts)으로 쓰고, 학년군 문해력 기준(분량·문단·문장 길이)을 재어
  * 맞지 않으면 한 번 고쳐 쓰고, 그래도 맞지 않으면 쓰지 않는다.
  * 내용만 참고해야 하는 원문(reference: 한국은행·경제배움e+)은 새로 쓴 글에 원문과 똑같이 이어지는 구절이 있는지도 재어 같은 방식으로 고친다.
+ * 초3~4는 성취기준이 적어(경제 2개) 초5~6 성취기준과 맞는 원문도 초3~4 수준으로 쉽게 풀어 쓸 수 있으면 쓴다.
+ * Cron 실행 시간 제한(maxDuration 300초)에 끊겨 아무것도 저장하지 못하는 일이 없도록 정해 둔 시간 안에서만 새 원문을 보고,
+ * 학년군에 맞지 않아 버린 원문은 실행 기록(library_job_runs)에 남겨 다음 날 그 학년군에서 다시 보지 않는다.
  */
 
 interface Feed {
@@ -78,6 +81,12 @@ const MAX_CANDIDATES = 4;
 const FEED_TIMEOUT_MS = 20000;
 /** 큰 피드(경제배움e+는 수천 건)에서 앞쪽 최신 글만 본다 */
 const MAX_FEED_ITEMS = 60;
+/** 이 시간이 지나면 새 원문을 보지 않는다 (Cron 300초 안에 저장·기록까지 마치도록) */
+const TIME_BUDGET_MS = 240_000;
+/** 기사 한 편을 쓰고 고쳐 쓰는 데 드는 시간의 넉넉한 어림 */
+const BUILD_RESERVE_MS = 90_000;
+/** 버린 원문을 다시 보지 않는 기간 */
+const REJECT_MEMORY_DAYS = 30;
 
 interface FeedItem {
   title: string;
@@ -154,7 +163,18 @@ const SYSTEM =
   "너는 대한민국 초등학생·중학생을 위한 교육 콘텐츠 편집자이자 저작권 검토자다. 우리나라 교육과정을 잘 알고, 사실에 충실하며, 정치적으로 중립적이다.";
 
 async function analyze(field: LibraryField, grade: GradeLevel, item: FeedItem, text: string, standards: CurriculumStandard[]) {
-  const list = standards.map((s) => `${describeStandard(s)} ${s.text}`).join("\n");
+  const line = (s: CurriculumStandard) => `${describeStandard(s)} ${s.text}`;
+  const own = standards.filter((s) => s.grade === grade);
+  const upper = standards.filter((s) => s.grade !== grade);
+  const list = [
+    ...own.map(line),
+    ...(upper.length
+      ? [
+          `\n[${GRADES[grade].label}과 맞는 글이 아니면 — 바로 위 학년군 성취기준. 이 내용을 ${GRADES[grade].label} 학생이 쉬운 말로 이해할 수 있을 때만 고른다]`,
+          ...upper.map(line),
+        ]
+      : []),
+  ].join("\n");
   return generateJson(AnalysisSchema, {
     model: ANALYZE_MODEL,
     system: SYSTEM,
@@ -211,13 +231,27 @@ async function buildFor(
   items: FeedItem[],
   usedUrls: Set<string>,
   texts: Map<string, Promise<{ text: string } | { reason: string }>>,
-): Promise<LibraryArticle | { skipped: string }> {
-  const candidates = items.filter((item) => !usedUrls.has(item.url)).slice(0, MAX_CANDIDATES);
-  if (candidates.length === 0) return { skipped: "새 원문 없음" };
+  rejected: Set<string>,
+  deadline: number,
+): Promise<LibraryArticle | { skipped: string; rejected: string[] }> {
+  const candidates = items.filter((item) => !usedUrls.has(item.url) && !rejected.has(`${grade} ${item.url}`)).slice(0, MAX_CANDIDATES);
+  if (candidates.length === 0) return { skipped: "새 원문 없음", rejected: [] };
 
-  const standards = standardsForField(field).filter((s) => s.grade === grade);
+  // 초3~4는 성취기준이 적어 초5~6 성취기준과 맞는 원문도 쉽게 풀어 쓴다
+  const gradesToMatch: GradeLevel[] = grade === "elem34" ? ["elem34", "elem56"] : [grade];
+  const standards = standardsForField(field).filter((s) => gradesToMatch.includes(s.grade));
   const reasons: string[] = [];
+  /** 이 학년군에 맞지 않아 버린 원문 (가져오기 실패·시간 부족은 넣지 않는다) */
+  const newlyRejected: string[] = [];
+  const reject = (item: FeedItem, reason: string) => {
+    reasons.push(`${item.title}: ${reason}`);
+    newlyRejected.push(item.url);
+  };
   for (const item of candidates) {
+    if (Date.now() > deadline - BUILD_RESERVE_MS) {
+      reasons.push("시간이 모자라 다음 실행에서 이어서 찾음");
+      break;
+    }
     // 같은 원문을 다른 학년군에서 다시 볼 때 페이지를 또 받지 않는다
     if (!texts.has(item.url)) texts.set(item.url, sourceText(item));
     const source = await texts.get(item.url)!;
@@ -229,10 +263,9 @@ async function buildFor(
     // 목록(이 학년군 성취기준)에 없는 코드는 버린다
     const picked = standards.filter((s) => analysis.standards.includes(s.code));
     if (!analysis.suitable || picked.length === 0 || analysis.facts.length < 4) {
-      reasons.push(`${item.title}: ${analysis.suitable && picked.length === 0 ? "목록에 있는 성취기준과 맞지 않음" : analysis.reason || "학습 자료로 알맞지 않음"}`);
+      reject(item, analysis.suitable && picked.length === 0 ? "목록에 있는 성취기준과 맞지 않음" : analysis.reason || "학습 자료로 알맞지 않음");
       continue;
     }
-    usedUrls.add(item.url);
     const sources = [{ title: `${item.feed.site} — ${item.title}`, url: item.url, description: "", pubDate: "" }];
     const topic = { name: analysis.keyword, summary: analysis.summary, facts: analysis.facts, sources };
     const structure = field === "economy" ? ECONOMY_STRUCTURE : undefined;
@@ -247,15 +280,20 @@ async function buildFor(
     ];
     let built = await buildArticle(topic, grade, false, structure);
     let problems = problemsOf(built);
+    if (problems.length && Date.now() > deadline) {
+      reasons.push(`${item.title}: 기준에 맞지 않았는데 고쳐 쓸 시간이 모자람`);
+      break;
+    }
     if (problems.length) {
       // 고칠 점을 알려 주고 한 번만 다시 쓴다. 그래도 맞지 않으면 이 원문은 쓰지 않는다
       built = await buildArticle(topic, grade, false, structure, problems.map((p) => `- ${p}`).join("\n"));
       problems = problemsOf(built);
     }
     if (problems.length) {
-      reasons.push(`${item.title}: 기준에 맞지 않음 (${problems.join(", ")})`);
+      reject(item, `기준에 맞지 않음 (${problems.join(", ")})`);
       continue;
     }
+    usedUrls.add(item.url);
     return {
       id: `lib-auto-${newId()}`,
       topic: analysis.keyword,
@@ -278,7 +316,7 @@ async function buildFor(
       createdAt: nowIso(),
     };
   }
-  return { skipped: reasons.join(" / ") || "알맞은 원문 없음" };
+  return { skipped: reasons.join(" / ") || "알맞은 원문 없음", rejected: newlyRejected };
 }
 
 export async function runLibraryJob(now = new Date()) {
@@ -286,8 +324,18 @@ export async function runLibraryJob(now = new Date()) {
   const seoulDay = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCDay();
   if (seoulDay === 1) return { skipped: "월요일은 이번 주 기사 준비로 쉬어요" };
 
+  const deadline = Date.now() + TIME_BUDGET_MS;
   const weekStart = weekStartIso(now);
-  const articles = await listLibraryArticles();
+  const db = getDb();
+  const since = new Date(now.getTime() - REJECT_MEMORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const [articles, runs] = await Promise.all([listLibraryArticles(), db.listLibraryJobRuns(since).catch((e) => {
+      // 기록을 읽지 못해도 기사는 만든다
+      console.error("library_job_runs 읽기 실패", e);
+      return [];
+    }),
+  ]);
+  const rejected = new Set(runs.flatMap((r) => r.rejected.map((x) => `${x.grade} ${x.url}`)));
+  const newlyRejected: LibraryJobRun["rejected"] = [];
   const usedUrls = new Set(articles.map((a) => a.origin.url));
   /** 분야마다 이번 주 자동 기사가 아직 없는 학년군 (낮은 학년군부터) */
   const missing = (field: LibraryField) =>
@@ -305,12 +353,14 @@ export async function runLibraryJob(now = new Date()) {
       const items = lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
       const texts = new Map<string, Promise<{ text: string } | { reason: string }>>();
       const tried: string[] = [];
+      if (items.length === 0) return lists.map((r) => (r.status === "rejected" ? String(r.reason?.message ?? r.reason) : "")).join(" / ") || "원문 목록이 비어 있음";
       for (const grade of missing(field)) {
-        const result = await buildFor(field, grade, items, usedUrls, texts);
+        const result = await buildFor(field, grade, items, usedUrls, texts, rejected, deadline);
         if (!("skipped" in result)) {
-          await getDb().saveLibraryArticle(result);
+          await db.saveLibraryArticle(result);
           return [...tried, `추가: ${result.keyword} (${grade})`].join(" / ");
         }
+        newlyRejected.push(...result.rejected.map((url) => ({ url, grade })));
         tried.push(`${grade} 건너뜀: ${result.skipped}`);
       }
       return tried.join(" / ");
@@ -323,5 +373,9 @@ export async function runLibraryJob(now = new Date()) {
         ? result.value
         : `실패: ${result.reason instanceof Error ? result.reason.message : "알 수 없는 오류"}`;
   }
+  // 왜 기사가 들어오지 않았는지 나중에 확인할 수 있게 남긴다 (기록에 실패해도 만든 기사는 그대로 둔다)
+  await db
+    .saveLibraryJobRun({ id: newId(), ranAt: nowIso(), report, rejected: newlyRejected })
+    .catch((e) => console.error("library_job_runs 기록 실패", e));
   return report;
 }

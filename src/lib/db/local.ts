@@ -5,6 +5,7 @@ import type {
   ClassRoom,
   EmailVerification,
   LibraryArticle,
+  LibraryJobRun,
   ShopItem,
   ShopPurchase,
   StudentRecord,
@@ -32,6 +33,7 @@ interface Data {
   customUsage: { classId: string; week: string; articleCount: number }[];
   libraryArticles: LibraryArticle[];
   libraryPicks: { classId: string; articleId: string; position: number; createdAt: string }[];
+  libraryJobRuns: LibraryJobRun[];
   shopItems: ShopItem[];
   shopPurchases: ShopPurchase[];
 }
@@ -54,6 +56,7 @@ async function load(): Promise<Data> {
     state.data.customUsage ??= [];
     state.data.libraryArticles ??= [];
     state.data.libraryPicks ??= [];
+    state.data.libraryJobRuns ??= [];
     state.data.shopItems ??= [];
     state.data.shopPurchases ??= [];
   } catch {
@@ -69,6 +72,7 @@ async function load(): Promise<Data> {
       customUsage: [],
       libraryArticles: [],
       libraryPicks: [],
+      libraryJobRuns: [],
       shopItems: [],
       shopPurchases: [],
     };
@@ -242,6 +246,11 @@ export function createLocalRepo(): Repo {
       write((d) => {
         d.libraryArticles = d.libraryArticles.filter((a) => a.id !== article.id);
         d.libraryArticles.push(article);
+      }),
+    listLibraryJobRuns: (since) => read((d) => d.libraryJobRuns.filter((r) => r.ranAt >= since)),
+    saveLibraryJobRun: (run) =>
+      write((d) => {
+        d.libraryJobRuns.push(run);
       }),
     listLibraryPicks: (classId) =>
       read((d) =>
