@@ -34,7 +34,52 @@ interface Feed {
   publishers?: string[];
   /** 원문 페이지 대신 RSS 설명과 기관 소개 글을 본문으로 쓴다 (본문이 영상·파일이라 페이지에서 글을 뽑을 수 없는 곳) */
   textFromFeed?: boolean;
+  /** RSS가 없는 곳: 미리 골라 둔 항목을 차례로 쓴다 (학년군이 정해진 항목은 그 학년군에서만 쓴다) */
+  entries?: { title: string; url: string; grade: GradeLevel }[];
 }
+
+/** 한국민족문화대백과사전 항목. 교육과정 성취기준(초3~4 옛날 풍습·교통·통신·문화유산, 초5~6 선사~근대, 중학교 한국사)에 맞춰 골랐다 */
+const encyEntries = (grade: GradeLevel, list: [title: string, eid: string][]) =>
+  list.map(([title, eid]) => ({ title, url: `https://encykorea.aks.ac.kr/Article/${eid}`, grade }));
+
+const ENCY_ENTRIES = [
+  ...encyEntries("elem34", [
+    ["윷놀이", "E0042794"],
+    ["연날리기", "E0036725"],
+    ["강강술래", "E0000958"],
+    ["한복", "E0061645"],
+    ["온돌문화", "E0077489"],
+    ["초가", "E0056932"],
+    ["짚신", "E0055101"],
+    ["장승", "E0048619"],
+    ["서당", "E0027680"],
+    ["파발", "E0059563"],
+  ]),
+  ...encyEntries("elem56", [
+    ["고조선", "E0003937"],
+    ["비파형 동검", "E0025256"],
+    ["청자", "E0056611"],
+    ["백운화상초록불조직지심체요절", "E0022266"],
+    ["한글", "E0061508"],
+    ["측우기", "E0058337"],
+    ["앙부일구", "E0035191"],
+    ["거북선", "E0001833"],
+    ["서원", "E0028091"],
+    ["3·1운동", "E0026772"],
+  ]),
+  ...encyEntries("middle", [
+    ["고분벽화", "E0003619"],
+    ["경주 석굴암 석굴", "E0028362"],
+    ["발해", "E0021626"],
+    ["금속활자", "E0007871"],
+    ["대동법", "E0014246"],
+    ["실학", "E0033695"],
+    ["동의보감", "E0016731"],
+    ["수원 화성", "E0064671"],
+    ["독립협회", "E0015993"],
+    ["한국광복군", "E0005134"],
+  ]),
+];
 
 /** 경제배움e+에서 쓸 정부 기관 (민간 언론사·연구원·협회 자료는 쓰지 않는다) */
 const ECONEDU_GOV = [
@@ -72,8 +117,7 @@ const FEEDS: Record<LibraryField, Feed[]> = {
       textFromFeed: true,
     },
   ],
-  // 역사·문화는 원문 출처를 다시 정할 때까지 자동 추가를 하지 않는다
-  culture: [],
+  culture: [{ url: "https://encykorea.aks.ac.kr/", site: "한국민족문화대백과사전", license: "kogl", entries: ENCY_ENTRIES }],
 };
 
 const ANALYZE_MODEL = "claude-haiku-4-5-20251001";
@@ -94,6 +138,8 @@ interface FeedItem {
   feed: Feed;
   /** textFromFeed 피드의 RSS 설명 */
   description?: string;
+  /** 이 학년군에서만 쓸 항목 */
+  grade?: GradeLevel;
 }
 
 const decode = (text: string) =>
@@ -119,6 +165,7 @@ async function fetchText(url: string) {
 }
 
 async function readFeed(feed: Feed): Promise<FeedItem[]> {
+  if (feed.entries) return feed.entries.map((e) => ({ title: e.title, url: e.url, feed, grade: e.grade }));
   const body = await fetchText(feed.url).catch((e) => {
     throw new Error(`${feed.site} 목록: ${e instanceof Error ? e.message : "가져오기 실패"}`);
   });
@@ -135,13 +182,30 @@ async function readFeed(feed: Feed): Promise<FeedItem[]> {
   return items.slice(0, MAX_FEED_ITEMS);
 }
 
+/** 한국민족문화대백과사전 항목 본문: 집필자 안내 문구 다음부터 참고문헌 앞까지 (사진 설명·메뉴는 뺀다) */
+function encyText(html: string) {
+  const lines = html
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, "\n")
+    .split("\n")
+    .map((l) => decode(l.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))).replace(/\s+/g, " ").trim());
+  const start = lines.findIndex((l) => l.startsWith("본 항목의 내용은"));
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith("- ") || line.startsWith("본 항목의 내용은") || line === "참고문헌" || line === "관련 미디어") break;
+    if (line.length > 1 && !["닫기", "음성 재생", "있습니다."].includes(line)) body.push(line);
+  }
+  return start < 0 ? "" : body.join("\n");
+}
+
 /** 원문 글. 공공누리 제1유형 표시가 있어야 하는 곳은 페이지에서 표시를 확인한다 */
 async function readSource(item: FeedItem): Promise<string> {
   const source = sourceOf(item.url);
   if (!source) throw new Error("허용 목록에 없는 출처");
-  if (item.feed.license === "kogl" || source.kogl1Only) {
+  if (source.kogl1Only) {
     if (!hasKogl1Mark(await fetchText(item.url))) throw new Error("공공누리 제1유형 표시 없음");
   }
+  if (new URL(item.url).hostname === "encykorea.aks.ac.kr") return encyText(await fetchText(item.url));
   if (item.feed.textFromFeed) {
     // 경제배움e+ 글은 RSS 설명이 곧 기관이 쓴 소개 글이다
     return `${item.title}\n\n${item.description ?? ""}`;
@@ -234,7 +298,9 @@ async function buildFor(
   rejected: Set<string>,
   deadline: number,
 ): Promise<LibraryArticle | { skipped: string; rejected: string[] }> {
-  const candidates = items.filter((item) => !usedUrls.has(item.url) && !rejected.has(`${grade} ${item.url}`)).slice(0, MAX_CANDIDATES);
+  const candidates = items
+    .filter((item) => (!item.grade || item.grade === grade) && !usedUrls.has(item.url) && !rejected.has(`${grade} ${item.url}`))
+    .slice(0, MAX_CANDIDATES);
   if (candidates.length === 0) return { skipped: "새 원문 없음", rejected: [] };
 
   // 초3~4는 성취기준이 적어 초5~6 성취기준과 맞는 원문도 쉽게 풀어 쓴다
