@@ -4,6 +4,7 @@ import type {
   EmailVerification,
   GradeLevel,
   LibraryArticle,
+  LibraryJobRun,
   ShopItem,
   ShopPurchase,
   StudentRecord,
@@ -74,6 +75,9 @@ export interface Repo {
   /** 서버가 자동으로 만든 관심 분야 학습 기사 (코드에 넣어 둔 기사는 lib/library-seed.ts) */
   listLibraryArticles(): Promise<LibraryArticle[]>;
   saveLibraryArticle(article: LibraryArticle): Promise<void>;
+  /** 관심 분야 자동 추가 실행 기록 (since 이후, 오래된 순) */
+  listLibraryJobRuns(since: string): Promise<LibraryJobRun[]>;
+  saveLibraryJobRun(run: LibraryJobRun): Promise<void>;
   /** 반에서 선생님이 올린 관심 분야 기사 id (정한 순서) */
   listLibraryPicks(classId: string): Promise<string[]>;
   /** 반의 기사 목록을 통째로 바꾼다 */

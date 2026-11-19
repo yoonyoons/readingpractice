@@ -272,6 +272,16 @@ export interface LibraryOrigin {
 }
 
 /** 관심 분야 학습 기사. 반 학습지와 달리 배포 없이 학년군이 맞는 모든 학생이 언제든 읽는다 */
+/** 관심 분야 자동 추가 하루 실행 결과 */
+export interface LibraryJobRun {
+  id: string;
+  ranAt: string;
+  /** 분야마다 추가·건너뜀 까닭 */
+  report: Record<string, string>;
+  /** 그 학년군에 맞지 않아 버린 원문 */
+  rejected: { url: string; grade: GradeLevel }[];
+}
+
 export interface LibraryArticle extends Article {
   field: LibraryField;
   /** 상자에 보이는 키워드 (예: "달", "엘니뇨") */

@@ -394,6 +394,13 @@ export function createSupabaseRepo(): Repo {
         ),
       );
     },
+    async listLibraryJobRuns(since) {
+      const rows = check(await sb.from("library_job_runs").select("*").gte("ran_at", since).order("ran_at"));
+      return (rows ?? []).map((r: any) => ({ id: r.id, ranAt: r.ran_at, report: r.report ?? {}, rejected: r.rejected ?? [] }));
+    },
+    async saveLibraryJobRun(run) {
+      check(await sb.from("library_job_runs").insert({ id: run.id, ran_at: run.ranAt, report: run.report, rejected: run.rejected }));
+    },
     async listLibraryPicks(classId) {
       const rows = check(
         await sb.from("class_library_picks").select("article_id").eq("class_id", classId).order("position").order("created_at"),

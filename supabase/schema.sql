@@ -138,6 +138,15 @@ create table if not exists class_library_picks (
   primary key (class_id, article_id)
 );
 
+-- 관심 분야 자동 추가를 매일 실행한 결과: 분야마다 추가·건너뜀 까닭(report)과
+-- 학년군에 맞지 않아 버린 원문(rejected: [{url, grade}]). 버린 원문은 다음 날 그 학년군에서 다시 보지 않는다.
+create table if not exists library_job_runs (
+  id uuid primary key,
+  ran_at timestamptz not null default now(),
+  report jsonb not null,
+  rejected jsonb not null default '[]'
+);
+
 -- 별 상점: 선생님이 반마다 등록한 상품. 학생은 관심 분야 학습에서 모은 별로 교환한다.
 -- stock(남은 수량)과 per_student_limit(1인당 최대 개수)이 비어 있으면 제한이 없다.
 create table if not exists shop_items (
@@ -189,5 +198,6 @@ alter table custom_usage enable row level security;
 alter table library_articles enable row level security;
 alter table library_submissions enable row level security;
 alter table class_library_picks enable row level security;
+alter table library_job_runs enable row level security;
 alter table shop_items enable row level security;
 alter table shop_purchases enable row level security;
