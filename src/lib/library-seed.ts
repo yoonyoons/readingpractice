@@ -1,13 +1,14 @@
 import type { LibraryArticle } from "./types";
 import { BLANK_PROMPT, build, syn, type Seed } from "./library-seed-kit";
 import { SEED_KEYWORDS } from "./library-seed-keywords";
+import { SEEDS_CULTURE } from "./library-seed-culture";
 import { SEEDS_SCIENCE } from "./library-seed-science";
 import { SEEDS_ECONOMY } from "./library-seed-economy";
 import { SEEDS_SOCIETY } from "./library-seed-society";
 import { BLANK } from "./utils";
 
 /**
- * 관심 분야 학습의 처음 기사 (우주·과학, 지구·환경, 경제).
+ * 관심 분야 학습의 처음 기사 (우주·과학, 지구·환경, 경제). 역사·문화 기사는 library-seed-culture.ts에 있다.
  * 공공 저작물(NASA·NOAA)과 한국은행 경제교육 자료의 내용을 바탕으로
  * 학년군 수준에 맞게 한국어로 새로 쓴 글이다. 원문 문장·사진·로고는 옮기지 않았다.
  * 출처는 허용 목록(library-sources.ts)에 있는 곳만 쓴다.
@@ -402,6 +403,6 @@ const SEEDS: Seed[] = [
  * 분야마다 학년군별로 기사가 한 줄로 이어지고, 앞 기사에서 별 3개를 모으면 다음 기사가 열린다.
  * 같은 분야·학년군 안에서는 이 목록 순서가 여는 순서다 (처음 기사 → 우주·과학·지구·환경 → 경제·역사·문화 추가분 → 경제 추가분).
  */
-export const LIBRARY_SEED: LibraryArticle[] = [...SEEDS, ...SEEDS_SCIENCE, ...SEEDS_SOCIETY, ...SEEDS_ECONOMY].map((seed) =>
+export const LIBRARY_SEED: LibraryArticle[] = [...SEEDS, ...SEEDS_SCIENCE, ...SEEDS_SOCIETY, ...SEEDS_ECONOMY, ...SEEDS_CULTURE].map((seed) =>
   build({ ...seed, keywordSummary: seed.keywordSummary ?? SEED_KEYWORDS[seed.id] }),
 );

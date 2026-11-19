@@ -1,11 +1,12 @@
 import type { LibraryField } from "./types";
 
 /**
- * 관심 분야 학습 기사의 원문으로 쓸 수 있는 사이트 (2026-10-30 각 사이트 저작권 정책 확인).
+ * 관심 분야 학습 기사의 원문으로 쓸 수 있는 사이트 (2026-10-30, 2026-11-19 각 사이트 저작권 정책 확인).
  * 처음 기사·자동 추가 기사 모두 원문 주소가 여기 있는 곳이어야 학생에게 보인다.
  *
  * - 미국 연방 정부 기관(NASA·NOAA·USGS)의 공공 저작물: 복제·가공·재배포 자유
- * - 기상청·국립생태원: 글마다 공공누리 유형이 달라 제1유형 표시가 있는 글만 쓴다 (kogl1Only)
+ * - 한국민족문화대백과사전(한국학중앙연구원): 항목 본문 전체를 저작권법 제24조의2에 따라 출처만 밝히고 자유이용(미디어는 쓰지 않음)
+ * - 기상청·국립생태원·문화포털: 글마다 공공누리 유형이 달라 제1유형 표시가 있는 글만 쓴다 (kogl1Only)
  * - 한국은행·경제배움e+: 공공누리 제1유형이 아니어서 내용만 참고해 새로 쓴다(원문 복제 없음).
  *   경제배움e+는 여러 기관 자료를 모은 곳이라 정부 기관이 올린 글만 쓴다
  *
@@ -29,6 +30,8 @@ export const LIBRARY_SOURCES: LibrarySource[] = [
   { name: "국립생태원", hosts: ["nie.re.kr"], fields: ["earth"], kogl1Only: true },
   { name: "한국은행", hosts: ["bok.or.kr"], fields: ["economy"] },
   { name: "경제배움e+ (정부 기관 자료)", hosts: ["econedu.go.kr"], fields: ["economy"] },
+  { name: "한국민족문화대백과사전", hosts: ["encykorea.aks.ac.kr"], fields: ["culture"] },
+  { name: "문화포털", hosts: ["culture.go.kr"], fields: ["culture"], kogl1Only: true },
 ];
 
 export function sourceOf(url: string): LibrarySource | null {
