@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, ErrorText, Field, Input, LinkButton } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
+import { MailHelp } from "./MailHelp";
 
 type Step = "email" | "notFound" | "found" | "reset";
 
@@ -22,6 +23,7 @@ export function FindAccountForm({ mode }: Props) {
   const [password, setPassword] = useState("");
   const [devCode, setDevCode] = useState("");
   const [notice, setNotice] = useState("");
+  const [sender, setSender] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,10 +45,11 @@ export function FindAccountForm({ mode }: Props) {
 
   /** 비밀번호 찾기: 그 주소로 재설정 인증 코드 보내기 */
   async function sendCode() {
-    const res = await apiFetch<{ expiresInMinutes: number; devCode?: string }>("/api/teacher/reset/request", {
+    const res = await apiFetch<{ expiresInMinutes: number; sender?: string; devCode?: string }>("/api/teacher/reset/request", {
       body: { email },
     });
     setDevCode(res.devCode ?? "");
+    setSender(res.sender ?? "");
     setNotice(`${email} 으로 인증 코드를 보냈어요. ${res.expiresInMinutes}분 안에 입력해 주세요.`);
     setStep("reset");
   }
@@ -167,6 +170,7 @@ export function FindAccountForm({ mode }: Props) {
   return (
     <form onSubmit={submitReset} className="space-y-4">
       <div className="rounded-xl bg-grey-50 px-4 py-3 text-[13px] leading-relaxed text-grey-600">{notice}</div>
+      <MailHelp sender={sender} />
       {devCode && (
         <p className="rounded-xl bg-warning-weak px-4 py-2 text-[13px] text-[#8a5300]">
           개발 모드: 메일 설정이 없어 인증 코드를 여기에 보여줘요 — <b>{devCode}</b>

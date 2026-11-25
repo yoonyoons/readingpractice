@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, ErrorText, Field, Input } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
+import { MailHelp } from "./MailHelp";
 
 interface Props {
   mode: "login" | "signup";
@@ -23,6 +24,7 @@ export function AuthForm({ mode, requireCode, domainHint }: Props) {
   const [signupCode, setSignupCode] = useState("");
   const [devCode, setDevCode] = useState("");
   const [notice, setNotice] = useState("");
+  const [sender, setSender] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,10 +35,11 @@ export function AuthForm({ mode, requireCode, domainHint }: Props) {
     setError("");
     setNotice("");
     try {
-      const res = await apiFetch<{ expiresInMinutes: number; devCode?: string }>("/api/teacher/signup/request", {
+      const res = await apiFetch<{ expiresInMinutes: number; sender?: string; devCode?: string }>("/api/teacher/signup/request", {
         body: { email },
       });
       setDevCode(res.devCode ?? "");
+      setSender(res.sender ?? "");
       setNotice(`${email} 으로 인증 코드를 보냈어요. ${res.expiresInMinutes}분 안에 입력해 주세요.`);
       setStep("verify");
     } catch (err) {
@@ -100,6 +103,7 @@ export function AuthForm({ mode, requireCode, domainHint }: Props) {
               이메일 바꾸기
             </button>
           </div>
+          <MailHelp sender={sender} />
           {devCode && (
             <p className="rounded-xl bg-warning-weak px-4 py-2 text-[13px] text-[#8a5300]">
               개발 모드: 메일 설정이 없어 인증 코드를 여기에 보여줘요 — <b>{devCode}</b>

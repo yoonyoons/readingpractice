@@ -24,6 +24,12 @@ function transporter() {
   return transport;
 }
 
+/** 인증 메일을 보내는 주소. 받는 쪽에서 수신 허용 목록에 넣을 수 있게 화면에 보여 준다. */
+export function mailSenderAddress() {
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER || "";
+  return from.match(/<([^>]+)>/)?.[1]?.trim() || from.trim();
+}
+
 export async function sendMail(options: { to: string; subject: string; text: string; html: string }) {
   if (!hasMailer()) throw new Error("메일 발송 설정(SMTP_HOST, SMTP_USER, SMTP_PASS)이 없어요.");
   await transporter().sendMail({
