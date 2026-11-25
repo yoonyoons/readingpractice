@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { readJson, route } from "@/lib/http";
+import { mailSenderAddress } from "@/lib/mailer";
 import { CODE_TTL_MINUTES, requestVerificationCode } from "@/lib/teacher-email";
 
 const Body = z.object({
@@ -10,5 +11,5 @@ const Body = z.object({
 export const POST = route(async (req) => {
   const { email } = await readJson(req, Body);
   const { devCode } = await requestVerificationCode(email, "reset");
-  return Response.json({ ok: true, expiresInMinutes: CODE_TTL_MINUTES, ...(devCode ? { devCode } : {}) });
+  return Response.json({ ok: true, expiresInMinutes: CODE_TTL_MINUTES, sender: mailSenderAddress(), ...(devCode ? { devCode } : {}) });
 });
