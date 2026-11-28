@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/client-api";
-import { ADD_ARTICLE_LOCKED, ADD_ARTICLE_LOCKED_MESSAGE, MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
+import { MAX_ARTICLES_PER_WORKSHEET } from "@/lib/grades";
 import type { Article, QuizItem, QuizType, SourceItem, SourceMode, Submission, Worksheet, WorksheetStatus } from "@/lib/types";
 import { WORKSHEET_STATUS_BADGE } from "./WorksheetList";
 import {
@@ -44,11 +44,13 @@ interface Props {
   classTitle: string;
   gradeLabel: string;
   worksheet: Worksheet;
+  /** 기사 추가가 잠겼을 때 보여 줄 안내(베타 잠금·체험 계정). 쓸 수 있으면 null */
+  addLock: string | null;
   students: StudentLite[];
   submissions: Submission[];
 }
 
-export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, students, submissions }: Props) {
+export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, addLock, students, submissions }: Props) {
   const [tab, setTab] = useState<"edit" | "results">(worksheet.status !== "draft" ? "results" : "edit");
 
   return (
@@ -88,6 +90,7 @@ export function WorksheetView({ classId, classTitle, gradeLabel, worksheet, stud
           classId={classId}
           gradeLabel={gradeLabel}
           worksheet={worksheet}
+          addLock={addLock}
           hasSubmissions={submissions.length > 0}
         />
       </div>
@@ -126,14 +129,17 @@ function TabTool({
   );
 }
 
-/** 기사 추가(베타 테스트 기간에는 잠금): 기사 주소(또는 본문)를 붙여넣으면 이 반 학년군에 맞춘 기사를 만들어 학습지 끝에 넣는다 */
+/** 기사 추가(베타 잠금·체험 계정에서는 잠금): 기사 주소(또는 본문)를 붙여넣으면 비슷한 기사들과 함께 분석해 이 반 학년군에 맞춘 기사를 만들어 학습지 끝에 넣는다 */
 function AddArticleButton({
   gradeLabel,
   busy,
+  lock,
   onAdd,
 }: {
   gradeLabel: string;
   busy: Busy;
+  /** 잠겼으면 누를 때 보여 줄 안내 */
+  lock: string | null;
   /** 실패하면 오류 문구를 돌려준다 */
   onAdd: (input: { url: string; text: string }) => Promise<string | null>;
 }) {
@@ -171,7 +177,7 @@ function AddArticleButton({
     setPaste(false);
   }
 
-  if (ADD_ARTICLE_LOCKED) {
+  if (lock) {
     return (
       <>
         <button
@@ -183,7 +189,7 @@ function AddArticleButton({
           🔒 ＋ 기사 추가
         </button>
         <Modal open={open} onClose={() => setOpen(false)} title="🔒 기사 추가">
-          <p className="text-[15px] leading-relaxed text-grey-700">{ADD_ARTICLE_LOCKED_MESSAGE}</p>
+          <p className="text-[15px] leading-relaxed text-grey-700">{lock}</p>
           <div className="mt-5 flex justify-end">
             <Button onClick={() => setOpen(false)}>확인</Button>
           </div>
@@ -207,16 +213,17 @@ function AddArticleButton({
           <div className="flex items-start gap-3">
             <Spinner className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>
-              <p className="text-[15px] font-semibold text-grey-800">기사를 읽고 {gradeLabel} 수준으로 다시 쓰는 중</p>
+              <p className="text-[15px] font-semibold text-grey-800">비슷한 기사들을 함께 읽고 {gradeLabel} 수준으로 다시 쓰는 중</p>
               <p className="mt-1 text-[13px] leading-relaxed text-grey-500">
-                기사 분석 → 기사·어휘·퀴즈 작성 순서로 진행돼요. 1~2분 정도 걸리니 창을 닫지 말고 기다려 주세요.
+                기사 분석 → 비슷한 기사 찾아 읽기 → 기사·어휘·퀴즈 작성 순서로 진행돼요. 2~3분 정도 걸리니 창을 닫지 말고 기다려 주세요.
               </p>
             </div>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3">
             <p className="text-[14px] leading-relaxed text-grey-600">
-              수업에 쓰고 싶은 기사 주소를 붙여넣으면 AI가 {gradeLabel} 수준의 기사·어휘·퀴즈로 만들어 학습지 끝에 넣어요.
+              수업에 쓰고 싶은 기사 주소를 붙여넣으면 AI가 최근 한 달 안의 비슷한 기사를 최대 10개 찾아 함께 읽고, 내용을 모아{" "}
+              {gradeLabel} 수준의 기사·어휘·퀴즈로 새로 다듬어 학습지 끝에 넣어요.
               학습지 하나에는 기사를 {MAX_ARTICLES_PER_WORKSHEET}개까지 넣을 수 있어요.
             </p>
             <Input
@@ -294,11 +301,13 @@ function WorksheetEditor({
   classId,
   gradeLabel,
   worksheet,
+  addLock,
   hasSubmissions,
 }: {
   classId: string;
   gradeLabel: string;
   worksheet: Worksheet;
+  addLock: string | null;
   hasSubmissions: boolean;
 }) {
   const router = useRouter();
@@ -407,14 +416,22 @@ function WorksheetEditor({
     setBusy("add");
     setNotice(null);
     try {
-      const { article: added } = await apiFetch<{ article: Article }>(`/api/worksheets/${worksheet.id}/articles`, {
+      const { article: added, related } = await apiFetch<{ article: Article; related?: number }>(`/api/worksheets/${worksheet.id}/articles`, {
         body: input,
       });
       setArticles((prev) => [...prev, toEditable(added)]);
       setActive(articles.length);
       setNotice(
         added.status === "ready"
-          ? { tone: "ok", text: `${articles.length + 1}번째 기사를 추가했어요.` }
+          ? {
+              tone: "ok",
+              text:
+                related === undefined
+                  ? `${articles.length + 1}번째 기사를 추가했어요.`
+                  : related > 0
+                    ? `비슷한 기사 ${related}개를 함께 분석해 ${articles.length + 1}번째 기사를 추가했어요.`
+                    : `비슷한 기사를 찾지 못해 붙여넣은 기사만으로 ${articles.length + 1}번째 기사를 추가했어요.`,
+            }
           : { tone: "error", text: added.error ?? "기사를 만들지 못했어요." },
       );
       router.refresh();
@@ -569,7 +586,7 @@ function WorksheetEditor({
           </div>
         ))}
         {articles.length < MAX_ARTICLES_PER_WORKSHEET && (
-          <AddArticleButton gradeLabel={gradeLabel} busy={busy} onAdd={addArticle} />
+          <AddArticleButton gradeLabel={gradeLabel} busy={busy} lock={addLock} onAdd={addArticle} />
         )}
       </div>
 

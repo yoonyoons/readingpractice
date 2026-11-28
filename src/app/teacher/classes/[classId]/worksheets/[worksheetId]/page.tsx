@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { WorksheetView } from "@/components/teacher/WorksheetView";
 import { getDb } from "@/lib/db";
-import { GRADES } from "@/lib/grades";
+import { isDemoTeacher } from "@/lib/demo-account";
+import { addArticleLock, GRADES } from "@/lib/grades";
 import { getTeacher } from "@/lib/session";
 
 export default async function WorksheetPage(props: PageProps<"/teacher/classes/[classId]/worksheets/[worksheetId]">) {
@@ -26,6 +27,7 @@ export default async function WorksheetPage(props: PageProps<"/teacher/classes/[
         classTitle={classRoom.name}
         gradeLabel={GRADES[classRoom.gradeLevel].label}
         worksheet={worksheet}
+        addLock={addArticleLock(isDemoTeacher(teacher))}
         students={students.map((s) => ({ id: s.id, number: s.number, name: s.name }))}
         submissions={submissions}
       />
