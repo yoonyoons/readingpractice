@@ -10,7 +10,7 @@ import { clamp, newId, nowIso, QUIZ_TYPE_LABEL, recentDays, shuffle, weekKey, we
 /*
  * 베타 체험용 반의 가상 학생과 결과
  * 체험자가 결과 분석표를 바로 볼 수 있도록 가상 학생 10명과 최근 4주치 퀴즈·요약·생각 나누기 결과, 예시 AI 의견을 랜덤으로 만든다.
- * 가상 학생이 빠졌거나, 학습지가 지워졌거나, 결과가 지난주에 멈춰 있으면 가상 학생을 지우고 처음부터 다시 만든다.
+ * 학습지는 날마다 확인해 최근 4주(이번 주~3주 전)에 맞춰 두고, 가상 학생이 빠졌거나, 학습지를 다시 만들었거나, 결과가 지난주에 멈춰 있으면 가상 학생을 지우고 처음부터 다시 만든다.
  * 체험자가 직접 넣은 학생·결과는 건드리지 않는다.
  */
 
@@ -32,12 +32,12 @@ export const DEMO_STUDENT_PIN = "1234";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKS = 4;
-/** 몇 주 전 학습지인지(0이 이번 주)와 제목, 예시 기사 번호 */
+/** 몇 주 전 학습지인지(0이 이번 주)와 제목, 예시 기사 번호. 학습지마다 다른 기사를 넣어 같은 기사가 겹치지 않게 한다 */
 const WORKSHEETS = [
   { weeksAgo: 0, title: "체험용 시사 학습지", topics: [0, 1] },
-  { weeksAgo: 1, title: "체험용 지난 학습지 1", topics: [1, 2] },
-  { weeksAgo: 2, title: "체험용 지난 학습지 2", topics: [2, 0] },
-  { weeksAgo: 3, title: "체험용 지난 학습지 3", topics: [0, 1] },
+  { weeksAgo: 1, title: "체험용 지난 학습지 1", topics: [2, 3] },
+  { weeksAgo: 2, title: "체험용 지난 학습지 2", topics: [4, 5] },
+  { weeksAgo: 3, title: "체험용 지난 학습지 3", topics: [6, 7] },
 ];
 /** 학생마다 하나씩 섞어 나눠 주는 실력 (0~1). 도움이 필요한 학생도 한두 명 보이게 낮은 값을 넣었다 */
 const ABILITIES = [0.93, 0.88, 0.82, 0.76, 0.7, 0.63, 0.56, 0.48, 0.34, 0.2];
@@ -78,6 +78,66 @@ const OPINION_TEXTS: Record<string, string[][]> = {
       "컵을 깜빡하고 안 가져온 친구는 물을 못 마실 수 있어요.",
       "금지보다 분리배출을 잘하도록 알려 주는 게 먼저예요.",
       "재활용 컵을 쓰면 괜찮다고 생각해요.",
+    ],
+  ],
+  "급식 잔반 줄이기": [
+    [
+      "스티커를 모으면 재미있어서 더 열심히 먹게 될 것 같아요.",
+      "칭찬을 받으면 싫어하는 반찬도 한 입 먹어 볼 용기가 생겨요.",
+      "보상이 있으면 반 친구들이 함께 노력하게 돼요.",
+    ],
+    [
+      "보상이 없어도 음식을 아끼는 마음이 더 중요해요.",
+      "억지로 다 먹으면 배가 아플 수도 있어요.",
+      "먹을 만큼만 받는 습관을 기르는 게 먼저라고 생각해요.",
+    ],
+  ],
+  "어린이 보호구역 안전": [
+    [
+      "등굣길에 차가 없으면 마음 놓고 걸을 수 있어요.",
+      "어린이는 눈에 잘 안 띄어서 차가 없는 게 제일 안전해요.",
+      "짧은 시간만 막으면 큰 불편은 없을 것 같아요.",
+    ],
+    [
+      "학교 앞에 사는 사람들은 차를 꼭 써야 할 때가 있어요.",
+      "차를 막기보다 천천히 달리게 하면 충분해요.",
+      "우리가 규칙을 잘 지키면 막지 않아도 안전해요.",
+    ],
+  ],
+  "미세먼지와 건강": [
+    [
+      "미세먼지는 눈에 안 보여서 우리가 판단하기 어려워요.",
+      "건강이 나빠지면 공부도 놀이도 못 하니까 막아야 해요.",
+      "기침하는 친구가 많아져서 걱정돼요.",
+    ],
+    [
+      "마스크를 쓰고 잠깐 나가는 건 괜찮다고 생각해요.",
+      "미세먼지 예보를 보고 스스로 정하는 연습이 필요해요.",
+      "날마다 교실에만 있으면 답답해요.",
+    ],
+  ],
+  "사라지는 꿀벌": [
+    [
+      "꽃을 심으면 꿀벌도 돕고 학교도 예뻐져요.",
+      "우리가 먹는 과일을 지키는 일이라서 꼭 필요해요.",
+      "꽃을 키우면서 꿀벌을 관찰할 수 있어 좋아요.",
+    ],
+    [
+      "벌에 쏘일까 봐 무서워하는 친구도 있어요.",
+      "농약을 줄이는 게 더 큰 도움이 될 것 같아요.",
+      "학교 화단은 작아서 공원에 심는 게 더 좋아요.",
+    ],
+  ],
+  "짧은 동영상 시청 습관": [
+    [
+      "보다 보면 멈추기 어려워서 앱이 막아 주면 좋겠어요.",
+      "잠자는 시간을 지키는 데 도움이 될 것 같아요.",
+      "어린이는 아직 스스로 조절하기 어려울 때가 많아요.",
+    ],
+    [
+      "스스로 시간을 정해서 지키는 연습이 더 중요해요.",
+      "공부에 필요한 영상을 볼 때도 막히면 불편해요.",
+      "가족과 함께 약속을 정하면 앱이 없어도 괜찮아요.",
     ],
   ],
 };
@@ -250,12 +310,24 @@ export async function ensureDemoClassData(classRoom: ClassRoom) {
   const db = getDb();
   const now = Date.now();
 
-  // 1) 4주치 학습지 (지워졌으면 다시 만든다)
+  // 1) 최근 4주치 학습지 (지워졌거나, 날짜가 지난주로 밀렸거나, 기사 구성이 바뀌었으면 다시 만든다)
   const existing = await db.listWorksheets(classRoom.id);
   let worksheetsChanged = false;
   const worksheets: { weeksAgo: number; worksheet: Worksheet }[] = [];
   for (const spec of WORKSHEETS) {
-    let worksheet = existing.find((w) => w.title === spec.title);
+    const week = weekKey(new Date(now - spec.weeksAgo * 7 * DAY_MS));
+    const topics = spec.topics.map((i) => DEMO_TOPICS[i].topic).join("|");
+    const same = existing.filter((w) => w.title === spec.title);
+    let worksheet = same.find(
+      (w) =>
+        w.publishedAt &&
+        weekKey(new Date(w.publishedAt)) === week &&
+        w.articles.map((a) => a.topic).join("|") === topics,
+    );
+    // 오래되었거나 겹쳐 만들어진 같은 이름의 체험용 학습지는 지운다 (결과도 함께 지워진다)
+    const stale = same.filter((w) => w !== worksheet);
+    await Promise.all(stale.map((w) => db.deleteWorksheet(w.id)));
+    if (stale.length > 0) worksheetsChanged = true;
     if (!worksheet) {
       const createdAt = new Date(Math.min(Date.parse(weekStartIso(new Date(now - spec.weeksAgo * 7 * DAY_MS))), now)).toISOString();
       worksheet = await db.createWorksheet({
