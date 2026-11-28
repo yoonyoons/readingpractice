@@ -83,3 +83,11 @@ export const MAX_ARTICLES_PER_WORKSHEET = 5;
 /** 베타 테스트 기간에는 학습지 편집 화면의 '기사 추가'를 잠근다. 해제하려면 false로 바꾼다 */
 export const ADD_ARTICLE_LOCKED = false;
 export const ADD_ARTICLE_LOCKED_MESSAGE = "지금은 베타 테스트 기간으로 기사 추가가 어려워요. 추후에 해제될 예정이에요.";
+/** '가입 없이 체험하기' 계정에서는 기사 추가를 잠근다 */
+export const DEMO_ADD_ARTICLE_MESSAGE = "체험하기에서는 기사 추가를 쓸 수 없어요. 가입하면 바로 쓸 수 있어요.";
+
+/** 기사 추가가 잠겼으면 안내 문구, 쓸 수 있으면 null */
+export function addArticleLock(demoTeacher: boolean): string | null {
+  if (ADD_ARTICLE_LOCKED) return ADD_ARTICLE_LOCKED_MESSAGE;
+  return demoTeacher ? DEMO_ADD_ARTICLE_MESSAGE : null;
+}
